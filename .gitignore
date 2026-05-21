@@ -1,0 +1,17 @@
+node_modules
+.DS_Store
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Remix build artifacts
+/build
+/public/build
+.cache
+
+# Legacy / misc
+dist
+dist-ssr
+*.local

@@ -1,0 +1,116 @@
+import { redirect } from "@remix-run/node";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "~/lib/supabase.server";
+import { getProfileFields } from "~/lib/repos/profiles.server";
+import { countUserSongs } from "~/lib/repos/user-songs.server";
+import { getMatchWithPartner } from "~/lib/repos/matches.server";
+import type { MatchWithPartner } from "~/lib/db-types";
+
+// 인증 게이트
+// - getUser: 세션이 있으면 user, 없으면 null
+// - requireUser: 세션 없으면 /login
+// - requireApprovedUser: 세션 + 프로필 + is_approved 모두 충족 안 되면 적절한 페이지로
+// - requireGuest: 세션 있으면 적절한 페이지로
+
+export async function getUser(request: Request) {
+  const { supabase, headers } = createSupabaseServerClient(request);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { user, supabase, headers };
+}
+
+/**
+ * 승인 완료 사용자의 다음 목적지 결정
+ * - 곡 1곡 이상 선택 → /music (매칭 화면)
+ * - 곡 미선택 → /genre (장르 → 음악 선택 시작점)
+ */
+export async function postApprovalDestination(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<"/music" | "/genre"> {
+  const count = await countUserSongs(supabase, userId);
+  return count > 0 ? "/music" : "/genre";
+}
+
+export async function requireUser(request: Request) {
+  const ctx = await getUser(request);
+  if (!ctx.user) {
+    throw redirect("/login", { headers: ctx.headers });
+  }
+  return ctx as {
+    user: NonNullable<typeof ctx.user>;
+    supabase: typeof ctx.supabase;
+    headers: typeof ctx.headers;
+  };
+}
+
+/**
+ * 매칭·채팅 등 핵심 기능 접근 게이트.
+ * - 로그인 안 됨 → /login
+ * - 프로필 없음 → /profile/basic
+ * - 프로필 있고 미승인 → /waiting
+ * - 승인 완료 → 통과
+ */
+export async function requireApprovedUser(request: Request) {
+  const ctx = await requireUser(request);
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "user_id",
+    "is_approved",
+  ]);
+
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
+
+  if (!profile.is_approved) {
+    throw redirect("/waiting", { headers: ctx.headers });
+  }
+
+  return ctx;
+}
+
+/**
+ * 채팅방 접근 게이트.
+ * - 로그인 필수 (승인 여부는 무관 — 매칭 직후 강등돼도 기존 매칭과 대화 가능해야 함)
+ * - matchId 가 본인 참여 매칭이어야 함 (RLS 가 1차 차단, 여기서 명시적으로 확인)
+ */
+export async function requireMatchAccess(
+  request: Request,
+  matchId: string,
+): Promise<{
+  user: { id: string; email?: string };
+  supabase: SupabaseClient;
+  headers: Headers;
+  match: MatchWithPartner;
+}> {
+  const ctx = await requireUser(request);
+  const match = await getMatchWithPartner(
+    ctx.supabase,
+    matchId,
+    ctx.user.id,
+  );
+  if (!match) {
+    throw redirect("/chat", { headers: ctx.headers });
+  }
+  return { ...ctx, match };
+}
+
+export async function requireGuest(request: Request) {
+  const ctx = await getUser(request);
+  if (ctx.user) {
+    const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+      "is_approved",
+    ]);
+
+    if (!profile) {
+      throw redirect("/profile/basic", { headers: ctx.headers });
+    }
+    if (!profile.is_approved) {
+      throw redirect("/waiting", { headers: ctx.headers });
+    }
+    const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
+    throw redirect(dest, { headers: ctx.headers });
+  }
+  return ctx;
+}

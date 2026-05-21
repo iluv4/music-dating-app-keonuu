@@ -1,0 +1,39 @@
+{
+  "items": [
+    { "songNo": -1, "title": "HOW SWEET", "artist": "NewJeans", "album": "How Sweet" },
+    { "songNo": -2, "title": "Supernova", "artist": "aespa", "album": "Armageddon" },
+    { "songNo": -3, "title": "APT.", "artist": "ROSÉ, Bruno Mars", "album": "APT." },
+    { "songNo": -4, "title": "Whiplash", "artist": "aespa", "album": "Whiplash" },
+    { "songNo": -5, "title": "Magnetic", "artist": "ILLIT", "album": "SUPER REAL ME" },
+
+    { "songNo": -10, "title": "초록을거머쥐머우리는", "artist": "잔나비", "album": "전설" },
+    { "songNo": -11, "title": "헤어지자 말해요", "artist": "박재정", "album": "환생" },
+    { "songNo": -12, "title": "사건의 지평선", "artist": "윤하", "album": "END THEORY" },
+    { "songNo": -13, "title": "Love wins all", "artist": "IU", "album": "Love wins all" },
+    { "songNo": -14, "title": "에피소드", "artist": "이무진", "album": "에피소드" },
+
+    { "songNo": -20, "title": "Drama", "artist": "aespa", "album": "Drama" },
+    { "songNo": -21, "title": "Smart", "artist": "LE SSERAFIM", "album": "HOT" },
+    { "songNo": -22, "title": "Mantra", "artist": "JENNIE", "album": "Mantra" },
+    { "songNo": -23, "title": "How Sweet (Acoustic)", "artist": "NewJeans", "album": "How Sweet" },
+    { "songNo": -24, "title": "Cowboy Like Me", "artist": "QWER", "album": "Algorithm's Blossom" },
+
+    { "songNo": -30, "title": "Rolling", "artist": "오존", "album": "Rolling" },
+    { "songNo": -31, "title": "항해", "artist": "유다빈밴드", "album": "항해" },
+    { "songNo": -32, "title": "LOVE YA!", "artist": "혁오", "album": "LOVE YA!" },
+    { "songNo": -33, "title": "리무진", "artist": "BE'O", "album": "FIVE SENSES" },
+    { "songNo": -34, "title": "사랑인가 봐", "artist": "MeloMance", "album": "사랑인가 봐" },
+
+    { "songNo": -40, "title": "Cruel Summer", "artist": "Taylor Swift", "album": "Lover" },
+    { "songNo": -41, "title": "Espresso", "artist": "Sabrina Carpenter", "album": "Short n' Sweet" },
+    { "songNo": -42, "title": "Birds of a Feather", "artist": "Billie Eilish", "album": "HIT ME HARD AND SOFT" },
+    { "songNo": -43, "title": "Die With A Smile", "artist": "Lady Gaga, Bruno Mars", "album": "Die With A Smile" },
+    { "songNo": -44, "title": "Good Luck, Babe!", "artist": "Chappell Roan", "album": "Good Luck, Babe!" },
+
+    { "songNo": -50, "title": "헤어지자 말해요 (피아노 ver.)", "artist": "박재정", "album": "환생" },
+    { "songNo": -51, "title": "그 노래", "artist": "멜로망스", "album": "그 노래" },
+    { "songNo": -52, "title": "Drowning", "artist": "WOODZ", "album": "OO-LI" },
+    { "songNo": -53, "title": "I AM", "artist": "IVE", "album": "I've IVE" },
+    { "songNo": -54, "title": "Cake", "artist": "ITZY", "album": "Cake" }
+  ]
+}
