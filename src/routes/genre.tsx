@@ -180,8 +180,33 @@ export default function Genre() {
                         height: "100%",
                         objectFit: "cover",
                         display: "block",
+                        filter: isSelected
+                          ? "grayscale(1) brightness(0.6)"
+                          : "none",
+                        transition: "filter 0.15s",
                       }}
                     />
+                  )}
+                  {isSelected && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M5 12.5L10 17.5L19 7"
+                          stroke="white"
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
                   )}
                 </div>
                 <span
