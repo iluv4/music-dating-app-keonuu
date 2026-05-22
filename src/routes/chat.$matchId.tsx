@@ -26,6 +26,7 @@ import { endMatch } from "~/lib/repos/matches.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
+import { capture } from "~/lib/analytics.client";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const matchId = params.matchId;
@@ -151,7 +152,6 @@ export default function ChatRoom() {
         data: { session },
       } = await supabase.auth.getSession();
       if (cancelled) return;
-      console.log("[chat realtime] session:", session ? "authed" : "anon");
       if (session?.access_token) {
         // Realtime websocket 의 JWT 를 명시적으로 세팅
         supabase.realtime.setAuth(session.access_token);
@@ -165,12 +165,12 @@ export default function ChatRoom() {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            // 진단 위해 filter 일단 제거 — 클라이언트에서 match_id 비교로 필터
+            // 이 매칭의 메시지만 서버에서 필터 — 타 매칭 INSERT 브로드캐스트 차단
+            filter: `match_id=eq.${matchId}`,
           },
           (payload) => {
-            console.log("[chat realtime] event:", payload);
             const newMsg = payload.new as MessageRow;
-            if (newMsg.match_id !== matchId) return;
+            // 안전망: 필터가 적용돼도 본인이 보낸 메시지는 낙관적 표시와 중복 방지
             if (newMsg.sender_id === currentUserId) return;
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -178,9 +178,7 @@ export default function ChatRoom() {
             });
           },
         )
-        .subscribe((status, err) => {
-          console.log("[chat realtime] status:", status, err ?? "");
-        });
+        .subscribe();
     };
 
     setup();
@@ -211,6 +209,11 @@ export default function ChatRoom() {
     const fd = new FormData();
     fd.set("content", trimmed);
     sendFetcher.submit(fd, { method: "post" });
+    capture("message.sent", {
+      match_id: matchId,
+      length_bucket:
+        trimmed.length < 20 ? "short" : trimmed.length < 100 ? "medium" : "long",
+    });
   };
 
   return (

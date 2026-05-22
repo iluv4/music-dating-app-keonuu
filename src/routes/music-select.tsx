@@ -17,6 +17,7 @@ import {
   listUserSongs,
   replaceUserSongs,
 } from "~/lib/repos/user-songs.server";
+import { getChartTop } from "~/lib/melon-chart.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -28,26 +29,17 @@ import RecommendedSongCard from "~/components/RecommendedSongCard";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { useDebouncedValue } from "~/lib/useDebouncedValue";
 import { useSelectedSongs, MAX_SONGS } from "~/lib/song-selection";
-import type {
-  ChartResponse,
-  SearchResponse,
-  Song,
-} from "~/lib/song-types";
+import type { SearchResponse, Song } from "~/lib/song-types";
 
 // SSR: 인증 + 승인 + 기존 user_songs + 추천 차트 prefetch
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
-  const existing = await listUserSongs(ctx.supabase, ctx.user.id);
 
-  const url = new URL(request.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
-  let recommended: ChartResponse = { items: [], source: "fallback" };
-  try {
-    const res = await fetch(`${baseUrl}/api/melon/chart`);
-    recommended = (await res.json()) as ChartResponse;
-  } catch {
-    // fallback 유지
-  }
+  // 기존 곡 + 추천 차트 병렬 조회. 차트는 self-fetch(HTTP 왕복) 없이 서버 함수 직접 호출.
+  const [existing, recommended] = await Promise.all([
+    listUserSongs(ctx.supabase, ctx.user.id),
+    getChartTop(),
+  ]);
 
   return json({ existing, recommended }, { headers: ctx.headers });
 }

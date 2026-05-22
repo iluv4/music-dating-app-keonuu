@@ -1,0 +1,156 @@
+meta:
+  product: "뮤직매치 (Music Dating App)"
+  version: "1.0.0"
+  created: 2026-05-22
+  updated: 2026-05-22
+  owner: "solo / iluv4"
+  destinations: [posthog]
+  pii_policy: traits_only        # name은 identify 트레잇(pii:true). 이벤트 프로퍼티엔 PII 금지.
+  internal_user_policy: none     # 추후 is_internal 트레잇으로 테스트 계정 제외 권장
+  group_hierarchy: none          # B2C — user-level only
+
+entities:
+  user:
+    id_property: user_id
+    id_format: "uuid"
+    traits:
+      # -- PII (traits_only) --
+      - { name: name,                 type: string,   pii: true,  required: false, update: on-change }
+      # -- Classification --
+      - { name: gender,               type: string,   enum: [male, female],  required: false, update: on-change }
+      - { name: birth_year,           type: integer,  required: false, update: one-time }
+      - { name: school,               type: string,   required: false, update: on-change }
+      - { name: signup_method,        type: string,   enum: [kakao, google, email], required: false, update: one-time }
+      - { name: is_approved,          type: boolean,  required: false, update: on-change }
+      # -- Lifecycle dates --
+      - { name: created_at,           type: datetime, required: false, update: one-time }
+      - { name: approved_at,          type: datetime, required: false, update: on-change }
+      - { name: last_active_at,       type: datetime, required: false, update: on-change }
+      # -- Snapshot metrics --
+      - { name: songs_selected_count, type: integer,  required: false, update: scheduled }
+      - { name: matches_count,        type: integer,  required: false, update: scheduled }
+      - { name: has_active_match,     type: boolean,  required: false, update: scheduled }
+
+snapshot_sync:
+  cadence: daily
+  traits:
+    - { entity: user, trait: songs_selected_count, source: "COUNT(user_songs) per user" }
+    - { entity: user, trait: matches_count,        source: "COUNT(matches active+ended) per user" }
+    - { entity: user, trait: has_active_match,     source: "EXISTS active match per user" }
+
+events:
+  # ---- Lifecycle ----
+  - name: user.signed_up
+    category: lifecycle
+    description: 신규 가입 (OAuth 콜백 최초 진입)
+    location: src/routes/auth.callback.tsx
+    expected_frequency: low
+    properties:
+      - { name: method, type: string, enum: [kakao, google, email], required: true }
+
+  - name: user.logged_in
+    category: lifecycle
+    description: 기존 사용자 로그인
+    location: src/routes/auth.callback.tsx
+    expected_frequency: medium
+    properties:
+      - { name: method, type: string, enum: [kakao, google, email], required: true }
+
+  - name: profile.step_completed
+    category: configuration
+    description: 프로필 퍼널 단계 완료
+    location: src/routes/profile.basic|school|payment.tsx (각 제출)
+    expected_frequency: medium
+    properties:
+      - { name: step, type: string, enum: [basic, school, payment], required: true }
+
+  - name: profile.completed
+    category: lifecycle
+    description: 프로필 퍼널 전체 완료 (입금자명 제출 → /waiting). 활성화 직전 신호.
+    location: src/routes/profile.payment.tsx (action 성공)
+    expected_frequency: low
+    properties:
+      - { name: has_school, type: boolean, required: false }
+
+  # ---- Core Value ----
+  - name: genre.selected
+    category: core_value
+    description: 장르 선택
+    location: src/routes/genre.tsx
+    expected_frequency: medium
+    properties:
+      - { name: genre, type: string, required: true }
+
+  - name: song.added
+    category: core_value
+    description: 곡 선택(추가)
+    location: src/routes/music-select.tsx
+    expected_frequency: high
+    properties:
+      - { name: song_no, type: integer, required: true }
+      - { name: source,  type: string, enum: [search, chart], required: true }
+
+  - name: song.removed
+    category: core_value
+    description: 곡 선택 해제
+    location: src/routes/music-select.tsx
+    expected_frequency: medium
+    properties:
+      - { name: song_no, type: integer, required: true }
+
+  - name: match.search_started
+    category: core_value
+    description: "매칭 찾기" 버튼 클릭 (RPC 호출 시작). 현 match_search_clicked 대체.
+    location: src/routes/music.tsx
+    expected_frequency: medium
+    properties:
+      - { name: song_count, type: integer, required: true }
+
+  - name: match.created
+    category: core_value
+    description: 매칭 성사 (PRIMARY VALUE ACTION). RPC가 match_id 반환 시.
+    location: src/routes/music.tsx (action, matchId 존재 시) — redirect 전 capture
+    expected_frequency: low
+    properties:
+      - { name: song_count, type: integer, required: false }
+
+  - name: match.search_no_result
+    category: core_value
+    description: 매칭 시도했으나 후보 없음 (RPC null 반환)
+    location: src/routes/music.tsx
+    expected_frequency: medium
+    properties: []
+
+  - name: message.sent
+    category: core_value
+    description: 채팅 메시지 전송. 현 message_sent 대체.
+    location: src/routes/chat.$matchId.tsx (send())
+    expected_frequency: high
+    properties:
+      - { name: match_id,     type: string,  required: true }
+      - { name: length_bucket, type: string, enum: [short, medium, long], required: false }
+
+  - name: match.ended
+    category: core_value
+    description: 채팅 끊기
+    location: src/routes/chat.$matchId.tsx (intent=end)
+    expected_frequency: low
+    properties:
+      - { name: match_id, type: string, required: true }
+
+  # ---- Engagement ----
+  - name: notification.opened
+    category: navigation
+    description: 알림 항목 클릭 (채팅/매칭으로 이동)
+    location: src/routes/notifications.tsx
+    expected_frequency: medium
+    properties:
+      - { name: type, type: string, enum: [match, message, system], required: true }
+
+  - name: discover.viewed
+    category: navigation
+    description: 둘러보기(탐색) 진입 — feature engagement
+    location: src/routes/explore.tsx
+    expected_frequency: medium
+    properties: []
+</content>

@@ -11,6 +11,24 @@ import type {
 type Cols = keyof ProfileRow;
 type Pick<T, K extends keyof T> = { [P in K]: T[P] };
 
+// 사용자 입력 텍스트 필드 최대 길이 — 거대 페이로드 저장/타 사용자 노출 시 UI 깨짐 방지.
+const FIELD_MAX: Record<string, number> = {
+  name: 40,
+  school: 80,
+  major: 80,
+  bank_holder: 40,
+};
+
+// 알려진 텍스트 필드를 trim + 최대 길이로 클램프. 알 수 없는 키는 그대로 통과.
+function clampProfileText<T extends Record<string, unknown>>(data: T): T {
+  const out: Record<string, unknown> = { ...data };
+  for (const [key, max] of Object.entries(FIELD_MAX)) {
+    const v = out[key];
+    if (typeof v === "string") out[key] = v.trim().slice(0, max);
+  }
+  return out as T;
+}
+
 export async function getProfile(
   supabase: SupabaseClient,
   userId: string,
@@ -52,10 +70,11 @@ export async function upsertProfile(
   supabase: SupabaseClient,
   data: ProfileUpsert,
 ): Promise<{ ok: boolean; error?: string }> {
+  const clean = clampProfileText(data);
   const { error } = await supabase
     .from("profiles")
     .upsert(
-      { ...data, updated_at: data.updated_at ?? new Date().toISOString() },
+      { ...clean, updated_at: clean.updated_at ?? new Date().toISOString() },
       { onConflict: "user_id" },
     );
   if (error) {
@@ -70,11 +89,12 @@ export async function updateProfile(
   userId: string,
   data: ProfileUpdate,
 ): Promise<{ ok: boolean; error?: string }> {
+  const clean = clampProfileText(data);
   const { error } = await supabase
     .from("profiles")
     .update({
-      ...data,
-      updated_at: data.updated_at ?? new Date().toISOString(),
+      ...clean,
+      updated_at: clean.updated_at ?? new Date().toISOString(),
     })
     .eq("user_id", userId);
   if (error) {

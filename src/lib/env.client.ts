@@ -3,6 +3,8 @@
 type ClientEnv = {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  POSTHOG_KEY?: string;
+  POSTHOG_HOST?: string;
 };
 
 declare global {

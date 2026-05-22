@@ -1,5 +1,4 @@
 import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -23,8 +22,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function ChatEmpty() {
-  useLoaderData<typeof loader>();
-
   return (
     <PhoneFrame style={{ paddingBottom: "107px" }}>
       <StatusBar />

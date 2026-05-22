@@ -1,0 +1,27 @@
+# Current tracking state — 코드베이스 감사 (product-tracking-audit 대응)
+# 출처: src/lib/analytics.client.ts 및 capture() 호출 위치
+meta:
+  audited: 2026-05-22
+  destination: posthog
+  sdk: posthog-js (동적 import, window.ENV.POSTHOG_KEY 없으면 no-op)
+
+events:
+  - name: "$pageview"
+    source: posthog autocapture (capture_pageview: true)
+    notes: 자동 수집 — 페이지뷰. 커스텀 아님.
+  - name: match.search_started
+    location: src/routes/music.tsx (매칭 찾기 버튼 onClick)
+    properties: [song_count]
+    notes: 2026-05-22 match_search_clicked 에서 rename 완료
+  - name: message.sent
+    location: src/routes/chat.$matchId.tsx (send())
+    properties: [match_id, length_bucket]
+    notes: 2026-05-22 message_sent 에서 rename + length_bucket 추가 완료
+
+identify:
+  status: 미구현
+  notes: posthog.identify 호출 없음. 익명 사용자로만 수집됨 → 가입 퍼널/리텐션 분석 불가.
+
+traits:
+  status: 없음
+</content>
