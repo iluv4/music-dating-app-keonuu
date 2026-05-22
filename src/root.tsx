@@ -11,6 +11,7 @@ import {
 
 import "./styles/globals.css";
 import { initAnalytics } from "~/lib/analytics.client";
+import GlobalLoadingBar from "~/components/GlobalLoadingBar";
 
 export const links: LinksFunction = () => [
   // Pretendard is NOT on Google Fonts; the old URL 404'd and blocked render.
@@ -62,6 +63,7 @@ export default function App() {
         <Links />
       </head>
       <body>
+        <GlobalLoadingBar />
         <Outlet />
         <ScrollRestoration />
         <script
