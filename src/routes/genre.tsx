@@ -22,10 +22,10 @@ type Genre = {
 const GENRES: Genre[] = [
   { id: "ballad", label: "BALLAD", hue: "#a8a8a8" },
   { id: "rock", label: "ROCK", hue: "#2e2e2e" },
-  { id: "kpop", label: "K-POP", hue: "#c08fc0" },
+  { id: "jazz", label: "JAZZ", hue: "#b08d57" },
   { id: "indie", label: "인디", hue: "#7a9eb0" },
   { id: "pop", label: "팝", hue: "#d4a373" },
-  { id: "rnb", label: "R&B", hue: "#5d3a5f" },
+  { id: "hiphop", label: "HIPHOP", hue: "#5d3a5f" },
 ];
 
 const MAX_GENRES = 3;
@@ -35,6 +35,8 @@ export default function Genre() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showExitModal, setShowExitModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // 앨범커버 이미지가 없는(로드 실패한) 장르는 기존 LP판 모양으로 대체
+  const [imgFailed, setImgFailed] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -142,28 +144,45 @@ export default function Genre() {
                     width: "92px",
                     height: "92px",
                     borderRadius: "50%",
+                    overflow: "hidden",
                     background: `radial-gradient(circle at 35% 35%, ${g.hue}, #2c2c2c 70%, #111 100%)`,
                     border: "none",
                     boxShadow: isSelected
-                      ? `0 0 0 2px ${COLORS.accentSoft}`
+                      ? `0 0 0 3px ${COLORS.accent}`
                       : "0 2px 6px rgba(0,0,0,0.15)",
-                    transition: "border-color 0.15s",
+                    transition: "box-shadow 0.15s",
                     position: "relative",
                   }}
                 >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      width: "26px",
-                      height: "26px",
-                      borderRadius: "50%",
-                      background: "#1a1a1a",
-                      border: "none",
-                    }}
-                  />
+                  {imgFailed.has(g.id) ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: "26px",
+                        height: "26px",
+                        borderRadius: "50%",
+                        background: "#1a1a1a",
+                        border: "none",
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={`/images/music_album_cover/${g.id}_cover.png`}
+                      alt=""
+                      onError={() =>
+                        setImgFailed((prev) => new Set(prev).add(g.id))
+                      }
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  )}
                 </div>
                 <span
                   style={{
