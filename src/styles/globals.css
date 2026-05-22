@@ -45,8 +45,8 @@ button {
   font-family: inherit;
   color: inherit;
 }
-button:focus,
-button:focus-visible,
+/* 마우스 클릭 시엔 아웃라인 제거하되, 키보드 포커스(:focus-visible)는 보이게 */
+button:focus:not(:focus-visible),
 button:active {
   outline: none;
 }
@@ -60,20 +60,24 @@ select {
   background: transparent;
   color: inherit;
 }
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-}
 
-a,
-a:focus,
-a:active {
+a:focus:not(:focus-visible) {
   outline: none;
 }
 
 img {
   outline: none;
+}
+
+/* 키보드 사용자용 가시 포커스 링 */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #ff625d;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 input::placeholder,

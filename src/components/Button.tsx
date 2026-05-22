@@ -16,7 +16,8 @@ export const PrimaryButton = ({
       {...rest}
       disabled={disabled}
       style={{
-        width: "350px",
+        width: "100%",
+        maxWidth: "350px",
         height: "62px",
         background: disabled ? COLORS.cardBorder : COLORS.accent,
         color: "white",

@@ -5,6 +5,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import ProgressDots from "~/components/ProgressDots";
 import SignupStepNav from "~/components/SignupStepNav";
+import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 
 // 약관은 회원가입 전 단계 — 익명 접근 가능
@@ -81,14 +82,12 @@ export default function Terms() {
       <div
         style={{
           flex: 1,
-          padding: "0 25px",
-          paddingBottom: "120px",
-          position: "relative",
+          padding: "0 25px 16px",
           display: "flex",
           flexDirection: "column",
         }}
       >
-        <div style={{ marginTop: "30px", marginBottom: "30px" }}>
+        <div style={{ marginTop: "24px", marginBottom: "28px" }}>
           <ProgressDots total={4} current={1} />
         </div>
 
@@ -110,15 +109,13 @@ export default function Terms() {
             ...TYPOGRAPHY.body,
             color: COLORS.text.helper,
             margin: 0,
+            marginBottom: "28px",
           }}
         >
-          서비스를 시작하기위해 약관을 확인해주세요.
+          서비스를 시작하기 위해 약관에 동의해주세요.
         </p>
 
-        {/* 약관 영역 — 하단으로 밀어내기 위해 flex spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* 전체동의 박스 */}
+        {/* 전체동의 */}
         <button
           type="button"
           onClick={toggleAll}
@@ -127,19 +124,20 @@ export default function Terms() {
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            padding: "16px 18px",
-            background: COLORS.cardBg,
-            borderRadius: RADIUS.alert,
+            padding: "18px",
+            background: allChecked ? COLORS.accentSoft : COLORS.cardBg,
+            borderRadius: RADIUS.card,
+            border: "none",
             textAlign: "left",
-            marginBottom: "20px",
+            marginBottom: "8px",
+            transition: "background 0.15s",
           }}
         >
           <Check checked={allChecked} />
           <span
             style={{
-              ...TYPOGRAPHY.body,
-              fontWeight: 600,
-              color: COLORS.text.secondary,
+              ...TYPOGRAPHY.bodyBold,
+              color: allChecked ? COLORS.accent : COLORS.text.primary,
             }}
           >
             약관 전체동의
@@ -149,10 +147,8 @@ export default function Terms() {
         {/* 개별 항목 */}
         <div
           style={{
-            padding: "0 8px",
             display: "flex",
             flexDirection: "column",
-            gap: "18px",
           }}
         >
           {TERMS.map((t) => (
@@ -162,6 +158,7 @@ export default function Terms() {
                 display: "flex",
                 alignItems: "center",
                 gap: "12px",
+                padding: "14px 8px",
               }}
             >
               <button
@@ -174,14 +171,17 @@ export default function Terms() {
                   gap: "12px",
                   flex: 1,
                   padding: 0,
+                  background: "none",
+                  border: "none",
                   textAlign: "left",
+                  cursor: "pointer",
                 }}
               >
                 <Check checked={!!agreed[t.id]} size={20} />
                 <span
                   style={{
                     ...TYPOGRAPHY.body,
-                    color: COLORS.text.secondary,
+                    color: agreed[t.id] ? COLORS.text.primary : COLORS.text.secondary,
                   }}
                 >
                   {t.label}
@@ -194,8 +194,15 @@ export default function Terms() {
                 style={{
                   color: COLORS.text.placeholder,
                   fontSize: "20px",
-                  padding: "4px 6px",
+                  minWidth: "44px",
+                  minHeight: "44px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "none",
+                  border: "none",
                   flexShrink: 0,
+                  cursor: "pointer",
                 }}
               >
                 ›
@@ -203,35 +210,18 @@ export default function Terms() {
             </div>
           ))}
         </div>
-      </div>
 
-      {/* 다음으로 — 풀폭 */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "34px",
-          left: "20px",
-          right: "20px",
-        }}
-      >
-        <button
+        {/* 본문과 버튼 사이 여백 */}
+        <div style={{ flex: 1, minHeight: "24px" }} />
+
+        <PrimaryButton
           type="button"
           onClick={goNext}
           disabled={!allChecked}
-          style={{
-            width: "100%",
-            height: "56px",
-            borderRadius: RADIUS.pill,
-            background: COLORS.accent,
-            color: "white",
-            ...TYPOGRAPHY.title,
-            fontSize: "17px",
-            cursor: allChecked ? "pointer" : "not-allowed",
-            opacity: allChecked ? 1 : 0.7,
-          }}
+          style={{ width: "100%" }}
         >
           다음으로
-        </button>
+        </PrimaryButton>
       </div>
       <HomeIndicator />
     </PhoneFrame>

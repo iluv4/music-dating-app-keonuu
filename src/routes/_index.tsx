@@ -11,7 +11,7 @@ export default function Index() {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigate("/welcome");
-    }, 3000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [navigate]);
 

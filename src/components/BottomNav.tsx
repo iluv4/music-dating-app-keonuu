@@ -36,9 +36,10 @@ export const BottomNav = ({ active }: BottomNavProps) => {
     (location.pathname.startsWith("/chat") ? "chat" : undefined);
 
   return (
-    <div
+    <nav
       style={{
-        width: FRAME.width,
+        width: "100%",
+        maxWidth: FRAME.width,
         height: FRAME.bottomNavHeight,
         background: "white",
         boxShadow: SHADOW.bottomNav,
@@ -47,31 +48,30 @@ export const BottomNav = ({ active }: BottomNavProps) => {
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 10,
+        display: "flex",
+        paddingTop: "14px",
       }}
     >
-      {NAV_ITEMS.map((item, idx) => {
+      {NAV_ITEMS.map((item) => {
         const isActive = activeKey === item.key;
-        const tabLeft = 22.5 + idx * 90;
         return (
           <Link
             key={item.key}
             to={item.path}
+            aria-label={item.label}
+            aria-current={isActive ? "page" : undefined}
             style={{
-              position: "absolute",
-              top: "2px",
-              left: `${tabLeft}px`,
-              width: "75px",
-              height: "103px",
-              display: "block",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
             <img
               src={item.icon}
               alt=""
               style={{
-                position: "absolute",
-                top: "16px",
-                left: "19.5px",
                 width: "36px",
                 height: "36px",
                 filter: isActive ? "none" : "grayscale(1) opacity(0.55)",
@@ -80,10 +80,6 @@ export const BottomNav = ({ active }: BottomNavProps) => {
             <span
               style={{
                 ...TYPOGRAPHY.nav,
-                position: "absolute",
-                top: "53.57px",
-                left: "50%",
-                transform: "translateX(-50%)",
                 color: isActive ? COLORS.nav.active : COLORS.nav.inactive,
                 whiteSpace: "nowrap",
               }}
@@ -93,7 +89,7 @@ export const BottomNav = ({ active }: BottomNavProps) => {
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 };
 

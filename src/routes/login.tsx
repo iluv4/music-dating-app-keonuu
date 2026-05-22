@@ -6,6 +6,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import TextInput from "~/components/TextInput";
 import { PrimaryButton } from "~/components/Button";
+import { KakaoButton, GoogleButton } from "~/components/SocialButton";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { postApprovalDestination, requireGuest } from "~/lib/auth.server";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
@@ -75,8 +76,9 @@ export default function Login() {
         method="post"
         style={{
           flex: 1,
-          padding: "0 25px 120px",
-          position: "relative",
+          padding: "0 25px 16px",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <h1
@@ -151,8 +153,12 @@ export default function Login() {
             onClick={() => alert("관리자에게 문의해주세요 (MVP)")}
             style={{
               ...TYPOGRAPHY.caption,
-              color: COLORS.text.placeholder,
+              color: COLORS.text.secondary,
               textDecoration: "underline",
+              padding: "8px 4px",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
             }}
           >
             비밀번호를 잊으셨나요?
@@ -161,7 +167,7 @@ export default function Login() {
 
         <div
           style={{
-            marginTop: "32px",
+            marginTop: "20px",
             textAlign: "center",
             ...TYPOGRAPHY.label,
             color: COLORS.text.helper,
@@ -180,17 +186,31 @@ export default function Login() {
           </Link>
         </div>
 
-        <div
-          style={{
-            position: "absolute",
-            bottom: "34px",
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
-        >
-          <PrimaryButton type="submit" disabled={!canSubmit}>
+        {/* 본문과 하단 액션 사이 여백 */}
+        <div style={{ flex: 1, minHeight: "24px" }} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <PrimaryButton type="submit" disabled={!canSubmit} style={{ width: "100%" }}>
             {submitting ? "로그인 중..." : "로그인"}
           </PrimaryButton>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              margin: "4px 0",
+              ...TYPOGRAPHY.caption,
+              color: COLORS.text.placeholder,
+            }}
+          >
+            <span style={{ flex: 1, height: "1px", background: COLORS.divider }} />
+            소셜 계정으로 로그인
+            <span style={{ flex: 1, height: "1px", background: COLORS.divider }} />
+          </div>
+
+          <KakaoButton style={{ width: "100%" }}>카카오로 계속하기</KakaoButton>
+          <GoogleButton style={{ width: "100%" }}>Google로 계속하기</GoogleButton>
         </div>
       </Form>
       <HomeIndicator />

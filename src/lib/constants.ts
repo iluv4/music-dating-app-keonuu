@@ -11,8 +11,9 @@ export const COLORS = {
   divider2: "#f3f3f3",
   text: {
     primary: "#000000",
-    secondary: "#808080",
-    helper: "#929292",
+    // secondary/helper 어둡게 조정 — 흰 배경 대비 WCAG AA(4.5:1) 충족
+    secondary: "#6b6b6b",
+    helper: "#767676",
     placeholder: "#bfbfbf",
     muted: "#bdbdbd",
     veryMuted: "#9f9f9f",

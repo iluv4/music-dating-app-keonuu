@@ -5,9 +5,14 @@ type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: ReactNode;
 };
 
-export const TextInput = ({ label, style, ...rest }: TextInputProps) => {
+export const TextInput = ({ label, style, id, name, ...rest }: TextInputProps) => {
+  // 라벨↔input 연결용 id (스크린리더 접근성)
+  const inputId = id ?? (typeof name === "string" ? name : undefined);
+
   const input = (
     <input
+      id={inputId}
+      name={name}
       {...rest}
       style={{
         boxSizing: "border-box",
@@ -30,15 +35,17 @@ export const TextInput = ({ label, style, ...rest }: TextInputProps) => {
 
   return (
     <div>
-      <div
+      <label
+        htmlFor={inputId}
         style={{
           ...TYPOGRAPHY.bodyBold,
+          display: "block",
           color: COLORS.text.primary,
           marginBottom: "10px",
         }}
       >
         {label}
-      </div>
+      </label>
       {input}
     </div>
   );

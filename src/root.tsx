@@ -11,9 +11,11 @@ import {
 import "./styles/globals.css";
 
 export const links: LinksFunction = () => [
+  // Pretendard is NOT on Google Fonts; the old URL 404'd and blocked render.
+  { rel: "preconnect", href: "https://cdn.jsdelivr.net", crossOrigin: "anonymous" },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap",
+    href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
   },
 ];
 

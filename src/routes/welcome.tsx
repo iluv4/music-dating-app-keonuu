@@ -3,31 +3,8 @@ import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import { PrimaryButton } from "~/components/Button";
+import { KakaoButton } from "~/components/SocialButton";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
-
-const Dot = ({
-  size,
-  top,
-  left,
-  color = COLORS.accentSoft,
-}: {
-  size: number;
-  top: number;
-  left: number;
-  color?: string;
-}) => (
-  <span
-    style={{
-      position: "absolute",
-      top: `${top}px`,
-      left: `${left}px`,
-      width: `${size}px`,
-      height: `${size}px`,
-      borderRadius: "50%",
-      background: color,
-    }}
-  />
-);
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -35,105 +12,103 @@ export default function Welcome() {
   return (
     <PhoneFrame>
       <StatusBar />
-      <div style={{ position: "relative", flex: 1 }}>
-        {/* 좌측 장식 도트 */}
-        <Dot size={16} top={158} left={91} />
-        <Dot size={9} top={196} left={91} />
-        <Dot size={9} top={162} left={131} />
-        {/* 우측 장식 도트 */}
-        <Dot size={16} top={162} left={283} />
-        <Dot size={9} top={162} left={252} />
-        <Dot size={9} top={202} left={286} />
 
-        {/* 제목 */}
-        <h1
-          style={{
-            ...TYPOGRAPHY.display,
-            position: "absolute",
-            top: "179px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            color: COLORS.accent,
-            margin: 0,
-            whiteSpace: "nowrap",
-          }}
-        >
+      {/* 본문 — flex 로 채워서 화면 높이에 상관없이 안정적으로 배치 */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0 20px",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+          {[16, 9, 9].map((s, i) => (
+            <span
+              key={i}
+              style={{
+                width: `${s}px`,
+                height: `${s}px`,
+                borderRadius: "50%",
+                background: COLORS.accentSoft,
+                alignSelf: "center",
+              }}
+            />
+          ))}
+        </div>
+
+        <h1 style={{ ...TYPOGRAPHY.display, color: COLORS.accent, margin: 0 }}>
           환영합니다!
         </h1>
 
-        {/* 서브타이틀 */}
         <p
           style={{
             ...TYPOGRAPHY.body,
-            position: "absolute",
-            top: "243px",
-            left: "50%",
-            transform: "translateX(-50%)",
             color: COLORS.text.helper,
-            textAlign: "center",
-            margin: 0,
-            whiteSpace: "nowrap",
+            margin: "16px 0 0",
+            lineHeight: 1.6,
           }}
         >
-          <span style={{ fontWeight: 700 }}>노래</span>
+          <span style={{ fontWeight: 700, color: COLORS.text.primary }}>노래</span>
           로 이어지는{" "}
-          <span style={{ fontWeight: 700 }}>인연</span>
+          <span style={{ fontWeight: 700, color: COLORS.text.primary }}>인연</span>
           <br />
           지금 만나러 가볼까요?
         </p>
 
-        {/* 마스코트 일러스트 */}
         <img
           src="/images/welcome-mascot.png"
           alt=""
           style={{
-            position: "absolute",
-            top: "321px",
-            left: "23px",
-            width: "344px",
-            height: "314px",
+            width: "100%",
+            maxWidth: "300px",
+            marginTop: "28px",
             objectFit: "contain",
           }}
         />
+      </div>
 
-        {/* CTA */}
+      {/* 하단 액션 — 항상 화면 하단에 고정, 화면 밖으로 안 밀림 */}
+      <div
+        style={{
+          padding: "0 20px 16px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
         <PrimaryButton
           onClick={() => navigate("/terms")}
-          style={{
-            position: "absolute",
-            top: "720px",
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
+          style={{ width: "100%", maxWidth: "350px" }}
         >
           시작하기
         </PrimaryButton>
 
-        {/* 로그인 링크 */}
+        <KakaoButton style={{ width: "100%", maxWidth: "350px" }}>
+          카카오로 3초 만에 시작
+        </KakaoButton>
+
         <div
           style={{
-            position: "absolute",
-            top: "800px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            ...TYPOGRAPHY.label,
-            color: COLORS.text.helper,
-            whiteSpace: "nowrap",
+            ...TYPOGRAPHY.body,
+            color: COLORS.text.secondary,
+            marginTop: "4px",
           }}
         >
           이미 계정 있어요?{" "}
           <Link
             to="/login"
-            style={{
-              color: COLORS.accent,
-              fontWeight: 600,
-              textDecoration: "underline",
-            }}
+            style={{ color: COLORS.accent, fontWeight: 700, textDecoration: "none" }}
           >
             로그인
           </Link>
         </div>
       </div>
+
       <HomeIndicator />
     </PhoneFrame>
   );
