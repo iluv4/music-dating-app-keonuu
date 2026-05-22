@@ -5,7 +5,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { requireUser } from "~/lib/auth.server";
+import { requireApprovedUser } from "~/lib/auth.server";
 
 type DiscoverMember = {
   user_id: string;
@@ -16,7 +16,7 @@ type DiscoverMember = {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireUser(request);
+  const ctx = await requireApprovedUser(request);
   const { data, error } = await ctx.supabase.rpc("list_discover_members", {
     p_user_id: ctx.user.id,
   });
