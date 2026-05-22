@@ -165,11 +165,12 @@ export default function ChatRoom() {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            // 진단 위해 filter 일단 제거 — 클라이언트에서 match_id 비교로 필터
+            // 이 매칭의 메시지만 서버에서 필터 — 타 매칭 INSERT 브로드캐스트 차단
+            filter: `match_id=eq.${matchId}`,
           },
           (payload) => {
             const newMsg = payload.new as MessageRow;
-            if (newMsg.match_id !== matchId) return;
+            // 안전망: 필터가 적용돼도 본인이 보낸 메시지는 낙관적 표시와 중복 방지
             if (newMsg.sender_id === currentUserId) return;
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
