@@ -91,6 +91,7 @@ export type MessageRow = {
   match_id: string;
   sender_id: string;
   content: string;
+  image_url: string | null;
   created_at: string;
   read_at: string | null;
 };
@@ -99,6 +100,7 @@ export type MessageInsert = {
   match_id: string;
   sender_id: string;
   content: string;
+  image_url?: string | null;
 };
 
 // notifications --------------------------------------------------------------

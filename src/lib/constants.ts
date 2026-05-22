@@ -1,9 +1,9 @@
-// 디자인 토큰 — Figma 시안 정합 (research.md 1.1 기준)
-// 의사결정: Accent=#ff625d 화면 기준 유지 (plan_kim_0521_02 의사결정 로그)
+// 디자인 토큰 — Figma 디자인시스템(멋사_1조) 정합
+// Accent = Main pink #FF0558 (디자인시스템 기준으로 통일)
 
 export const COLORS = {
-  accent: "#ff625d",
-  accentSoft: "#ffeeed",
+  accent: "#ff0558",
+  accentSoft: "#ffe4ee",
   bg: "#ffffff",
   cardBg: "#f9f9f9",
   cardBorder: "#e2e2e2",
@@ -20,7 +20,7 @@ export const COLORS = {
     timer: "#d6d6d6",
   },
   nav: {
-    active: "#ff625d",
+    active: "#ff0558",
     inactive: "#b0b8c1",
   },
 } as const;

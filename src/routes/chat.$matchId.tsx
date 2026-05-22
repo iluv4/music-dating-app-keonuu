@@ -50,7 +50,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export async function action({ request, params }: ActionFunctionArgs) {
   const matchId = params.matchId;
-  if (!matchId) return json({ error: "잘못된 요청" }, { status: 400 });
+  if (!matchId)
+    return json({ error: "채팅방 정보를 찾을 수 없어요." }, { status: 400 });
 
   const ctx = await requireMatchAccess(request, matchId);
   const fd = await request.formData();
@@ -64,24 +65,33 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const result = await endMatch(ctx.supabase, matchId);
     if (!result.ok) {
       return json(
-        { error: result.error ?? "종료 실패" },
+        { error: "채팅을 끊지 못했어요. 잠시 후 다시 시도해주세요." },
         { status: 500, headers: ctx.headers },
       );
     }
     return redirect("/chat", { headers: ctx.headers });
   }
 
-  // 일반 메시지 전송
+  // 일반 메시지 전송 (텍스트 또는 사진)
   const content = String(fd.get("content") ?? "");
+  const imageUrlRaw = String(fd.get("image_url") ?? "").trim();
+  // 업로드는 클라이언트가 Supabase Storage 에 직접 → 여기엔 public URL 만 전달.
+  // 우리 스토리지 도메인의 URL 만 허용 (임의 외부 URL 주입 차단).
+  const imageUrl =
+    imageUrlRaw &&
+    imageUrlRaw.startsWith(`${process.env.SUPABASE_URL}/storage/v1/object/public/`)
+      ? imageUrlRaw
+      : null;
   const result = await sendMessage(
     ctx.supabase,
     matchId,
     ctx.user.id,
     content,
+    imageUrl,
   );
   if (!result.ok || !result.message) {
     return json(
-      { error: result.error ?? "전송 실패" },
+      { error: result.error ?? "메시지를 보내지 못했어요. 다시 시도해주세요." },
       { status: 400, headers: ctx.headers },
     );
   }
@@ -117,8 +127,11 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState<MessageRow[]>(initial);
   const [draft, setDraft] = useState("");
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const endFetcher = useFetcher<{ error?: string }>();
   const ending = endFetcher.state === "submitting";
 
@@ -214,6 +227,50 @@ export default function ChatRoom() {
       length_bucket:
         trimmed.length < 20 ? "short" : trimmed.length < 100 ? "medium" : "long",
     });
+  };
+
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (!file || uploading) return;
+    setUploadError(null);
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("이미지 파일만 보낼 수 있어요.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setUploadError("사진은 5MB 이하만 보낼 수 있어요.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const env = getClientEnv();
+      const supabase = getSupabaseBrowser({
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      });
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${matchId}/${currentUserId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("chat-images")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
+      const fd = new FormData();
+      fd.set("image_url", data.publicUrl);
+      sendFetcher.submit(fd, { method: "post" });
+      capture("message.sent", { match_id: matchId, has_image: true });
+    } catch (err) {
+      console.error("[chat photo upload]", err);
+      setUploadError("사진 전송에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -326,21 +383,47 @@ export default function ChatRoom() {
                 gap: "4px",
               }}
             >
-              <div
-                style={{
-                  background: fromMe ? COLORS.accentSoft : "white",
-                  color: COLORS.text.primary,
-                  borderRadius: "16px",
-                  padding: "10px 14px",
-                  ...TYPOGRAPHY.body,
-                  fontSize: "14px",
-                  lineHeight: 1.4,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
-                {msg.content}
-              </div>
+              {msg.image_url ? (
+                <a
+                  href={msg.image_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
+                >
+                  <img
+                    src={msg.image_url}
+                    alt="사진 메시지"
+                    loading="lazy"
+                    style={{
+                      display: "block",
+                      maxWidth: "220px",
+                      maxHeight: "280px",
+                      width: "auto",
+                      height: "auto",
+                      borderRadius: "16px",
+                      objectFit: "cover",
+                      background: COLORS.cardBg,
+                    }}
+                  />
+                </a>
+              ) : null}
+              {msg.content ? (
+                <div
+                  style={{
+                    background: fromMe ? COLORS.accentSoft : "white",
+                    color: COLORS.text.primary,
+                    borderRadius: "16px",
+                    padding: "10px 14px",
+                    ...TYPOGRAPHY.body,
+                    fontSize: "14px",
+                    lineHeight: 1.4,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {msg.content}
+                </div>
+              ) : null}
               <span
                 style={{
                   ...TYPOGRAPHY.tiny,
@@ -399,11 +482,50 @@ export default function ChatRoom() {
             zIndex: 5,
           }}
         >
+          {uploadError && (
+            <span
+              role="alert"
+              style={{
+                position: "absolute",
+                top: "-26px",
+                left: "16px",
+                ...TYPOGRAPHY.caption,
+                color: COLORS.accent,
+              }}
+            >
+              {uploadError}
+            </span>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onPickPhoto}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            aria-label="사진 보내기"
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: COLORS.cardBg,
+              color: COLORS.text.secondary,
+              fontSize: "18px",
+              flexShrink: 0,
+              cursor: uploading ? "wait" : "pointer",
+            }}
+          >
+            {uploading ? "…" : "📷"}
+          </button>
           <input
             ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="메시지를 입력해주세요"
+            placeholder="메시지를 입력하세요"
             maxLength={2000}
             style={{
               flex: 1,

@@ -273,7 +273,7 @@ export default function Music() {
                   borderRadius: "50%",
                   margin: "0 auto 14px",
                   background:
-                    "linear-gradient(135deg, #ffb3b0 0%, #ff625d 100%)",
+                    "linear-gradient(135deg, #ff7aa6 0%, #ff0558 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

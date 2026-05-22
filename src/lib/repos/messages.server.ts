@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessageRow } from "~/lib/db-types";
 
-const SELECT_COLS = "id, match_id, sender_id, content, created_at, read_at";
+const SELECT_COLS =
+  "id, match_id, sender_id, content, image_url, created_at, read_at";
 
 export async function listMessages(
   supabase: SupabaseClient,
@@ -28,15 +29,23 @@ export async function sendMessage(
   matchId: string,
   senderId: string,
   content: string,
+  imageUrl?: string | null,
 ): Promise<{ ok: boolean; message?: MessageRow; error?: string }> {
   const trimmed = content.trim();
-  if (!trimmed) return { ok: false, error: "내용이 비어있어요." };
+  // 텍스트 또는 사진 중 하나는 있어야 함
+  if (!trimmed && !imageUrl)
+    return { ok: false, error: "내용이 비어있어요." };
   if (trimmed.length > 2000)
     return { ok: false, error: "메시지가 너무 길어요." };
 
   const { data, error } = await supabase
     .from("messages")
-    .insert({ match_id: matchId, sender_id: senderId, content: trimmed })
+    .insert({
+      match_id: matchId,
+      sender_id: senderId,
+      content: trimmed,
+      image_url: imageUrl ?? null,
+    })
     .select(SELECT_COLS)
     .single<MessageRow>();
 
