@@ -368,7 +368,7 @@ export default function Music() {
                   type="submit"
                   disabled={matching}
                   onClick={() =>
-                    capture("match_search_clicked", {
+                    capture("match.search_started", {
                       song_count: songs.length,
                     })
                   }

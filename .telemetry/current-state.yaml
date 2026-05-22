@@ -9,14 +9,14 @@ events:
   - name: "$pageview"
     source: posthog autocapture (capture_pageview: true)
     notes: 자동 수집 — 페이지뷰. 커스텀 아님.
-  - name: match_search_clicked
+  - name: match.search_started
     location: src/routes/music.tsx (매칭 찾기 버튼 onClick)
     properties: [song_count]
-    notes: 네이밍 컨벤션 불일치 (object.action 아님)
-  - name: message_sent
+    notes: 2026-05-22 match_search_clicked 에서 rename 완료
+  - name: message.sent
     location: src/routes/chat.$matchId.tsx (send())
-    properties: [match_id]
-    notes: 네이밍 컨벤션 불일치
+    properties: [match_id, length_bucket]
+    notes: 2026-05-22 message_sent 에서 rename + length_bucket 추가 완료
 
 identify:
   status: 미구현

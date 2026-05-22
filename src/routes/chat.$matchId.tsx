@@ -208,7 +208,11 @@ export default function ChatRoom() {
     const fd = new FormData();
     fd.set("content", trimmed);
     sendFetcher.submit(fd, { method: "post" });
-    capture("message_sent", { match_id: matchId });
+    capture("message.sent", {
+      match_id: matchId,
+      length_bucket:
+        trimmed.length < 20 ? "short" : trimmed.length < 100 ? "medium" : "long",
+    });
   };
 
   return (
