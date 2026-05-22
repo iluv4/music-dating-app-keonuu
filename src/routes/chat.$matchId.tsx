@@ -26,6 +26,7 @@ import { endMatch } from "~/lib/repos/matches.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
+import { capture } from "~/lib/analytics.client";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const matchId = params.matchId;
@@ -151,7 +152,6 @@ export default function ChatRoom() {
         data: { session },
       } = await supabase.auth.getSession();
       if (cancelled) return;
-      console.log("[chat realtime] session:", session ? "authed" : "anon");
       if (session?.access_token) {
         // Realtime websocket 의 JWT 를 명시적으로 세팅
         supabase.realtime.setAuth(session.access_token);
@@ -168,7 +168,6 @@ export default function ChatRoom() {
             // 진단 위해 filter 일단 제거 — 클라이언트에서 match_id 비교로 필터
           },
           (payload) => {
-            console.log("[chat realtime] event:", payload);
             const newMsg = payload.new as MessageRow;
             if (newMsg.match_id !== matchId) return;
             if (newMsg.sender_id === currentUserId) return;
@@ -178,9 +177,7 @@ export default function ChatRoom() {
             });
           },
         )
-        .subscribe((status, err) => {
-          console.log("[chat realtime] status:", status, err ?? "");
-        });
+        .subscribe();
     };
 
     setup();
@@ -211,6 +208,7 @@ export default function ChatRoom() {
     const fd = new FormData();
     fd.set("content", trimmed);
     sendFetcher.submit(fd, { method: "post" });
+    capture("message_sent", { match_id: matchId });
   };
 
   return (

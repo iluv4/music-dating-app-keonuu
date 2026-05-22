@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { json, type LinksFunction, type MetaFunction } from "@remix-run/node";
 import {
   Links,
@@ -9,6 +10,7 @@ import {
 } from "@remix-run/react";
 
 import "./styles/globals.css";
+import { initAnalytics } from "~/lib/analytics.client";
 
 export const links: LinksFunction = () => [
   // Pretendard is NOT on Google Fonts; the old URL 404'd and blocked render.
@@ -24,22 +26,35 @@ export const meta: MetaFunction = () => [
   { name: "viewport", content: "width=device-width,initial-scale=1" },
 ];
 
-// 브라우저 Supabase 클라이언트(Realtime) 용으로 anon 키만 노출
+// 브라우저 Supabase 클라이언트(Realtime) + PostHog 용 공개 키 노출
 export async function loader() {
   return json({
     env: {
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+      POSTHOG_KEY: process.env.POSTHOG_KEY,
+      POSTHOG_HOST: process.env.POSTHOG_HOST,
     },
   });
 }
 
 export type RootLoaderData = {
-  env: { SUPABASE_URL: string; SUPABASE_ANON_KEY: string };
+  env: {
+    SUPABASE_URL: string;
+    SUPABASE_ANON_KEY: string;
+    POSTHOG_KEY?: string;
+    POSTHOG_HOST?: string;
+  };
 };
 
 export default function App() {
   const { env } = useLoaderData<typeof loader>();
+
+  // window.ENV 세팅 직후 PostHog 초기화 (키 없으면 no-op)
+  useEffect(() => {
+    void initAnalytics();
+  }, []);
+
   return (
     <html lang="ko">
       <head>

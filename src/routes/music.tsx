@@ -26,6 +26,7 @@ import {
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import { listUserMatches } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
+import { capture } from "~/lib/analytics.client";
 import type { Song } from "~/lib/song-types";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -366,6 +367,11 @@ export default function Music() {
                 <button
                   type="submit"
                   disabled={matching}
+                  onClick={() =>
+                    capture("match_search_clicked", {
+                      song_count: songs.length,
+                    })
+                  }
                   style={{
                     ...ctaBase,
                     marginTop: "18px",
