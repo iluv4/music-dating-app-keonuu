@@ -15,3 +15,6 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Figma 디자인 참고용 임시 이미지
+.design-ref/

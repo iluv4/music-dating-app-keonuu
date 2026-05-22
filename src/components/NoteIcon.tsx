@@ -3,7 +3,7 @@ type NoteIconProps = {
   color?: string;
 };
 
-export const NoteIcon = ({ size = 18, color = "#ff625d" }: NoteIconProps) => (
+export const NoteIcon = ({ size = 18, color = "#ff0558" }: NoteIconProps) => (
   <svg
     width={size}
     height={size}
