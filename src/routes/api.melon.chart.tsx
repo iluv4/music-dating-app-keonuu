@@ -8,8 +8,8 @@ const TOP_N = 5;
 const CACHE_KEY = "chart-top";
 
 const chart = new MelonChart({
-  timeout: 8000,
-  retryOptions: { maxRetries: 2, baseDelay: 500 },
+  timeout: 4000,
+  retryOptions: { maxRetries: 1, baseDelay: 300 },
 });
 
 function getFallback(): Song[] {

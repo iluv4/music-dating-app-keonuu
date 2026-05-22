@@ -11,7 +11,7 @@ const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const MIN_QUERY = 2;
 const MAX_RESULTS = 10;
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 4000;
 
 // 앨범 ID 로부터 멜론 CDN 이미지 URL 생성
 // 패턴: 8자리 padding → first3/next2/last3 디렉토리 + 원본 albumId 파일명
