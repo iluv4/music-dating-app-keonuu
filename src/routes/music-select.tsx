@@ -298,13 +298,21 @@ export default function MusicSelect() {
                 추천 데이터를 불러오지 못했어요. 검색으로 찾아주세요.
               </p>
             ) : (
-              recommended.items.map((s) => (
-                <RecommendedSongCard
-                  key={`rec-${s.songNo}`}
-                  song={s}
-                  onPick={pick}
-                />
-              ))
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: "10px",
+                }}
+              >
+                {recommended.items.slice(0, 6).map((s) => (
+                  <RecommendedSongCard
+                    key={`rec-${s.songNo}`}
+                    song={s}
+                    onPick={pick}
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}

@@ -33,7 +33,6 @@ const MAX_GENRES = 3;
 export default function Genre() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [showExitModal, setShowExitModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // 앨범커버 이미지가 없는(로드 실패한) 장르는 기존 LP판 모양으로 대체
   const [imgFailed, setImgFailed] = useState<Set<string>>(new Set());
@@ -96,9 +95,17 @@ export default function Genre() {
           </h1>
           <button
             type="button"
-            onClick={() => setShowExitModal(true)}
+            onClick={() => navigate("/music")}
             aria-label="닫기"
-            style={{ fontSize: "24px", color: COLORS.text.secondary }}
+            style={{
+              fontSize: "24px",
+              color: COLORS.text.secondary,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              minWidth: "44px",
+              minHeight: "44px",
+            }}
           >
             ✕
           </button>
@@ -263,94 +270,6 @@ export default function Genre() {
         </div>
       )}
 
-      {/* 이탈 방지 모달 */}
-      {showExitModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 100,
-          }}
-          onClick={() => setShowExitModal(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "300px",
-              background: "white",
-              borderRadius: "16px",
-              padding: "28px 24px 20px",
-              textAlign: "center",
-            }}
-          >
-            <img
-              src="/images/profile-mascot.png"
-              alt=""
-              style={{
-                width: "110px",
-                height: "110px",
-                objectFit: "contain",
-                marginBottom: "12px",
-              }}
-            />
-            <p
-              style={{
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "17px",
-                color: COLORS.text.primary,
-                margin: 0,
-                marginBottom: "6px",
-              }}
-            >
-              중간에 나가면 매칭이 어려워요
-            </p>
-            <p
-              style={{
-                ...TYPOGRAPHY.label,
-                color: COLORS.text.helper,
-                margin: 0,
-                marginBottom: "20px",
-              }}
-            >
-              취향 입력을 마저 진행해주세요.
-            </p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                type="button"
-                onClick={() => navigate("/welcome")}
-                style={{
-                  flex: 1,
-                  height: "46px",
-                  borderRadius: "12px",
-                  background: COLORS.cardBg,
-                  color: COLORS.text.secondary,
-                  ...TYPOGRAPHY.bodyBold,
-                }}
-              >
-                나가기
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowExitModal(false)}
-                style={{
-                  flex: 1,
-                  height: "46px",
-                  borderRadius: "12px",
-                  background: COLORS.accent,
-                  color: "white",
-                  ...TYPOGRAPHY.bodyBold,
-                }}
-              >
-                계속하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </PhoneFrame>
   );
 }

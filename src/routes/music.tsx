@@ -1,6 +1,18 @@
 import { useState } from "react";
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import {
+  json,
+  redirect,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
+import {
+  Form,
+  Link,
+  useActionData,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+} from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -12,6 +24,8 @@ import {
   requireApprovedUser,
 } from "~/lib/auth.server";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
+import { listUserMatches } from "~/lib/repos/matches.server";
+import { countUnreadNotifications } from "~/lib/repos/notifications.server";
 import type { Song } from "~/lib/song-types";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -22,8 +36,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw redirect(dest, { headers: ctx.headers });
   }
 
-  const songs = await listUserSongs(ctx.supabase, ctx.user.id);
-  return json({ songs }, { headers: ctx.headers });
+  const [songs, matches, unread] = await Promise.all([
+    listUserSongs(ctx.supabase, ctx.user.id),
+    listUserMatches(ctx.supabase, ctx.user.id),
+    countUnreadNotifications(ctx.supabase, ctx.user.id),
+  ]);
+
+  return json(
+    { songs, match: matches[0] ?? null, unread },
+    { headers: ctx.headers },
+  );
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const ctx = await requireApprovedUser(request);
+  const { data, error } = await ctx.supabase.rpc("find_or_create_match", {
+    p_user_id: ctx.user.id,
+  });
+
+  if (error) {
+    console.error("[music.find_or_create_match]", error);
+    return json(
+      { error: "매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요." },
+      { status: 500, headers: ctx.headers },
+    );
+  }
+
+  const matchId = data as string | null;
+  if (matchId) {
+    return redirect(`/chat/${matchId}`, { headers: ctx.headers });
+  }
+
+  // 후보 없음
+  return json({ error: null as string | null }, { headers: ctx.headers });
 }
 
 const BellIcon = ({ hasAlert = false }: { hasAlert?: boolean }) => (
@@ -150,16 +195,28 @@ const SongCard = ({ song }: { song: Song }) => (
   </div>
 );
 
+const ctaBase = {
+  width: "100%",
+  height: "48px",
+  borderRadius: RADIUS.pill,
+  ...TYPOGRAPHY.bodyBold,
+  fontSize: "15px",
+  border: "none",
+  cursor: "pointer",
+} as const;
+
 export default function Music() {
   const navigate = useNavigate();
-  const { songs } = useLoaderData<typeof loader>();
-  const matchGenre = "인디"; // TODO 매칭 알고리즘 도입 시 동적
+  const { songs, match, unread } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const matching = navigation.state === "submitting";
+  const noCandidate = actionData != null && !actionData.error;
 
   return (
     <PhoneFrame style={{ paddingBottom: "107px" }}>
       <StatusBar />
 
-      {/* 헤더 — 뮤직매치 + 알림 */}
       <div
         style={{
           height: "52px",
@@ -168,7 +225,6 @@ export default function Music() {
           alignItems: "center",
           justifyContent: "center",
           background: "white",
-          borderBottom: "none",
         }}
       >
         <h1
@@ -181,147 +237,148 @@ export default function Music() {
         >
           뮤직매치
         </h1>
-        <button
-          type="button"
+        <Link
+          to="/notifications"
           aria-label="알림"
-          onClick={() => alert("알림 (추후 구현)")}
           style={{
             position: "absolute",
             top: "50%",
             right: "18px",
             transform: "translateY(-50%)",
-            padding: 0,
-            background: "none",
-            border: "none",
           }}
         >
-          <BellIcon hasAlert />
-        </button>
+          <BellIcon hasAlert={unread > 0} />
+        </Link>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "20px 20px 24px",
-        }}
-      >
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 24px" }}>
         {/* 매칭 카드 */}
         <div
           style={{
             background: "white",
             border: "none",
             borderRadius: "20px",
-            padding: "14px 14px 18px",
+            padding: "20px 18px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+            textAlign: "center",
           }}
         >
-          {/* 매칭 상대 미리보기 (블러 placeholder + 타이머 오버레이) */}
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              aspectRatio: "1 / 1",
-              borderRadius: "14px",
-              overflow: "hidden",
-              background:
-                "linear-gradient(135deg, #d6cfc7 0%, #b5a89c 45%, #948276 100%)",
-              marginBottom: "16px",
-            }}
-          >
-            {/* 어두운 오버레이로 가독성 보강 */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "radial-gradient(circle at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 70%, rgba(0,0,0,0.5) 100%)",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <span
+          {match ? (
+            <>
+              <div
                 style={{
-                  fontFamily: "Pretendard, sans-serif",
-                  fontWeight: 800,
-                  fontSize: "44px",
-                  letterSpacing: "0.5px",
+                  width: "84px",
+                  height: "84px",
+                  borderRadius: "50%",
+                  margin: "0 auto 14px",
+                  background:
+                    "linear-gradient(135deg, #ffb3b0 0%, #ff625d 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "34px",
+                }}
+              >
+                💘
+              </div>
+              <p
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  fontSize: "16px",
+                  color: COLORS.text.primary,
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                <span style={{ color: COLORS.accent }}>
+                  {match.partnerName}
+                </span>{" "}
+                님과
+                <br />
+                매칭이 성사되었어요!
+              </p>
+              {match.partnerSchool && (
+                <p
+                  style={{
+                    ...TYPOGRAPHY.label,
+                    color: COLORS.text.helper,
+                    margin: "8px 0 0",
+                  }}
+                >
+                  {match.partnerSchool}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => navigate(`/chat/${match.matchId}`)}
+                style={{
+                  ...ctaBase,
+                  marginTop: "18px",
+                  background: COLORS.accent,
                   color: "white",
                 }}
               >
-                01:00:00
-              </span>
-            </div>
-          </div>
-
-          {/* 매칭 메시지 */}
-          <p
-            style={{
-              ...TYPOGRAPHY.bodyBold,
-              fontSize: "16px",
-              color: COLORS.text.primary,
-              textAlign: "center",
-              margin: 0,
-              lineHeight: 1.5,
-            }}
-          >
-            <span style={{ color: COLORS.accent, fontWeight: 700 }}>
-              {matchGenre}
-            </span>
-            를 좋아하는 OO 님과
-            <br />
-            매칭이 성사되었어요!
-          </p>
-
-          {/* 버튼 */}
-          <div
-            style={{
-              marginTop: "16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => navigate("/chat")}
-              style={{
-                width: "100%",
-                height: "48px",
-                background: COLORS.accent,
-                color: "white",
-                borderRadius: RADIUS.pill,
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "15px",
-                border: "none",
-              }}
-            >
-              수락하기
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/genre")}
-              style={{
-                width: "100%",
-                height: "48px",
-                background: COLORS.accentSoft,
-                color: COLORS.accent,
-                borderRadius: RADIUS.pill,
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "15px",
-                border: "none",
-              }}
-            >
-              + 매칭 한 번 더 하기
-            </button>
-          </div>
+                채팅하러 가기
+              </button>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  width: "84px",
+                  height: "84px",
+                  borderRadius: "50%",
+                  margin: "0 auto 14px",
+                  background: COLORS.accentSoft,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "34px",
+                }}
+              >
+                🎧
+              </div>
+              <p
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  fontSize: "16px",
+                  color: COLORS.text.primary,
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                음악 취향이 통하는
+                <br />
+                상대를 찾아볼까요?
+              </p>
+              <p
+                style={{
+                  ...TYPOGRAPHY.label,
+                  color: COLORS.text.helper,
+                  margin: "8px 0 0",
+                }}
+              >
+                {noCandidate
+                  ? "아직 딱 맞는 상대를 찾지 못했어요. 잠시 후 다시 시도해주세요."
+                  : "선택한 노래가 겹치는 상대와 매칭돼요."}
+              </p>
+              <Form method="post">
+                <button
+                  type="submit"
+                  disabled={matching}
+                  style={{
+                    ...ctaBase,
+                    marginTop: "18px",
+                    background: COLORS.accent,
+                    color: "white",
+                    opacity: matching ? 0.7 : 1,
+                  }}
+                >
+                  {matching ? "매칭 중..." : "매칭 찾기"}
+                </button>
+              </Form>
+            </>
+          )}
         </div>
 
         {/* 내가 선택한 음악 섹션 */}

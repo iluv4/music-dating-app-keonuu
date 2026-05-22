@@ -100,3 +100,17 @@ export type MessageInsert = {
   sender_id: string;
   content: string;
 };
+
+// notifications --------------------------------------------------------------
+export type NotificationType = "match" | "message" | "system";
+
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+};
