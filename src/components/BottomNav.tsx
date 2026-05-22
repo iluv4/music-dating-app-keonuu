@@ -1,20 +1,29 @@
+import type { ComponentType } from "react";
 import { Link, useLocation } from "@remix-run/react";
 import { COLORS, TYPOGRAPHY, FRAME, SHADOW } from "~/lib/constants";
+import {
+  NavHomeIcon,
+  NavSearchIcon,
+  NavChatIcon,
+  NavMyIcon,
+} from "~/components/icons/NavIcons";
 
 type NavKey = "home" | "explore" | "chat" | "my";
+
+type IconComponent = ComponentType<{ size?: number; color?: string }>;
 
 type NavItem = {
   key: NavKey;
   label: string;
   path: string;
-  icon: string;
+  Icon: IconComponent;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: "home", label: "홈", path: "/music", icon: "/icons/nav-home-active.png" },
-  { key: "explore", label: "탐색", path: "/explore", icon: "/icons/nav-explore.png" },
-  { key: "chat", label: "채팅", path: "/chat", icon: "/icons/nav-chat.png" },
-  { key: "my", label: "마이", path: "/mypage", icon: "/icons/nav-my-active.png" },
+  { key: "home", label: "홈", path: "/music", Icon: NavHomeIcon },
+  { key: "explore", label: "탐색", path: "/explore", Icon: NavSearchIcon },
+  { key: "chat", label: "채팅", path: "/chat", Icon: NavChatIcon },
+  { key: "my", label: "마이", path: "/mypage", Icon: NavMyIcon },
 ];
 
 const PATH_TO_KEY: Record<string, NavKey> = {
@@ -54,6 +63,7 @@ export const BottomNav = ({ active }: BottomNavProps) => {
     >
       {NAV_ITEMS.map((item) => {
         const isActive = activeKey === item.key;
+        const Icon = item.Icon;
         return (
           <Link
             key={item.key}
@@ -68,15 +78,19 @@ export const BottomNav = ({ active }: BottomNavProps) => {
               gap: "6px",
             }}
           >
-            <img
-              src={item.icon}
-              alt=""
+            <span
               style={{
-                width: "36px",
-                height: "36px",
-                filter: isActive ? "none" : "grayscale(1) opacity(0.55)",
+                height: "26px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
-            />
+            >
+              <Icon
+                size={24}
+                color={isActive ? COLORS.nav.active : COLORS.nav.inactive}
+              />
+            </span>
             <span
               style={{
                 ...TYPOGRAPHY.nav,
