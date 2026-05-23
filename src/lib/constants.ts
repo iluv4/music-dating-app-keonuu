@@ -1,9 +1,10 @@
 // 디자인 토큰 — Figma 디자인시스템(멋사_1조) 정합
-// Accent = Main pink #FF0558 (디자인시스템 기준으로 통일)
+// Accent = color/primary/500 #FF625D (다홍/코랄), Soft = color/primary/50 #FFEEED
+// (이전 #FF0558 마젠타는 시안과 불일치였어 Figma 변수값으로 교체)
 
 export const COLORS = {
-  accent: "#ff0558",
-  accentSoft: "#ffe4ee",
+  accent: "#ff625d",
+  accentSoft: "#ffeeed",
   bg: "#ffffff",
   cardBg: "#f9f9f9",
   cardBorder: "#e2e2e2",
@@ -20,7 +21,7 @@ export const COLORS = {
     timer: "#d6d6d6",
   },
   nav: {
-    active: "#ff0558",
+    active: "#ff625d",
     inactive: "#b0b8c1",
   },
 } as const;
