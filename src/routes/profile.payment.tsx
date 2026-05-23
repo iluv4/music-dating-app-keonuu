@@ -13,9 +13,8 @@ import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
-import { postApprovalDestination, requireUser } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
-import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
 import type { Gender } from "~/lib/db-types";
@@ -64,30 +63,15 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // 입금 없이도 바로 앱을 체험할 수 있도록 자동 승인.
-  // 본인이 직접 is_approved 를 바꾸면 guard_approval_change 트리거가 막으므로,
-  // service_role(admin) 클라이언트로 갱신해 가드를 우회한다.
-  // (입금/수동승인 모델을 다시 강제하려면 이 블록만 제거하면 됨)
-  const admin = getSupabaseAdmin();
-  // admin 클라이언트는 Database 제네릭 없이 생성돼 .update() 페이로드가 never 로 추론됨 → 캐스트
-  const { error: approveError } = await admin
-    .from("profiles")
-    .update({ is_approved: true } as never)
-    .eq("user_id", ctx.user.id);
-
-  if (approveError) {
-    console.error("[payment.auto-approve]", approveError);
-    // 자동 승인 실패 시 기존 흐름(승인 대기)으로 폴백
-    return redirect("/waiting", { headers: ctx.headers });
-  }
-
-  // 팀 채널에 가입/입금 신청 알림 (Slack Webhook 미설정 시 자동 no-op)
+  // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
+  // 가입/입금 신청을 팀 채널에 알려 관리자가 입금 내역과 대조해 승인하도록 한다.
+  // (Slack Webhook 미설정 시 자동 no-op)
   await notifySlack(
     buildPaymentNotice({ name, school, major, bankHolder, skipped: skip }),
   );
 
-  const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
-  return redirect(dest, { headers: ctx.headers });
+  // 입금 신청자 → 승인 대기 화면. 둘러보기만 원한 사람 → 익명 미리보기(탐색).
+  return redirect(skip ? "/explore" : "/waiting", { headers: ctx.headers });
 }
 
 export default function ProfilePayment() {

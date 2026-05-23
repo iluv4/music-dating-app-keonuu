@@ -8,6 +8,7 @@ import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser } from "~/lib/auth.server";
 import { getProfileFields } from "~/lib/repos/profiles.server";
+import { maskName } from "~/lib/format";
 
 type DiscoverMember = {
   user_id: string;
@@ -38,8 +39,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
         p_user_id: ctx.user.id,
       });
       if (error) console.error("[explore.list_discover_members]", error);
+      // 개인정보 보호: 실명은 마스킹해서만 클라이언트로 보낸다 (탐색에선 실명 비노출)
+      const members = ((data ?? []) as DiscoverMember[]).map((m) => ({
+        ...m,
+        name: maskName(m.name),
+      }));
       return json(
-        { guest: false, members: (data ?? []) as DiscoverMember[], preview: [] as PreviewMember[] },
+        { guest: false, members, preview: [] as PreviewMember[] },
         { headers: ctx.headers },
       );
     }
