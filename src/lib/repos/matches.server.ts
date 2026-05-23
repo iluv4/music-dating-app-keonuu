@@ -5,6 +5,7 @@ import type {
   MatchStatus,
   MatchWithPartner,
 } from "~/lib/db-types";
+import { maskName } from "~/lib/format";
 
 // matches 테이블 접근. RLS 가 적용된 server client 사용.
 // matches ↔ profiles 사이 직접 FK 가 없어 PostgREST 의 nested select 미사용.
@@ -114,7 +115,8 @@ export async function listUserMatches(
     return {
       matchId: m.id,
       partnerId,
-      partnerName: partner?.name ?? "이름 없음",
+      // 개인정보 보호: 상대 실명은 마스킹해서만 노출
+      partnerName: maskName(partner?.name),
       partnerSchool: partner?.school ?? "",
       partnerGender: partner?.gender ?? null,
       matchedAt: m.created_at,
@@ -161,7 +163,8 @@ export async function getMatchWithPartner(
   return {
     matchId: data.id,
     partnerId,
-    partnerName: partner?.name ?? "이름 없음",
+    // 개인정보 보호: 상대 실명은 마스킹해서만 노출
+    partnerName: maskName(partner?.name),
     partnerSchool: partner?.school ?? "",
     partnerGender: partner?.gender ?? null,
     matchedAt: data.created_at,
