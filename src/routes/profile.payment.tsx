@@ -16,6 +16,7 @@ import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { postApprovalDestination, requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
+import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
 import type { Gender } from "~/lib/db-types";
 
@@ -79,6 +80,11 @@ export async function action({ request }: ActionFunctionArgs) {
     // 자동 승인 실패 시 기존 흐름(승인 대기)으로 폴백
     return redirect("/waiting", { headers: ctx.headers });
   }
+
+  // 팀 채널에 가입/입금 신청 알림 (Slack Webhook 미설정 시 자동 no-op)
+  await notifySlack(
+    buildPaymentNotice({ name, school, major, bankHolder, skipped: skip }),
+  );
 
   const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
   return redirect(dest, { headers: ctx.headers });
