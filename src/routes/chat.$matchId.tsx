@@ -14,7 +14,6 @@ import {
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
-import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireMatchAccess } from "~/lib/auth.server";
 import {
@@ -274,7 +273,7 @@ export default function ChatRoom() {
   };
 
   return (
-    <PhoneFrame style={{ paddingBottom: "107px" }}>
+    <PhoneFrame style={{ paddingBottom: 0 }}>
       <StatusBar />
 
       {/* 헤더 */}
@@ -443,7 +442,7 @@ export default function ChatRoom() {
         <div
           style={{
             position: "fixed",
-            bottom: "107px",
+            bottom: "34px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "390px",
@@ -470,12 +469,13 @@ export default function ChatRoom() {
           onSubmit={send}
           style={{
             position: "fixed",
-            bottom: "107px",
+            bottom: "34px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "390px",
             padding: "10px 16px",
             background: "white",
+            borderTop: `1px solid ${COLORS.divider2}`,
             display: "flex",
             alignItems: "center",
             gap: "8px",
@@ -641,7 +641,6 @@ export default function ChatRoom() {
         </div>
       )}
 
-      <BottomNav active="chat" />
       <HomeIndicator />
     </PhoneFrame>
   );
