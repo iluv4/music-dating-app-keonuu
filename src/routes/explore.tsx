@@ -146,6 +146,9 @@ const MemberCard = ({ m, idx }: { m: DiscoverMember; idx: number }) => (
     >
       ♪ {Number(m.song_count)}곡
     </div>
+    <span style={{ color: COLORS.text.placeholder, fontSize: "18px", flexShrink: 0 }}>
+      ›
+    </span>
   </div>
 );
 
@@ -304,7 +307,13 @@ export default function Explore() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {data.members.map((m, i) => (
-              <MemberCard key={m.user_id} m={m} idx={i} />
+              <Link
+                key={m.user_id}
+                to={`/member/${m.user_id}`}
+                style={{ display: "block", textDecoration: "none" }}
+              >
+                <MemberCard m={m} idx={i} />
+              </Link>
             ))}
           </div>
         )}
