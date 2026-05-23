@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   json,
   redirect,
@@ -116,6 +116,24 @@ function formatBubbleTime(iso: string): string {
   const ampm = h >= 12 ? "오후" : "오전";
   const hh = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${ampm} ${hh}:${m}`;
+}
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso);
+  const yy = String(d.getFullYear()).slice(2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}. ${mm}. ${dd} (${WEEKDAYS[d.getDay()]})`;
+}
+function isSameDay(a: string, b: string): boolean {
+  const x = new Date(a);
+  const y = new Date(b);
+  return (
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
+  );
 }
 
 export default function ChatRoom() {
@@ -301,14 +319,15 @@ export default function ChatRoom() {
     <PhoneFrame style={{ paddingBottom: 0 }}>
       <StatusBar />
 
-      {/* 헤더 */}
+      {/* 헤더 — 이름 중앙정렬 (디자인 정합) */}
       <div
         style={{
           height: "52px",
-          padding: "0 16px",
+          padding: "0 8px",
+          position: "relative",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          justifyContent: "center",
           background: "white",
           borderBottom: "none",
         }}
@@ -318,36 +337,20 @@ export default function ChatRoom() {
           onClick={() => navigate("/music")}
           aria-label="back"
           style={{
+            position: "absolute",
+            left: "8px",
             fontSize: "22px",
             color: COLORS.text.secondary,
-            padding: "4px 6px",
+            padding: "4px 8px",
           }}
         >
           ‹
         </button>
-        <div
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            background: COLORS.accentSoft,
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src="/images/profile-mascot.png"
-            alt=""
-            style={{ width: "30px", height: "30px", objectFit: "contain" }}
-          />
-        </div>
         <span
           style={{
             ...TYPOGRAPHY.bodyBold,
+            fontSize: "17px",
             color: COLORS.text.primary,
-            flex: 1,
           }}
         >
           {match.partnerName}
@@ -357,6 +360,8 @@ export default function ChatRoom() {
             type="button"
             onClick={() => setShowEndConfirm(true)}
             style={{
+              position: "absolute",
+              right: "8px",
               ...TYPOGRAPHY.caption,
               color: COLORS.text.placeholder,
               padding: "6px 8px",
@@ -393,20 +398,56 @@ export default function ChatRoom() {
             아직 메시지가 없어요. 먼저 인사해보세요!
           </p>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, i) => {
           const fromMe = msg.sender_id === currentUserId;
+          const prev = i > 0 ? messages[i - 1] : null;
+          // 날짜가 바뀌면 구분선 표시
+          const showDate =
+            !prev || !isSameDay(prev.created_at, msg.created_at);
+          // 상대 메시지 묶음의 첫 줄에만 발신자 이름 표시
+          const showSenderName =
+            !fromMe && (showDate || !prev || prev.sender_id !== msg.sender_id);
           return (
-            <div
-              key={msg.id}
-              style={{
-                alignSelf: fromMe ? "flex-end" : "flex-start",
-                maxWidth: "75%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: fromMe ? "flex-end" : "flex-start",
-                gap: "4px",
-              }}
-            >
+            <Fragment key={msg.id}>
+              {showDate && (
+                <div
+                  style={{
+                    alignSelf: "center",
+                    margin: "6px 0",
+                    padding: "4px 12px",
+                    borderRadius: "12px",
+                    background: COLORS.cardBg,
+                    ...TYPOGRAPHY.tiny,
+                    fontSize: "11px",
+                    color: COLORS.text.helper,
+                  }}
+                >
+                  {formatDateLabel(msg.created_at)}
+                </div>
+              )}
+              {showSenderName && (
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    ...TYPOGRAPHY.caption,
+                    fontSize: "12px",
+                    color: COLORS.text.secondary,
+                    margin: "2px 0 0 2px",
+                  }}
+                >
+                  {match.partnerName}
+                </span>
+              )}
+              <div
+                style={{
+                  alignSelf: fromMe ? "flex-end" : "flex-start",
+                  maxWidth: "75%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: fromMe ? "flex-end" : "flex-start",
+                  gap: "4px",
+                }}
+              >
               {msg.image_url ? (
                 <a
                   href={msg.image_url}
@@ -457,7 +498,8 @@ export default function ChatRoom() {
               >
                 {formatBubbleTime(msg.created_at)}
               </span>
-            </div>
+              </div>
+            </Fragment>
           );
         })}
       </div>
