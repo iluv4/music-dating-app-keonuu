@@ -3,7 +3,13 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "@remix-run/node";
-import { Form, useLoaderData, useNavigation } from "@remix-run/react";
+import { useEffect, useRef } from "react";
+import {
+  Form,
+  useLoaderData,
+  useNavigation,
+  useSearchParams,
+} from "@remix-run/react";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
 
 // 입금 확인용 관리자 승인 화면.
@@ -87,11 +93,18 @@ export default function Admin() {
   const { pending } = useLoaderData<typeof loader>();
   const nav = useNavigation();
   const submitting = nav.state === "submitting";
-  // 승인 폼 재요청 시 같은 key를 다시 보내기 위해 현재 URL의 key 사용
-  const key =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("key") ?? ""
-      : "";
+  const [searchParams] = useSearchParams();
+  // 승인 폼 재요청 시 같은 key를 다시 보내기 위해 URL의 key 사용
+  const key = searchParams.get("key") ?? "";
+  // Slack 승인 링크로 진입 시 해당 신청자를 강조·스크롤
+  const focus = searchParams.get("focus");
+  const focusRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focus && focusRef.current) {
+      focusRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focus]);
 
   return (
     <div
@@ -115,11 +128,15 @@ export default function Admin() {
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {pending.map((p) => (
+          {pending.map((p) => {
+            const isFocused = focus === p.user_id;
+            return (
             <div
               key={p.user_id}
+              ref={isFocused ? focusRef : undefined}
               style={{
-                border: "1px solid #eee",
+                border: isFocused ? "2px solid #ff625d" : "1px solid #eee",
+                background: isFocused ? "#fff5f4" : "white",
                 borderRadius: "12px",
                 padding: "16px",
                 display: "flex",
@@ -170,7 +187,8 @@ export default function Admin() {
                 </button>
               </Form>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

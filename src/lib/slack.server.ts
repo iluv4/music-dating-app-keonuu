@@ -20,15 +20,22 @@ export async function notifySlack(text: string): Promise<void> {
   }
 }
 
+// 서비스 도메인 (관리자 승인 링크 생성용). 필요 시 env SITE_URL 로 오버라이드.
+const SITE_URL =
+  process.env.SITE_URL ?? "https://music-dating-app-keonuu.vercel.app";
+
 // 입금/가입 신청 알림 메시지 구성
+// ADMIN_KEY 가 설정돼 있으면 해당 신청자를 바로 강조하는 승인 화면 링크를 첨부한다.
+// (Slack 채널은 팀 전용이라 key 노출 허용 — 관리자 편의 우선)
 export function buildPaymentNotice(params: {
+  userId: string;
   name: string;
   school: string;
   major: string;
   bankHolder: string;
   skipped: boolean;
 }): string {
-  const { name, school, major, bankHolder, skipped } = params;
+  const { userId, name, school, major, bankHolder, skipped } = params;
   const lines = [
     "💸 *새 가입/입금 신청*",
     `• 이름: ${name}`,
@@ -37,5 +44,13 @@ export function buildPaymentNotice(params: {
       ? "• 입금: ⏭️ 나중에 입금(둘러보기)"
       : `• 입금자명: ${bankHolder || "-"}`,
   ];
+
+  const adminKey = process.env.ADMIN_KEY;
+  if (adminKey) {
+    const url = `${SITE_URL}/admin?key=${encodeURIComponent(
+      adminKey,
+    )}&focus=${encodeURIComponent(userId)}`;
+    lines.push(`• ✅ 승인하기: ${url}`);
+  }
   return lines.join("\n");
 }

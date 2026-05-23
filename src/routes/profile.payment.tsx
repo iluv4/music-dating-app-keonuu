@@ -67,7 +67,14 @@ export async function action({ request }: ActionFunctionArgs) {
   // 가입/입금 신청을 팀 채널에 알려 관리자가 입금 내역과 대조해 승인하도록 한다.
   // (Slack Webhook 미설정 시 자동 no-op)
   await notifySlack(
-    buildPaymentNotice({ name, school, major, bankHolder, skipped: skip }),
+    buildPaymentNotice({
+      userId: ctx.user.id,
+      name,
+      school,
+      major,
+      bankHolder,
+      skipped: skip,
+    }),
   );
 
   // 입금 신청자 → 승인 대기 화면. 둘러보기만 원한 사람 → 익명 미리보기(탐색).
