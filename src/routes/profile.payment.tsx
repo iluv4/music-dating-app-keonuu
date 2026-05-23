@@ -171,7 +171,7 @@ export default function ProfilePayment() {
               margin: 0,
             }}
           >
-            참가비 5,000원
+            참가비 1,000원
           </p>
         </div>
 
