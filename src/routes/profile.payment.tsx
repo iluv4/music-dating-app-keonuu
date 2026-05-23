@@ -13,8 +13,9 @@ import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
-import { requireUser } from "~/lib/auth.server";
+import { postApprovalDestination, requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
+import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
 import type { Gender } from "~/lib/db-types";
 
@@ -24,6 +25,9 @@ export async function action({ request }: ActionFunctionArgs) {
   const ctx = await requireUser(request);
   const fd = await request.formData();
 
+  // intent === "skip" → "나중에 입금할게요" (입금자명 없이 통과)
+  const skip = String(fd.get("intent") ?? "submit") === "skip";
+
   const name = String(fd.get("name") ?? "").trim();
   const birthYearStr = String(fd.get("birth_year") ?? "").trim();
   const gender = String(fd.get("gender") ?? "").trim() || null;
@@ -32,7 +36,8 @@ export async function action({ request }: ActionFunctionArgs) {
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
 
   const birthYear = Number(birthYearStr);
-  if (!name || !birthYear || !school || !major || !bankHolder) {
+  // 스킵이 아니면 입금자명 필수
+  if (!name || !birthYear || !school || !major || (!skip && !bankHolder)) {
     return json<ActionData>(
       {
         error: "프로필 정보가 누락됐어요. 이전 단계로 돌아가 다시 진행해주세요.",
@@ -58,8 +63,25 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // 가입 직후는 미승인 상태 → 승인 대기 화면으로 바로 이동
-  return redirect("/waiting", { headers: ctx.headers });
+  // 입금 없이도 바로 앱을 체험할 수 있도록 자동 승인.
+  // 본인이 직접 is_approved 를 바꾸면 guard_approval_change 트리거가 막으므로,
+  // service_role(admin) 클라이언트로 갱신해 가드를 우회한다.
+  // (입금/수동승인 모델을 다시 강제하려면 이 블록만 제거하면 됨)
+  const admin = getSupabaseAdmin();
+  // admin 클라이언트는 Database 제네릭 없이 생성돼 .update() 페이로드가 never 로 추론됨 → 캐스트
+  const { error: approveError } = await admin
+    .from("profiles")
+    .update({ is_approved: true } as never)
+    .eq("user_id", ctx.user.id);
+
+  if (approveError) {
+    console.error("[payment.auto-approve]", approveError);
+    // 자동 승인 실패 시 기존 흐름(승인 대기)으로 폴백
+    return redirect("/waiting", { headers: ctx.headers });
+  }
+
+  const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
+  return redirect(dest, { headers: ctx.headers });
 }
 
 export default function ProfilePayment() {
@@ -200,13 +222,40 @@ export default function ProfilePayment() {
           style={{
             position: "absolute",
             bottom: "34px",
-            left: "50%",
-            transform: "translateX(-50%)",
+            left: 0,
+            right: 0,
+            padding: "0 25px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
           }}
         >
-          <PrimaryButton type="submit" disabled={!canSubmit}>
-            {submitting ? "저장 중..." : "확인"}
+          <PrimaryButton
+            type="submit"
+            disabled={!canSubmit}
+            style={{ width: "100%" }}
+          >
+            {submitting ? "저장 중..." : "입금 완료했어요"}
           </PrimaryButton>
+          <button
+            type="submit"
+            name="intent"
+            value="skip"
+            disabled={!hydrated || !profile?.name || submitting}
+            style={{
+              ...TYPOGRAPHY.label,
+              color: COLORS.text.helper,
+              textDecoration: "underline",
+              textUnderlineOffset: "3px",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+            }}
+          >
+            나중에 입금할게요 (먼저 둘러보기)
+          </button>
         </div>
       </Form>
       <HomeIndicator />
