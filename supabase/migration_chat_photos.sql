@@ -10,16 +10,19 @@
 alter table public.messages
   add column if not exists image_url text;
 
--- 2) 스토리지 버킷 (공개 읽기) ---------------------------------
+-- 2) 스토리지 버킷 (비공개) ------------------------------------
+-- 비공개 → public URL 없음. 클라이언트가 인증 상태로 서명 URL(createSignedUrl) 생성해 렌더.
 insert into storage.buckets (id, name, public)
-values ('chat-images', 'chat-images', true)
-on conflict (id) do update set public = true;
+values ('chat-images', 'chat-images', false)
+on conflict (id) do update set public = false;
 
 -- 3) 스토리지 RLS 정책 ----------------------------------------
--- 읽기: 공개 (채팅 이미지 URL 직접 접근). 쓰기: 인증 사용자만 chat-images 에.
+-- 읽기: 인증 사용자만 (서명 URL 생성용). 쓰기: 인증 사용자만 chat-images 에.
 drop policy if exists "chat_images_public_read" on storage.objects;
-create policy "chat_images_public_read"
+drop policy if exists "chat_images_authenticated_read" on storage.objects;
+create policy "chat_images_authenticated_read"
   on storage.objects for select
+  to authenticated
   using (bucket_id = 'chat-images');
 
 drop policy if exists "chat_images_authenticated_insert" on storage.objects;

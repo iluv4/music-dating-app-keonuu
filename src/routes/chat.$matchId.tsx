@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   json,
   redirect,
@@ -73,19 +73,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // 일반 메시지 전송 (텍스트 또는 사진)
   const content = String(fd.get("content") ?? "");
-  const imageUrlRaw = String(fd.get("image_url") ?? "").trim();
-  // 업로드는 클라이언트가 Supabase Storage 에 직접 → 여기엔 public URL 만 전달.
-  // 우리 스토리지의 chat-images 버킷 public URL 만 허용 (임의 외부 URL 주입 차단).
-  // SUPABASE_URL 의 trailing slash 유무에 흔들리지 않도록 정규화 후 비교.
-  const storageBase = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
-  const allowedPrefix = `${storageBase}/storage/v1/object/public/chat-images/`;
+  const imagePathRaw = String(fd.get("image_url") ?? "").trim();
+  // 비공개 chat-images 버킷에 업로드된 "경로"만 저장 (public URL 없음).
+  // 이 매칭 폴더(`${matchId}/...`) 안의 안전한 경로만 허용 — 타 매칭/외부 주입 차단.
   const imageUrl =
-    imageUrlRaw && imageUrlRaw.startsWith(allowedPrefix) ? imageUrlRaw : null;
-  // 이미지 URL 을 보냈는데 검증에서 떨어졌다면 조용히 삼키지 말고 알려준다.
-  if (imageUrlRaw && !imageUrl) {
-    console.error("[chat.image] rejected url", { imageUrlRaw, allowedPrefix });
+    imagePathRaw &&
+    imagePathRaw.startsWith(`${matchId}/`) &&
+    !imagePathRaw.includes("..") &&
+    !imagePathRaw.includes("://")
+      ? imagePathRaw
+      : null;
+  if (imagePathRaw && !imageUrl) {
+    console.error("[chat.image] rejected path", { imagePathRaw, matchId });
     return json(
-      { error: "사진 주소가 올바르지 않아요. 다시 시도해주세요." },
+      { error: "사진 경로가 올바르지 않아요. 다시 시도해주세요." },
       { status: 400, headers: ctx.headers },
     );
   }
@@ -118,6 +119,24 @@ function formatBubbleTime(iso: string): string {
   return `${ampm} ${hh}:${m}`;
 }
 
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso);
+  const yy = String(d.getFullYear()).slice(2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}. ${mm}. ${dd} (${WEEKDAYS[d.getDay()]})`;
+}
+function isSameDay(a: string, b: string): boolean {
+  const x = new Date(a);
+  const y = new Date(b);
+  return (
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
+  );
+}
+
 export default function ChatRoom() {
   const { match, currentUserId, messages: initial } =
     useLoaderData<typeof loader>();
@@ -136,6 +155,8 @@ export default function ChatRoom() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // 사진 메시지: image_url 은 비공개 버킷 경로 → 서명 URL 로 변환해 렌더
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -154,6 +175,40 @@ export default function ChatRoom() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  }, [messages]);
+
+  // 사진 메시지 경로 → 서명 URL 변환 (비공개 버킷)
+  useEffect(() => {
+    const paths = Array.from(
+      new Set(
+        messages
+          .map((m) => m.image_url)
+          .filter((p): p is string => !!p),
+      ),
+    );
+    if (paths.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const env = getClientEnv();
+      const supabase = getSupabaseBrowser({
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      });
+      const { data, error } = await supabase.storage
+        .from("chat-images")
+        .createSignedUrls(paths, 3600);
+      if (cancelled || error || !data) return;
+      setImageUrls((prev) => {
+        const next = { ...prev };
+        for (const item of data) {
+          if (item.path && item.signedUrl) next[item.path] = item.signedUrl;
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [messages]);
 
   // Realtime 구독 — 세션 먼저 가져와서 realtime.setAuth 명시 후 subscribe
@@ -282,9 +337,9 @@ export default function ChatRoom() {
         .upload(path, file, { contentType: file.type, upsert: false });
       if (error) throw error;
 
-      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
+      // 비공개 버킷 → public URL 없음. 경로만 저장하고 렌더 시 서명 URL 생성.
       const fd = new FormData();
-      fd.set("image_url", data.publicUrl);
+      fd.set("image_url", path);
       sendFetcher.submit(fd, { method: "post" });
       capture("message.sent", { match_id: matchId, has_image: true });
     } catch (err) {
@@ -301,14 +356,15 @@ export default function ChatRoom() {
     <PhoneFrame style={{ paddingBottom: 0 }}>
       <StatusBar />
 
-      {/* 헤더 */}
+      {/* 헤더 — 이름 중앙정렬 (디자인 정합) */}
       <div
         style={{
           height: "52px",
-          padding: "0 16px",
+          padding: "0 8px",
+          position: "relative",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          justifyContent: "center",
           background: "white",
           borderBottom: "none",
         }}
@@ -318,36 +374,20 @@ export default function ChatRoom() {
           onClick={() => navigate("/music")}
           aria-label="back"
           style={{
+            position: "absolute",
+            left: "8px",
             fontSize: "22px",
             color: COLORS.text.secondary,
-            padding: "4px 6px",
+            padding: "4px 8px",
           }}
         >
           ‹
         </button>
-        <div
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            background: COLORS.accentSoft,
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src="/images/profile-mascot.png"
-            alt=""
-            style={{ width: "30px", height: "30px", objectFit: "contain" }}
-          />
-        </div>
         <span
           style={{
             ...TYPOGRAPHY.bodyBold,
+            fontSize: "17px",
             color: COLORS.text.primary,
-            flex: 1,
           }}
         >
           {match.partnerName}
@@ -357,6 +397,8 @@ export default function ChatRoom() {
             type="button"
             onClick={() => setShowEndConfirm(true)}
             style={{
+              position: "absolute",
+              right: "8px",
               ...TYPOGRAPHY.caption,
               color: COLORS.text.placeholder,
               padding: "6px 8px",
@@ -393,43 +435,98 @@ export default function ChatRoom() {
             아직 메시지가 없어요. 먼저 인사해보세요!
           </p>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, i) => {
           const fromMe = msg.sender_id === currentUserId;
+          const prev = i > 0 ? messages[i - 1] : null;
+          // 날짜가 바뀌면 구분선 표시
+          const showDate =
+            !prev || !isSameDay(prev.created_at, msg.created_at);
+          // 상대 메시지 묶음의 첫 줄에만 발신자 이름 표시
+          const showSenderName =
+            !fromMe && (showDate || !prev || prev.sender_id !== msg.sender_id);
           return (
-            <div
-              key={msg.id}
-              style={{
-                alignSelf: fromMe ? "flex-end" : "flex-start",
-                maxWidth: "75%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: fromMe ? "flex-end" : "flex-start",
-                gap: "4px",
-              }}
-            >
-              {msg.image_url ? (
-                <a
-                  href={msg.image_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
+            <Fragment key={msg.id}>
+              {showDate && (
+                <div
+                  style={{
+                    alignSelf: "center",
+                    margin: "6px 0",
+                    padding: "4px 12px",
+                    borderRadius: "12px",
+                    background: COLORS.cardBg,
+                    ...TYPOGRAPHY.tiny,
+                    fontSize: "11px",
+                    color: COLORS.text.helper,
+                  }}
                 >
-                  <img
-                    src={msg.image_url}
-                    alt="사진 메시지"
-                    loading="lazy"
+                  {formatDateLabel(msg.created_at)}
+                </div>
+              )}
+              {showSenderName && (
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    ...TYPOGRAPHY.caption,
+                    fontSize: "12px",
+                    color: COLORS.text.secondary,
+                    margin: "2px 0 0 2px",
+                  }}
+                >
+                  {match.partnerName}
+                </span>
+              )}
+              <div
+                style={{
+                  alignSelf: fromMe ? "flex-end" : "flex-start",
+                  maxWidth: "75%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: fromMe ? "flex-end" : "flex-start",
+                  gap: "4px",
+                }}
+              >
+              {msg.image_url ? (
+                imageUrls[msg.image_url] ? (
+                  <a
+                    href={imageUrls[msg.image_url]}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
+                  >
+                    <img
+                      src={imageUrls[msg.image_url]}
+                      alt="사진 메시지"
+                      loading="lazy"
+                      style={{
+                        display: "block",
+                        maxWidth: "220px",
+                        maxHeight: "280px",
+                        width: "auto",
+                        height: "auto",
+                        borderRadius: "16px",
+                        objectFit: "cover",
+                        background: COLORS.cardBg,
+                      }}
+                    />
+                  </a>
+                ) : (
+                  // 서명 URL 로딩 중 placeholder
+                  <div
                     style={{
-                      display: "block",
-                      maxWidth: "220px",
-                      maxHeight: "280px",
-                      width: "auto",
-                      height: "auto",
+                      width: "180px",
+                      height: "180px",
                       borderRadius: "16px",
-                      objectFit: "cover",
                       background: COLORS.cardBg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      ...TYPOGRAPHY.caption,
+                      color: COLORS.text.placeholder,
                     }}
-                  />
-                </a>
+                  >
+                    사진 불러오는 중…
+                  </div>
+                )
               ) : null}
               {msg.content ? (
                 <div
@@ -457,7 +554,8 @@ export default function ChatRoom() {
               >
                 {formatBubbleTime(msg.created_at)}
               </span>
-            </div>
+              </div>
+            </Fragment>
           );
         })}
       </div>
