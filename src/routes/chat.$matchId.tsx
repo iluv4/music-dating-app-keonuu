@@ -73,19 +73,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // 일반 메시지 전송 (텍스트 또는 사진)
   const content = String(fd.get("content") ?? "");
-  const imageUrlRaw = String(fd.get("image_url") ?? "").trim();
-  // 업로드는 클라이언트가 Supabase Storage 에 직접 → 여기엔 public URL 만 전달.
-  // 우리 스토리지의 chat-images 버킷 public URL 만 허용 (임의 외부 URL 주입 차단).
-  // SUPABASE_URL 의 trailing slash 유무에 흔들리지 않도록 정규화 후 비교.
-  const storageBase = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
-  const allowedPrefix = `${storageBase}/storage/v1/object/public/chat-images/`;
+  const imagePathRaw = String(fd.get("image_url") ?? "").trim();
+  // 비공개 chat-images 버킷에 업로드된 "경로"만 저장 (public URL 없음).
+  // 이 매칭 폴더(`${matchId}/...`) 안의 안전한 경로만 허용 — 타 매칭/외부 주입 차단.
   const imageUrl =
-    imageUrlRaw && imageUrlRaw.startsWith(allowedPrefix) ? imageUrlRaw : null;
-  // 이미지 URL 을 보냈는데 검증에서 떨어졌다면 조용히 삼키지 말고 알려준다.
-  if (imageUrlRaw && !imageUrl) {
-    console.error("[chat.image] rejected url", { imageUrlRaw, allowedPrefix });
+    imagePathRaw &&
+    imagePathRaw.startsWith(`${matchId}/`) &&
+    !imagePathRaw.includes("..") &&
+    !imagePathRaw.includes("://")
+      ? imagePathRaw
+      : null;
+  if (imagePathRaw && !imageUrl) {
+    console.error("[chat.image] rejected path", { imagePathRaw, matchId });
     return json(
-      { error: "사진 주소가 올바르지 않아요. 다시 시도해주세요." },
+      { error: "사진 경로가 올바르지 않아요. 다시 시도해주세요." },
       { status: 400, headers: ctx.headers },
     );
   }
@@ -154,6 +155,8 @@ export default function ChatRoom() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // 사진 메시지: image_url 은 비공개 버킷 경로 → 서명 URL 로 변환해 렌더
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,6 +175,40 @@ export default function ChatRoom() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  }, [messages]);
+
+  // 사진 메시지 경로 → 서명 URL 변환 (비공개 버킷)
+  useEffect(() => {
+    const paths = Array.from(
+      new Set(
+        messages
+          .map((m) => m.image_url)
+          .filter((p): p is string => !!p),
+      ),
+    );
+    if (paths.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const env = getClientEnv();
+      const supabase = getSupabaseBrowser({
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      });
+      const { data, error } = await supabase.storage
+        .from("chat-images")
+        .createSignedUrls(paths, 3600);
+      if (cancelled || error || !data) return;
+      setImageUrls((prev) => {
+        const next = { ...prev };
+        for (const item of data) {
+          if (item.path && item.signedUrl) next[item.path] = item.signedUrl;
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [messages]);
 
   // Realtime 구독 — 세션 먼저 가져와서 realtime.setAuth 명시 후 subscribe
@@ -300,9 +337,9 @@ export default function ChatRoom() {
         .upload(path, file, { contentType: file.type, upsert: false });
       if (error) throw error;
 
-      const { data } = supabase.storage.from("chat-images").getPublicUrl(path);
+      // 비공개 버킷 → public URL 없음. 경로만 저장하고 렌더 시 서명 URL 생성.
       const fd = new FormData();
-      fd.set("image_url", data.publicUrl);
+      fd.set("image_url", path);
       sendFetcher.submit(fd, { method: "post" });
       capture("message.sent", { match_id: matchId, has_image: true });
     } catch (err) {
@@ -449,28 +486,47 @@ export default function ChatRoom() {
                 }}
               >
               {msg.image_url ? (
-                <a
-                  href={msg.image_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
-                >
-                  <img
-                    src={msg.image_url}
-                    alt="사진 메시지"
-                    loading="lazy"
+                imageUrls[msg.image_url] ? (
+                  <a
+                    href={imageUrls[msg.image_url]}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
+                  >
+                    <img
+                      src={imageUrls[msg.image_url]}
+                      alt="사진 메시지"
+                      loading="lazy"
+                      style={{
+                        display: "block",
+                        maxWidth: "220px",
+                        maxHeight: "280px",
+                        width: "auto",
+                        height: "auto",
+                        borderRadius: "16px",
+                        objectFit: "cover",
+                        background: COLORS.cardBg,
+                      }}
+                    />
+                  </a>
+                ) : (
+                  // 서명 URL 로딩 중 placeholder
+                  <div
                     style={{
-                      display: "block",
-                      maxWidth: "220px",
-                      maxHeight: "280px",
-                      width: "auto",
-                      height: "auto",
+                      width: "180px",
+                      height: "180px",
                       borderRadius: "16px",
-                      objectFit: "cover",
                       background: COLORS.cardBg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      ...TYPOGRAPHY.caption,
+                      color: COLORS.text.placeholder,
                     }}
-                  />
-                </a>
+                  >
+                    사진 불러오는 중…
+                  </div>
+                )
               ) : null}
               {msg.content ? (
                 <div
