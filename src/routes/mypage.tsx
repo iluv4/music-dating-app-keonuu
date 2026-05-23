@@ -115,30 +115,33 @@ export default function MyPage() {
             {profile?.name ?? "사용자"}
           </h2>
 
-          {/* 승인 상태 배지 */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "5px 12px",
-              borderRadius: "999px",
-              background: profile?.is_approved ? "#e8f5ee" : COLORS.accentSoft,
-              color: profile?.is_approved ? "#2c8a4f" : COLORS.accent,
-              ...TYPOGRAPHY.caption,
-              fontWeight: 600,
-              marginBottom: "16px",
-            }}
-          >
-            <span
+          {/* 승인 상태 배지 (버튼과 세로로 분리해 간격 확보) */}
+          <div style={{ marginBottom: "16px" }}>
+            <div
               style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                background: profile?.is_approved ? "#2c8a4f" : COLORS.accent,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "5px 12px",
+                borderRadius: "999px",
+                background: profile?.is_approved
+                  ? "#e8f5ee"
+                  : COLORS.accentSoft,
+                color: profile?.is_approved ? "#2c8a4f" : COLORS.accent,
+                ...TYPOGRAPHY.caption,
+                fontWeight: 600,
               }}
-            />
-            {profile?.is_approved ? "승인 완료" : "관리자 승인 대기 중"}
+            >
+              <span
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  borderRadius: "50%",
+                  background: profile?.is_approved ? "#2c8a4f" : COLORS.accent,
+                }}
+              />
+              {profile?.is_approved ? "승인 완료" : "관리자 승인 대기 중"}
+            </div>
           </div>
           <SmallButton onClick={() => navigate("/profile/edit")}>
             내 정보 수정

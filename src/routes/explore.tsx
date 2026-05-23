@@ -322,11 +322,13 @@ export default function Explore() {
             paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
             background: "white",
             borderTop: `1px solid ${COLORS.divider2}`,
+            display: "flex",
+            justifyContent: "center",
             zIndex: 10,
           }}
         >
-          <Link to="/welcome" style={{ display: "block" }}>
-            <PrimaryButton style={{ width: "100%" }}>
+          <Link to="/welcome" style={{ display: "block", width: "100%" }}>
+            <PrimaryButton style={{ width: "100%", maxWidth: "none" }}>
               가입하고 매칭 시작하기
             </PrimaryButton>
           </Link>

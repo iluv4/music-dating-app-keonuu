@@ -1,30 +1,5 @@
-import { FRAME } from "~/lib/constants";
-
-export const HomeIndicator = () => {
-  return (
-    <div
-      style={{
-        width: FRAME.width,
-        height: FRAME.homeIndicatorHeight,
-        background: "white",
-        position: "relative",
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          bottom: "8.57px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "138.789px",
-          height: "4.604px",
-          background: "black",
-          borderRadius: "100px",
-        }}
-      />
-    </div>
-  );
-};
+// 홈 인디케이터(하단 검정 바)는 피드백에 따라 제거됨.
+// 호출부 변경 없이 비우기 위해 컴포넌트는 유지하되 아무것도 렌더링하지 않는다.
+export const HomeIndicator = () => null;
 
 export default HomeIndicator;
