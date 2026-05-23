@@ -107,6 +107,19 @@ export default function Welcome() {
             로그인
           </Link>
         </div>
+
+        <Link
+          to="/explore"
+          style={{
+            ...TYPOGRAPHY.label,
+            color: COLORS.text.helper,
+            textDecoration: "underline",
+            textUnderlineOffset: "3px",
+            marginTop: "2px",
+          }}
+        >
+          로그인 없이 먼저 둘러볼게요
+        </Link>
       </div>
 
       <HomeIndicator />
