@@ -4,6 +4,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import ProgressDots from "~/components/ProgressDots";
 import TextInput from "~/components/TextInput";
+import DeptSelect from "~/components/DeptSelect";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
@@ -70,12 +71,10 @@ export default function ProfileSchool() {
             value={state.school}
             onChange={(e) => update({ school: e.target.value })}
           />
-          <TextInput
+          <DeptSelect
             label="학과"
-            type="text"
-            placeholder="커뮤니케이션 디자인"
             value={state.major}
-            onChange={(e) => update({ major: e.target.value })}
+            onChange={(major) => update({ major })}
           />
         </div>
       </div>
