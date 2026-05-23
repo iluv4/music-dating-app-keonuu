@@ -14,6 +14,9 @@ import { initAnalytics } from "~/lib/analytics.client";
 import GlobalLoadingBar from "~/components/GlobalLoadingBar";
 
 export const links: LinksFunction = () => [
+  // 파비콘 (브랜드 로고) — /favicon.ico 404 제거
+  { rel: "icon", type: "image/png", href: "/images/logo.png" },
+  { rel: "apple-touch-icon", href: "/images/logo.png" },
   // Pretendard is NOT on Google Fonts; the old URL 404'd and blocked render.
   { rel: "preconnect", href: "https://cdn.jsdelivr.net", crossOrigin: "anonymous" },
   {
@@ -25,6 +28,11 @@ export const links: LinksFunction = () => [
 export const meta: MetaFunction = () => [
   { charset: "utf-8" },
   { name: "viewport", content: "width=device-width,initial-scale=1" },
+  { title: "뮤직매치 · 음악 취향으로 만나는 인연" },
+  {
+    name: "description",
+    content: "같은 노래를 고른 사람과 매칭되어 대화를 시작하는 음악 취향 기반 소개팅 앱",
+  },
 ];
 
 // 브라우저 Supabase 클라이언트(Realtime) + PostHog 용 공개 키 노출
