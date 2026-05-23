@@ -75,12 +75,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const content = String(fd.get("content") ?? "");
   const imageUrlRaw = String(fd.get("image_url") ?? "").trim();
   // 업로드는 클라이언트가 Supabase Storage 에 직접 → 여기엔 public URL 만 전달.
-  // 우리 스토리지 도메인의 URL 만 허용 (임의 외부 URL 주입 차단).
+  // 우리 스토리지의 chat-images 버킷 public URL 만 허용 (임의 외부 URL 주입 차단).
+  // SUPABASE_URL 의 trailing slash 유무에 흔들리지 않도록 정규화 후 비교.
+  const storageBase = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
+  const allowedPrefix = `${storageBase}/storage/v1/object/public/chat-images/`;
   const imageUrl =
-    imageUrlRaw &&
-    imageUrlRaw.startsWith(`${process.env.SUPABASE_URL}/storage/v1/object/public/`)
-      ? imageUrlRaw
-      : null;
+    imageUrlRaw && imageUrlRaw.startsWith(allowedPrefix) ? imageUrlRaw : null;
+  // 이미지 URL 을 보냈는데 검증에서 떨어졌다면 조용히 삼키지 말고 알려준다.
+  if (imageUrlRaw && !imageUrl) {
+    console.error("[chat.image] rejected url", { imageUrlRaw, allowedPrefix });
+    return json(
+      { error: "사진 주소가 올바르지 않아요. 다시 시도해주세요." },
+      { status: 400, headers: ctx.headers },
+    );
+  }
   const result = await sendMessage(
     ctx.supabase,
     matchId,
@@ -202,10 +210,16 @@ export default function ChatRoom() {
   }, [matchId, currentUserId]);
 
   // sendFetcher 성공 시: 입력 비움 + 메시지 즉시 표시 (Realtime 실패해도 본인은 봄)
+  // 실패 시(텍스트·사진 공통): 서버 에러를 화면에 노출
   useEffect(() => {
     if (sendFetcher.state !== "idle") return;
+    if (sendFetcher.data?.error) {
+      setUploadError(sendFetcher.data.error);
+      return;
+    }
     const newMsg = sendFetcher.data?.message;
     if (!newMsg) return;
+    setUploadError(null);
     setMessages((prev) => {
       if (prev.some((m) => m.id === newMsg.id)) return prev;
       return [...prev, newMsg];
@@ -252,6 +266,15 @@ export default function ChatRoom() {
         url: env.SUPABASE_URL,
         anonKey: env.SUPABASE_ANON_KEY,
       });
+      // 스토리지 insert 정책은 authenticated 전용 → 세션이 붙어있어야 업로드 가능.
+      // 세션이 없으면 anon 으로 올라가 RLS 에 막히므로 먼저 확인한다.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setUploadError("로그인이 만료됐어요. 새로고침 후 다시 시도해주세요.");
+        return;
+      }
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${matchId}/${currentUserId}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
@@ -265,8 +288,10 @@ export default function ChatRoom() {
       sendFetcher.submit(fd, { method: "post" });
       capture("message.sent", { match_id: matchId, has_image: true });
     } catch (err) {
+      // 실제 원인을 화면·콘솔에 노출해 디버깅 가능하게 (이전엔 항상 같은 메시지라 원인 불명)
+      const msg = err instanceof Error ? err.message : String(err);
       console.error("[chat photo upload]", err);
-      setUploadError("사진 전송에 실패했어요. 잠시 후 다시 시도해주세요.");
+      setUploadError(`사진 전송 실패: ${msg}`);
     } finally {
       setUploading(false);
     }

@@ -96,9 +96,3 @@ a {
     background: #ffffff;
   }
 }
-
-/* 전역 로딩바 (GlobalLoadingBar) — 화면 전환 중 상단 진행바 */
-@keyframes loadingbar-slide {
-  0% { left: -40%; }
-  100% { left: 100%; }
-}
