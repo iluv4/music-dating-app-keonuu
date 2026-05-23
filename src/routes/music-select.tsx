@@ -316,12 +316,16 @@ export default function MusicSelect() {
         style={{
           position: "absolute",
           bottom: "34px",
-          left: "50%",
-          transform: "translateX(-50%)",
+          left: "25px",
+          right: "25px",
         }}
       >
         <input type="hidden" name="songs" value={JSON.stringify(songs)} />
-        <PrimaryButton type="submit" disabled={!canSubmit}>
+        <PrimaryButton
+          type="submit"
+          disabled={!canSubmit}
+          style={{ maxWidth: "none" }}
+        >
           {submitting ? "저장 중..." : "매칭하러 가기"}
         </PrimaryButton>
       </Form>

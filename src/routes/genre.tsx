@@ -187,9 +187,8 @@ export default function Genre() {
                         height: "100%",
                         objectFit: "cover",
                         display: "block",
-                        filter: isSelected
-                          ? "grayscale(1) brightness(0.6)"
-                          : "none",
+                        // 미선택 = 흑백, 선택 = 컬러 (팀 피드백: 기존과 반대로)
+                        filter: isSelected ? "none" : "grayscale(1) brightness(0.85)",
                         transition: "filter 0.15s",
                       }}
                     />
@@ -204,7 +203,13 @@ export default function Genre() {
                         justifyContent: "center",
                       }}
                     >
-                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                      <svg
+                        width="30"
+                        height="30"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.55))" }}
+                      >
                         <path
                           d="M5 12.5L10 17.5L19 7"
                           stroke="white"
@@ -235,13 +240,14 @@ export default function Genre() {
         style={{
           position: "absolute",
           bottom: "34px",
-          left: "50%",
-          transform: "translateX(-50%)",
+          left: "25px",
+          right: "25px",
         }}
       >
         <PrimaryButton
           disabled={selected.size === 0}
           onClick={() => navigate("/music-select")}
+          style={{ maxWidth: "none" }}
         >
           지금하기
         </PrimaryButton>
