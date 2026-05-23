@@ -366,7 +366,7 @@ export default function Music() {
               <Form method="post">
                 <button
                   type="submit"
-                  disabled={matching}
+                  disabled={matching || noCandidate}
                   onClick={() =>
                     capture("match.search_started", {
                       song_count: songs.length,
@@ -375,12 +375,18 @@ export default function Music() {
                   style={{
                     ...ctaBase,
                     marginTop: "18px",
-                    background: COLORS.accent,
+                    // 한 번 시도해 후보가 없으면 회색 비활성 → 연타 방지(팀 피드백)
+                    background: noCandidate ? COLORS.cardBorder : COLORS.accent,
                     color: "white",
+                    cursor: matching || noCandidate ? "not-allowed" : "pointer",
                     opacity: matching ? 0.7 : 1,
                   }}
                 >
-                  {matching ? "매칭 중..." : "매칭 찾기"}
+                  {matching
+                    ? "매칭 중..."
+                    : noCandidate
+                      ? "잠시 후 다시 시도"
+                      : "매칭 찾기"}
                 </button>
               </Form>
             </>
