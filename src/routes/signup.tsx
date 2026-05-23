@@ -201,11 +201,16 @@ export default function Signup() {
           style={{
             position: "absolute",
             bottom: "34px",
-            left: "50%",
-            transform: "translateX(-50%)",
+            left: 0,
+            right: 0,
+            padding: "0 25px",
           }}
         >
-          <PrimaryButton type="submit" disabled={!canSubmit}>
+          <PrimaryButton
+            type="submit"
+            disabled={!canSubmit}
+            style={{ width: "100%" }}
+          >
             {submitting ? "가입 중..." : "가입하기"}
           </PrimaryButton>
         </div>
