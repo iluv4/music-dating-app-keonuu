@@ -38,9 +38,32 @@ export async function action({ request }: ActionFunctionArgs) {
     return json<ActionData>({ error: "비밀번호가 일치하지 않습니다." }, { status: 400 });
   }
 
+  const admin = getSupabaseAdmin();
+
+  // 0) 가입 남용 방지 — IP당 최근 1시간 5회 제한.
+  //    공개 액션이 service_role 로 무제한 계정 생성하는 걸 막는다.
+  const ip =
+    (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const SIGNUP_LIMIT = 5;
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: recentAttempts } = await admin
+    .from("signup_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .gte("created_at", since);
+  if ((recentAttempts ?? 0) >= SIGNUP_LIMIT) {
+    return json<ActionData>(
+      { error: "가입 시도가 너무 많아요. 잠시 후 다시 시도해주세요." },
+      { status: 429 },
+    );
+  }
+  // 시도 기록 (성공/실패 무관하게 카운트). admin 클라가 untyped 라 insert 인자 캐스팅.
+  await admin.from("signup_attempts").insert({ ip } as never);
+
   // 1) admin API 로 사용자 생성 (이메일 발송 안 함, 자동 인증)
   //    무료 티어의 이메일 rate limit 회피 + 즉시 사용 가능
-  const admin = getSupabaseAdmin();
   const { error: createError } = await admin.auth.admin.createUser({
     email,
     password,

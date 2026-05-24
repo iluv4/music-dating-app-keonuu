@@ -138,7 +138,7 @@ export default function MemberDetail() {
               width: "88px",
               height: "88px",
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #ff7aa6 0%, #ff0558 100%)",
+              background: `linear-gradient(135deg, #ff9b97 0%, ${COLORS.accent} 100%)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
