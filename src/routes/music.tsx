@@ -200,7 +200,7 @@ const SongCard = ({ song }: { song: Song }) => (
 const ctaBase = {
   width: "100%",
   height: "48px",
-  borderRadius: RADIUS.pill,
+  borderRadius: RADIUS.button,
   ...TYPOGRAPHY.bodyBold,
   fontSize: "15px",
   border: "none",
