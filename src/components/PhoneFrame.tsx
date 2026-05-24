@@ -9,6 +9,7 @@ type PhoneFrameProps = {
 export const PhoneFrame = ({ children, style }: PhoneFrameProps) => {
   return (
     <div
+      className="app-screen"
       style={{
         width: FRAME.width,
         minHeight: "100vh",

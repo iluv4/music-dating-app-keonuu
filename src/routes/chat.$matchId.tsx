@@ -776,6 +776,7 @@ export default function ChatRoom() {
       {/* 채팅 끊기 확인 모달 */}
       {showEndConfirm && (
         <div
+          className="overlay-in"
           onClick={() => !ending && setShowEndConfirm(false)}
           style={{
             position: "fixed",
@@ -788,6 +789,7 @@ export default function ChatRoom() {
           }}
         >
           <div
+            className="pop-in"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "300px",

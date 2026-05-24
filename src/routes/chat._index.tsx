@@ -122,6 +122,7 @@ export default function ChatList() {
               <Link
                 key={m.matchId}
                 to={`/chat/${m.matchId}`}
+                className="tappable"
                 style={{
                   display: "flex",
                   alignItems: "center",

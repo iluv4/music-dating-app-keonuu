@@ -384,6 +384,7 @@ export default function Signup() {
       {/* 약관 전문 모달 */}
       {viewing && (
         <div
+          className="overlay-in"
           style={{
             position: "fixed",
             inset: 0,
@@ -396,6 +397,7 @@ export default function Signup() {
           onClick={() => setViewing(null)}
         >
           <div
+            className="sheet-up"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
