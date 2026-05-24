@@ -287,11 +287,12 @@ export default function ChatRoom() {
     };
   }, [matchId, currentUserId]);
 
-  // sendFetcher 성공 시: 입력 비움 + 메시지 즉시 표시 (Realtime 실패해도 본인은 봄)
-  // 실패 시(텍스트·사진 공통): 서버 에러를 화면에 노출
+  // sendFetcher 응답 처리: 서버 확정 메시지로 낙관적 임시(temp-) 메시지를 교체.
+  // 실패 시(텍스트·사진 공통): 임시 메시지 롤백 + 서버 에러 노출.
   useEffect(() => {
     if (sendFetcher.state !== "idle") return;
     if (sendFetcher.data?.error) {
+      setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
       setUploadError(sendFetcher.data.error);
       return;
     }
@@ -299,10 +300,11 @@ export default function ChatRoom() {
     if (!newMsg) return;
     setUploadError(null);
     setMessages((prev) => {
-      if (prev.some((m) => m.id === newMsg.id)) return prev;
-      return [...prev, newMsg];
+      // 한 번에 하나만 전송(submitting 가드) → temp- 전부 제거 후 확정본 추가
+      const withoutTemp = prev.filter((m) => !m.id.startsWith("temp-"));
+      if (withoutTemp.some((m) => m.id === newMsg.id)) return withoutTemp;
+      return [...withoutTemp, newMsg];
     });
-    setDraft("");
     inputRef.current?.focus();
   }, [sendFetcher.state, sendFetcher.data]);
 
@@ -310,6 +312,19 @@ export default function ChatRoom() {
     e.preventDefault();
     const trimmed = draft.trim();
     if (!trimmed || submitting) return;
+    // 낙관적 표시 — 서버 왕복을 기다리지 않고 즉시 말풍선 노출
+    const temp: MessageRow = {
+      id: `temp-${Date.now()}`,
+      match_id: matchId,
+      sender_id: currentUserId,
+      content: trimmed,
+      image_url: null,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+    setMessages((prev) => [...prev, temp]);
+    setDraft("");
+    inputRef.current?.focus();
     const fd = new FormData();
     fd.set("content", trimmed);
     sendFetcher.submit(fd, { method: "post" });
