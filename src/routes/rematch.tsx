@@ -13,23 +13,15 @@ import TextInput from "~/components/TextInput";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireApprovedUser } from "~/lib/auth.server";
-import { listUserMatches, endMatch } from "~/lib/repos/matches.server";
+import { listUserMatches } from "~/lib/repos/matches.server";
 
-// "매칭 한 번 더 하기" = 재결제 후 재매칭 (팀 결정: 다시 돈 받고 매칭)
-// 현재 매칭을 종료하고 새 상대를 찾기 전에 참가비 입금 단계를 거친다.
+// "한 명 더 만나기" = 추가형 매칭 (현재 대화는 그대로 유지, 새 상대를 추가로 매칭).
+// 참가비 입금 단계 후 find_additional_match 로 새 상대를 찾는다(기존 매칭 종료 안 함).
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
   const matches = await listUserMatches(ctx.supabase, ctx.user.id);
-  const current = matches[0] ?? null;
-  if (!current) {
-    // 진행 중 매칭이 없으면 그냥 매칭 화면으로
-    throw redirect("/music", { headers: ctx.headers });
-  }
-  return json(
-    { partnerName: current.partnerName },
-    { headers: ctx.headers },
-  );
+  return json({ currentCount: matches.length }, { headers: ctx.headers });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -43,27 +35,14 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // 현재 매칭 종료
-  const matches = await listUserMatches(ctx.supabase, ctx.user.id);
-  const current = matches[0];
-  if (current) {
-    const ended = await endMatch(ctx.supabase, current.matchId);
-    if (!ended.ok) {
-      return json(
-        { error: "매칭 종료에 실패했어요. 잠시 후 다시 시도해주세요." },
-        { status: 500, headers: ctx.headers },
-      );
-    }
-  }
-
-  // 새 상대 탐색
-  const { data, error } = await ctx.supabase.rpc("find_or_create_match", {
+  // 현재 매칭은 그대로 두고, 새 상대를 "추가로" 탐색 (다중 매칭)
+  const { data, error } = await ctx.supabase.rpc("find_additional_match", {
     p_user_id: ctx.user.id,
   });
   if (error) {
-    console.error("[rematch.find_or_create_match]", error);
+    console.error("[rematch.find_additional_match]", error);
     return json(
-      { error: "재매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요." },
+      { error: "추가 매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요." },
       { status: 500, headers: ctx.headers },
     );
   }
@@ -71,12 +50,12 @@ export async function action({ request }: ActionFunctionArgs) {
   if (newId) {
     return redirect(`/chat/${newId}`, { headers: ctx.headers });
   }
-  // 후보 없음 → 매칭 화면 (후보 없음 안내)
-  return redirect("/music", { headers: ctx.headers });
+  // 새 후보 없음 → 채팅 목록으로 (안내)
+  return redirect("/chat", { headers: ctx.headers });
 }
 
 export default function Rematch() {
-  const { partnerName } = useLoaderData<typeof loader>();
+  const { currentCount } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
@@ -111,7 +90,7 @@ export default function Rematch() {
           ‹
         </button>
         <h1 style={{ ...TYPOGRAPHY.bodyBold, fontSize: "17px", margin: 0 }}>
-          다시 매칭하기
+          한 명 더 만나기
         </h1>
       </div>
 
@@ -127,7 +106,7 @@ export default function Rematch() {
             lineHeight: 1.3,
           }}
         >
-          새로운 인연을
+          한 명 더
           <br />
           만나볼까요?
         </h2>
@@ -139,8 +118,9 @@ export default function Rematch() {
             lineHeight: 1.6,
           }}
         >
-          현재 <b style={{ color: COLORS.accent }}>{partnerName}</b> 님과의 매칭이
-          종료되고, 참가비 입금 후 새로운 상대를 찾아드려요.
+          지금 나누는 <b style={{ color: COLORS.accent }}>{currentCount}개</b>의 대화는
+          그대로 유지돼요. 참가비 입금 후 새로운 상대를{" "}
+          <b style={{ color: COLORS.accent }}>추가로</b> 찾아드려요.
         </p>
 
         <div
@@ -158,7 +138,7 @@ export default function Rematch() {
             카카오뱅크 1234-5678-9012
           </p>
           <p style={{ ...TYPOGRAPHY.label, color: COLORS.text.helper, margin: 0 }}>
-            재매칭 참가비 5,000원
+            추가 매칭 참가비 1,000원
           </p>
         </div>
 
@@ -183,7 +163,7 @@ export default function Rematch() {
             disabled={bankHolder.trim().length < 2 || submitting}
             style={{ width: "100%" }}
           >
-            {submitting ? "처리 중..." : "입금 완료, 다시 매칭하기"}
+            {submitting ? "처리 중..." : "입금 완료, 한 명 더 만나기"}
           </PrimaryButton>
         </div>
       </Form>
