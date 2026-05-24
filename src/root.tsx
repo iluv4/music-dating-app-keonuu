@@ -23,6 +23,7 @@ export const links: LinksFunction = () => [
     rel: "stylesheet",
     href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
   },
+  { rel: "manifest", href: "/manifest.json" },
 ];
 
 const SITE_URL = "https://music-dating-app-keonuu.vercel.app";
@@ -33,6 +34,7 @@ const OG_IMAGE = `${SITE_URL}/images/welcome-mascot.png`;
 
 export const meta: MetaFunction = () => [
   { charset: "utf-8" },
+  { name: "theme-color", content: "#ff0558" },
   {
     name: "viewport",
     // interactive-widget: 키보드가 뜰 때 레이아웃을 밀어올려 입력창이 가려지지 않게
@@ -65,6 +67,7 @@ export async function loader() {
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
       POSTHOG_KEY: process.env.POSTHOG_KEY,
       POSTHOG_HOST: process.env.POSTHOG_HOST,
+      VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     },
   });
 }
@@ -75,6 +78,7 @@ export type RootLoaderData = {
     SUPABASE_ANON_KEY: string;
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
+    VAPID_PUBLIC_KEY?: string;
   };
 };
 
