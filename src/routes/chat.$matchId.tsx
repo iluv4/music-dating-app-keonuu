@@ -550,8 +550,16 @@ export default function ChatRoom() {
                   ...TYPOGRAPHY.tiny,
                   fontSize: "11px",
                   color: COLORS.text.muted,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
                 }}
               >
+                {fromMe && (
+                  <span style={{ color: msg.read_at ? COLORS.accent : COLORS.text.placeholder }}>
+                    {msg.read_at ? "읽음" : "전송됨"}
+                  </span>
+                )}
                 {formatBubbleTime(msg.created_at)}
               </span>
               </div>
