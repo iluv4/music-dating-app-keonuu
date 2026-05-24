@@ -51,26 +51,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const ctx = await requireApprovedUser(request);
-  const fd = await request.formData();
-  const intent = String(fd.get("intent") ?? "find");
-
-  // "매칭 한 번 더 하기" — 현재 매칭을 끝내고 새 상대를 찾는다.
-  if (intent === "rematch") {
-    const currentMatchId = String(fd.get("match_id") ?? "");
-    if (currentMatchId) {
-      const { error: endErr } = await ctx.supabase.rpc("end_match", {
-        match_id: currentMatchId,
-      });
-      if (endErr) {
-        console.error("[music.rematch.end_match]", endErr);
-        return json(
-          { error: "매칭을 다시 찾는 데 실패했어요. 잠시 후 다시 시도해주세요." },
-          { status: 500, headers: ctx.headers },
-        );
-      }
-    }
-  }
-
+  // 재매칭(다시 결제)은 /rematch 에서 처리. 여기선 최초 매칭 탐색만.
   const { data, error } = await ctx.supabase.rpc("find_or_create_match", {
     p_user_id: ctx.user.id,
   });
@@ -233,7 +214,6 @@ export default function Music() {
   const navigation = useNavigation();
   const matching = navigation.state === "submitting";
   const noCandidate = actionData != null && !actionData.error;
-  const [showRematch, setShowRematch] = useState(false);
 
   // 매칭 성사 후 1시간 카운트다운 (생성시각 기준, 클라이언트 계산)
   const MATCH_WINDOW_MS = 60 * 60 * 1000;
@@ -383,7 +363,7 @@ export default function Music() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowRematch(true)}
+                onClick={() => navigate("/rematch")}
                 style={{
                   ...ctaBase,
                   marginTop: "10px",
@@ -534,96 +514,6 @@ export default function Music() {
           )}
         </div>
       </div>
-
-      {/* 매칭 한 번 더 하기 확인 */}
-      {showRematch && match && (
-        <div
-          onClick={() => !matching && setShowRematch(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 100,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "300px",
-              background: "white",
-              borderRadius: "16px",
-              padding: "26px 22px 18px",
-              textAlign: "center",
-            }}
-          >
-            <p
-              style={{
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "17px",
-                color: COLORS.text.primary,
-                margin: "0 0 8px",
-              }}
-            >
-              매칭을 다시 찾으시겠어요?
-            </p>
-            <p
-              style={{
-                ...TYPOGRAPHY.label,
-                color: COLORS.text.helper,
-                margin: "0 0 20px",
-                lineHeight: 1.5,
-              }}
-            >
-              지금 매칭이 종료되고
-              <br />
-              새로운 상대를 찾아요. 되돌릴 수 없어요.
-            </p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                type="button"
-                onClick={() => setShowRematch(false)}
-                disabled={matching}
-                style={{
-                  flex: 1,
-                  height: "46px",
-                  borderRadius: "12px",
-                  background: COLORS.cardBg,
-                  color: COLORS.text.secondary,
-                  ...TYPOGRAPHY.bodyBold,
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                취소
-              </button>
-              <Form method="post" style={{ flex: 1 }}>
-                <input type="hidden" name="intent" value="rematch" />
-                <input type="hidden" name="match_id" value={match.matchId} />
-                <button
-                  type="submit"
-                  disabled={matching}
-                  style={{
-                    width: "100%",
-                    height: "46px",
-                    borderRadius: "12px",
-                    background: COLORS.accent,
-                    color: "white",
-                    ...TYPOGRAPHY.bodyBold,
-                    border: "none",
-                    cursor: "pointer",
-                    opacity: matching ? 0.6 : 1,
-                  }}
-                >
-                  {matching ? "찾는 중..." : "다시 찾기"}
-                </button>
-              </Form>
-            </div>
-          </div>
-        </div>
-      )}
 
       <BottomNav active="home" />
       <HomeIndicator />

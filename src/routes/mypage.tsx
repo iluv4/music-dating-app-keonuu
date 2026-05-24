@@ -191,21 +191,6 @@ export default function MyPage() {
           <SmallButton onClick={() => navigate("/profile/edit")}>
             내 정보 수정
           </SmallButton>
-          <div style={{ marginTop: "12px" }}>
-            <Form method="post" action="/logout">
-              <button
-                type="submit"
-                style={{
-                  ...TYPOGRAPHY.caption,
-                  color: COLORS.text.placeholder,
-                  textDecoration: "underline",
-                  border: "none",
-                }}
-              >
-                로그아웃
-              </button>
-            </Form>
-          </div>
         </div>
 
         {/* 내 음악 — 실제 선택 곡 */}
@@ -288,13 +273,14 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* 정보 박스 */}
+        {/* 정보 박스 — 카드 + 행 구분선 */}
         <div
           style={{
             margin: "0 25px",
-            border: "none",
+            background: "white",
             borderRadius: RADIUS.info,
             overflow: "hidden",
+            boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
           }}
         >
           {rows.map((row, idx) => (
@@ -304,8 +290,11 @@ export default function MyPage() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                padding: "14px 18px",
-                borderBottom: "none",
+                padding: "15px 18px",
+                borderBottom:
+                  idx < rows.length - 1
+                    ? `1px solid ${COLORS.divider2}`
+                    : "none",
               }}
             >
               <span
@@ -332,6 +321,26 @@ export default function MyPage() {
             </div>
           ))}
         </div>
+
+        {/* 로그아웃 */}
+        <Form method="post" action="/logout" style={{ margin: "24px 25px 0" }}>
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              height: "48px",
+              borderRadius: "12px",
+              background: "white",
+              border: `1px solid ${COLORS.cardBorder}`,
+              ...TYPOGRAPHY.bodyBold,
+              fontSize: "14px",
+              color: COLORS.text.secondary,
+              cursor: "pointer",
+            }}
+          >
+            로그아웃
+          </button>
+        </Form>
       </div>
 
       <BottomNav active="my" />
