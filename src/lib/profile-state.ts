@@ -6,6 +6,7 @@ export type ProfileForm = {
   gender: "male" | "female" | "";
   school: string;
   major: string;
+  club: string;
   bankHolder: string;
 };
 
@@ -15,6 +16,7 @@ const EMPTY: ProfileForm = {
   gender: "",
   school: "",
   major: "",
+  club: "",
   bankHolder: "",
 };
 
