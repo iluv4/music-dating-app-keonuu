@@ -238,26 +238,12 @@ export default function MusicSelect() {
 
             {!isSearching && (
               <div style={{ marginTop: "10px" }}>
-                <div style={{ textAlign: "right" }}>
-                  <button
-                    type="button"
-                    onClick={() => alert("추천 리스트에서 골라보세요!")}
-                    style={{
-                      ...TYPOGRAPHY.caption,
-                      fontSize: "12px",
-                      color: COLORS.text.placeholder,
-                      textDecoration: "underline",
-                    }}
-                  >
-                    노래 선택이 어려우시다면?
-                  </button>
-                </div>
                 <p
                   style={{
                     ...TYPOGRAPHY.caption,
                     fontSize: "13px",
                     color: COLORS.accent,
-                    margin: "8px 0 0",
+                    margin: 0,
                     lineHeight: 1.45,
                   }}
                 >
