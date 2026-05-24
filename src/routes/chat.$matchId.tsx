@@ -170,12 +170,13 @@ export default function ChatRoom() {
     endFetcher.submit(fd, { method: "post" });
   };
 
-  // 새 메시지 도착 시 자동 스크롤
+  // 새 메시지 도착 + 사진 서명URL 로드 완료 시 하단으로 스크롤
+  // (사진은 placeholder → 이미지로 높이가 커지므로 imageUrls 도 의존성에 포함)
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, imageUrls]);
 
   // 사진 메시지 경로 → 서명 URL 변환 (비공개 버킷)
   useEffect(() => {
