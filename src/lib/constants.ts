@@ -1,6 +1,6 @@
 // 디자인 토큰 — Figma 디자인시스템(멋사_1조) 정합
 // Accent = color/primary/500 #FF625D (다홍/코랄), Soft = color/primary/50 #FFEEED
-// (이전 #FF0558 마젠타는 시안과 불일치였어 Figma 변수값으로 교체)
+// 과거 마젠타 계열은 시안과 불일치라 폐기 — Figma 변수값(코랄)이 유일 기준.
 
 export const COLORS = {
   accent: "#ff625d",

@@ -7,7 +7,10 @@
     "build": "remix build",
     "dev": "remix dev --manual",
     "start": "remix-serve ./build/index.js",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "lint:colors": "node scripts/check-colors.mjs",
+    "db:apply": "node scripts/apply-sql.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@remix-run/node": "^2.17.4",
@@ -28,6 +31,8 @@
     "@types/react": "^18.0.27",
     "@types/react-dom": "^18.0.10",
     "@types/web-push": "^3.6.4",
+    "husky": "^9.1.7",
+    "pg": "^8.21.0",
     "typescript": "^5.4.0"
   },
   "engines": {
