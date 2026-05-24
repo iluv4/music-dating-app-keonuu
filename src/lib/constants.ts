@@ -132,6 +132,7 @@ export const RADIUS = {
   info: "8px",
   alert: "12px",
   pill: "50px",
+  button: "14px", // 주요 CTA 버튼 — 디자인 시안의 둥근 사각형
   inlineButton: "12px",
   smallButton: "20px",
   full: "9999px",

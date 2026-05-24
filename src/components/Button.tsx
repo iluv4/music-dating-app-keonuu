@@ -21,7 +21,7 @@ export const PrimaryButton = ({
         height: "62px",
         background: disabled ? COLORS.cardBorder : COLORS.accent,
         color: "white",
-        borderRadius: RADIUS.pill,
+        borderRadius: RADIUS.button,
         ...TYPOGRAPHY.title,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.65 : 1,
