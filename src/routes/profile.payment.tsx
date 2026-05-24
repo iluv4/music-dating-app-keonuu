@@ -131,7 +131,7 @@ export default function ProfilePayment() {
         <input type="hidden" name="club" value={profile?.club ?? ""} />
 
         <div style={{ marginTop: "30px", marginBottom: "40px" }}>
-          <ProgressDots total={3} current={3} />
+          <ProgressDots total={2} current={2} />
         </div>
 
         <h1

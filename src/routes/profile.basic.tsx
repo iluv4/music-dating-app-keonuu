@@ -64,7 +64,7 @@ export default function ProfileBasic() {
         }}
       >
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-          <ProgressDots total={3} current={2} />
+          <ProgressDots total={2} current={1} />
         </div>
 
         <h1
