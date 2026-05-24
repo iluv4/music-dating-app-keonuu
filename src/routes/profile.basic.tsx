@@ -64,7 +64,7 @@ export default function ProfileBasic() {
             lineHeight: 1.25,
           }}
         >
-          기본 <span style={{ color: COLORS.accent }}>프로필</span>을<br />
+          기본 <span style={{ color: COLORS.accent }}>프로필 정보</span>를<br />
           작성해주세요!
         </h1>
         <p
@@ -75,19 +75,19 @@ export default function ProfileBasic() {
             marginBottom: "32px",
           }}
         >
-          닉네임, 출생연도, 성별을 알려주세요.
+          가입을 위한 이름, 성별 및 나이를 작성해주세요.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <TextInput
-            label="닉네임"
+            label="이름"
             type="text"
             placeholder="홍길동"
             value={state.name}
             onChange={(e) => update({ name: e.target.value })}
           />
           <TextInput
-            label="출생연도"
+            label="태어난 연도"
             type="text"
             inputMode="numeric"
             maxLength={4}
@@ -115,14 +115,14 @@ export default function ProfileBasic() {
                 onClick={() => update({ gender: "male" })}
                 style={genderBtnStyle(state.gender === "male")}
               >
-                남자
+                남성 ♂
               </button>
               <button
                 type="button"
                 onClick={() => update({ gender: "female" })}
                 style={genderBtnStyle(state.gender === "female")}
               >
-                여자
+                여성 ♀
               </button>
             </div>
           </div>
