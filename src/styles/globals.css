@@ -96,3 +96,18 @@ a {
     background: #ffffff;
   }
 }
+/* 전역 인터랙션 피드백 — 버튼 탭 시 살짝 눌리는 느낌 + 부드러운 전환 */
+button {
+  transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease,
+    box-shadow 0.15s ease, filter 0.15s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+/* 입력창 포커스 시 accent 링 */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 5, 88, 0.35);
+}
