@@ -33,7 +33,12 @@ const OG_IMAGE = `${SITE_URL}/images/welcome-mascot.png`;
 
 export const meta: MetaFunction = () => [
   { charset: "utf-8" },
-  { name: "viewport", content: "width=device-width,initial-scale=1" },
+  {
+    name: "viewport",
+    // interactive-widget: 키보드가 뜰 때 레이아웃을 밀어올려 입력창이 가려지지 않게
+    content:
+      "width=device-width,initial-scale=1,interactive-widget=resizes-content",
+  },
   { title: OG_TITLE },
   { name: "description", content: OG_DESC },
   // 링크 공유 미리보기 (카카오톡/슬랙/X 등) — 마스코트 캐릭터 노출
