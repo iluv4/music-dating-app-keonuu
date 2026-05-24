@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
@@ -15,10 +16,13 @@ export default function ProfileSchool() {
   const navigate = useNavigate();
   const { state, update, hydrated } = useProfile();
 
-  const canNext =
-    hydrated &&
-    state.school.trim().length >= 2 &&
-    state.major.trim().length >= 2;
+  // 상명대 천안캠퍼스 전용 서비스 → 학교는 기본값으로 자동 채우고 입력받지 않음.
+  const DEFAULT_SCHOOL = "상명대학교 천안";
+  useEffect(() => {
+    if (hydrated && !state.school.trim()) update({ school: DEFAULT_SCHOOL });
+  }, [hydrated, state.school]);
+
+  const canNext = hydrated && state.major.trim().length >= 2;
 
   return (
     <PhoneFrame>
@@ -61,16 +65,18 @@ export default function ProfileSchool() {
             marginBottom: "32px",
           }}
         >
-          재학 중인 학교와 학과를 입력해주세요.
+          상명대 천안캠퍼스 전용 서비스예요. 학과와 동아리를 알려주세요.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <TextInput
             label="학교"
             type="text"
-            placeholder="상명대학교 천안"
-            value={state.school}
-            onChange={(e) => update({ school: e.target.value })}
+            value={state.school || DEFAULT_SCHOOL}
+            readOnly
+            aria-readonly="true"
+            style={{ background: COLORS.divider2, color: COLORS.text.secondary }}
+            onChange={() => {}}
           />
           <DeptSelect
             label="학과"
