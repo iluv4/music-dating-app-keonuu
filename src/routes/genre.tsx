@@ -19,13 +19,14 @@ type Genre = {
   hue: string; // 디스크 색감 placeholder
 };
 
+// 디자인 순서: BALLAD/HIPHOP, POP/INDIE, ROCK/JAZZ (영문 라벨 통일)
 const GENRES: Genre[] = [
   { id: "ballad", label: "BALLAD", hue: "#a8a8a8" },
+  { id: "hiphop", label: "HIPHOP", hue: "#5d3a5f" },
+  { id: "pop", label: "POP", hue: "#d4a373" },
+  { id: "indie", label: "INDIE", hue: "#7a9eb0" },
   { id: "rock", label: "ROCK", hue: "#2e2e2e" },
   { id: "jazz", label: "JAZZ", hue: "#b08d57" },
-  { id: "indie", label: "인디", hue: "#7a9eb0" },
-  { id: "pop", label: "팝", hue: "#d4a373" },
-  { id: "hiphop", label: "HIPHOP", hue: "#5d3a5f" },
 ];
 
 const MAX_GENRES = 3;
@@ -119,15 +120,16 @@ export default function Genre() {
             marginBottom: "24px",
           }}
         >
-          관심 있는 장르를 최대 {MAX_GENRES}개까지 선택해주세요. ({selected.size}/{MAX_GENRES})
+          같은 장르를 선택한 상대를 찾아드려요. 최대 {MAX_GENRES}개 ({selected.size}/
+          {MAX_GENRES})
         </p>
 
-        {/* 6개 장르 그리드 */}
+        {/* 장르 그리드 — 2열 큰 원형, 라벨은 원 위에 (디자인 정합) */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "20px",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "18px",
             justifyItems: "center",
           }}
         >
@@ -138,44 +140,24 @@ export default function Genre() {
                 key={g.id}
                 type="button"
                 onClick={() => toggle(g.id)}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: 0,
-                }}
+                aria-pressed={isSelected}
+                style={{ width: "100%", padding: 0, background: "none", border: "none" }}
               >
                 <div
                   style={{
-                    width: "92px",
-                    height: "92px",
+                    width: "100%",
+                    aspectRatio: "1 / 1",
                     borderRadius: "50%",
                     overflow: "hidden",
                     background: `radial-gradient(circle at 35% 35%, ${g.hue}, #2c2c2c 70%, #111 100%)`,
-                    border: "none",
                     boxShadow: isSelected
                       ? `0 0 0 3px ${COLORS.accent}`
-                      : "0 2px 6px rgba(0,0,0,0.15)",
+                      : "0 2px 8px rgba(0,0,0,0.15)",
                     transition: "box-shadow 0.15s",
                     position: "relative",
                   }}
                 >
-                  {imgFailed.has(g.id) ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: "26px",
-                        height: "26px",
-                        borderRadius: "50%",
-                        background: "#1a1a1a",
-                        border: "none",
-                      }}
-                    />
-                  ) : (
+                  {!imgFailed.has(g.id) && (
                     <img
                       src={`/images/music_album_cover/${g.id}_cover.png`}
                       alt=""
@@ -183,37 +165,61 @@ export default function Genre() {
                         setImgFailed((prev) => new Set(prev).add(g.id))
                       }
                       style={{
+                        position: "absolute",
+                        inset: 0,
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        display: "block",
-                        // 미선택 = 흑백, 선택 = 컬러 (팀 피드백: 기존과 반대로)
-                        filter: isSelected ? "none" : "grayscale(1) brightness(0.85)",
+                        // 미선택 = 흑백, 선택 = 컬러
+                        filter: isSelected ? "none" : "grayscale(1) brightness(0.8)",
                         transition: "filter 0.15s",
                       }}
                     />
                   )}
+                  {/* 가독성용 어두운 오버레이 + 라벨 */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(0,0,0,0.18)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        ...TYPOGRAPHY.bodyBold,
+                        fontSize: "18px",
+                        letterSpacing: "0.5px",
+                        color: "white",
+                        textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+                      }}
+                    >
+                      {g.label}
+                    </span>
+                  </div>
                   {isSelected && (
                     <div
                       style={{
                         position: "absolute",
-                        inset: 0,
+                        top: "10px",
+                        right: "10px",
+                        width: "26px",
+                        height: "26px",
+                        borderRadius: "50%",
+                        background: COLORS.accent,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
                       }}
                     >
-                      <svg
-                        width="30"
-                        height="30"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.55))" }}
-                      >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                         <path
                           d="M5 12.5L10 17.5L19 7"
                           stroke="white"
-                          strokeWidth="2.4"
+                          strokeWidth="2.6"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
@@ -221,15 +227,6 @@ export default function Genre() {
                     </div>
                   )}
                 </div>
-                <span
-                  style={{
-                    ...TYPOGRAPHY.bodyBold,
-                    fontSize: "14px",
-                    color: isSelected ? COLORS.accent : COLORS.text.primary,
-                  }}
-                >
-                  {g.label}
-                </span>
               </button>
             );
           })}
@@ -249,7 +246,7 @@ export default function Genre() {
           onClick={() => navigate("/music-select")}
           style={{ maxWidth: "none" }}
         >
-          지금하기
+          다음으로
         </PrimaryButton>
       </div>
       <HomeIndicator />
