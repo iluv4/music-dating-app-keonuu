@@ -150,11 +150,26 @@ export default function Music() {
 
   // 알림 켜기 배너 — iOS는 권한요청이 사용자 제스처 안에서만 동작하므로 버튼으로 노출.
   // 자동으로는 "이미 허용된 경우만" 조용히 구독 동기화.
-  const [pushUi, setPushUi] = useState<"hidden" | "prompt" | "denied">("hidden");
+  const [pushUi, setPushUi] = useState<
+    "hidden" | "prompt" | "denied" | "ios-install"
+  >("hidden");
   useEffect(() => {
     void syncPushIfGranted();
     const perm = pushPermission();
-    if (perm === "default") setPushUi("prompt");
+    if (perm === "default") {
+      setPushUi("prompt");
+    } else if (perm === "denied") {
+      setPushUi("denied");
+    } else if (perm === "unsupported") {
+      // iOS Safari 탭(미설치 PWA)에선 알림 API가 없음 → 홈 화면 추가 안내
+      const ua = navigator.userAgent || "";
+      const isIOS = /iphone|ipad|ipod/i.test(ua);
+      const standalone =
+        (window.navigator as unknown as { standalone?: boolean }).standalone ===
+          true ||
+        window.matchMedia?.("(display-mode: standalone)").matches === true;
+      if (isIOS && !standalone) setPushUi("ios-install");
+    }
   }, []);
 
   const onEnablePush = async () => {
@@ -226,7 +241,11 @@ export default function Music() {
                   fontWeight: 600,
                 }}
               >
-                {pushUi === "denied" ? "알림이 차단돼 있어요" : "매칭·메시지 알림 받기"}
+                {pushUi === "denied"
+                  ? "알림이 차단돼 있어요"
+                  : pushUi === "ios-install"
+                    ? "아이폰은 홈 화면에 추가해야 알림 가능"
+                    : "매칭·메시지 알림 받기"}
               </p>
               <p
                 style={{
@@ -238,7 +257,9 @@ export default function Music() {
               >
                 {pushUi === "denied"
                   ? "기기 설정 > 알림에서 허용해주세요. (iOS는 홈 화면에 추가한 앱에서만 가능)"
-                  : "새 매칭과 메시지를 놓치지 마세요"}
+                  : pushUi === "ios-install"
+                    ? "공유 버튼 → '홈 화면에 추가' → 추가된 앱 아이콘으로 열어주세요"
+                    : "새 매칭과 메시지를 놓치지 마세요"}
               </p>
             </div>
             {pushUi === "prompt" && (
