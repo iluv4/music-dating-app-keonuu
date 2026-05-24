@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   json,
   redirect,
@@ -27,7 +27,11 @@ import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
 import { sendPushToUser } from "~/lib/push.server";
 import { capture } from "~/lib/analytics.client";
-import { initPush } from "~/lib/push.client";
+import {
+  syncPushIfGranted,
+  enablePush,
+  pushPermission,
+} from "~/lib/push.client";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
@@ -144,10 +148,21 @@ export default function Music() {
   const matching = navigation.state === "submitting";
   const noCandidate = actionData != null && !actionData.error;
 
-  // 로그인 홈 진입 시 푸시 구독 시도 (VAPID 키 없으면 no-op)
+  // 알림 켜기 배너 — iOS는 권한요청이 사용자 제스처 안에서만 동작하므로 버튼으로 노출.
+  // 자동으로는 "이미 허용된 경우만" 조용히 구독 동기화.
+  const [pushUi, setPushUi] = useState<"hidden" | "prompt" | "denied">("hidden");
   useEffect(() => {
-    void initPush();
+    void syncPushIfGranted();
+    const perm = pushPermission();
+    if (perm === "default") setPushUi("prompt");
   }, []);
+
+  const onEnablePush = async () => {
+    const r = await enablePush();
+    if (r === "ok") setPushUi("hidden");
+    else if (r === "denied") setPushUi("denied");
+    else setPushUi("hidden"); // unsupported/no-vapid 등은 조용히 숨김
+  };
 
   return (
     <PhoneFrame style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
@@ -188,6 +203,65 @@ export default function Music() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 24px" }}>
+        {/* 알림 켜기 배너 — 권한 미설정 시 버튼 탭으로 권한 요청(iOS 필수) */}
+        {pushUi !== "hidden" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              background: COLORS.accentSoft,
+              borderRadius: RADIUS.info,
+              padding: "12px 14px",
+              marginBottom: "16px",
+            }}
+          >
+            <span style={{ fontSize: "20px" }}>🔔</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
+                style={{
+                  ...TYPOGRAPHY.label,
+                  color: COLORS.text.primary,
+                  margin: 0,
+                  fontWeight: 600,
+                }}
+              >
+                {pushUi === "denied" ? "알림이 차단돼 있어요" : "매칭·메시지 알림 받기"}
+              </p>
+              <p
+                style={{
+                  ...TYPOGRAPHY.tiny,
+                  color: COLORS.text.helper,
+                  margin: "2px 0 0",
+                  lineHeight: 1.4,
+                }}
+              >
+                {pushUi === "denied"
+                  ? "기기 설정 > 알림에서 허용해주세요. (iOS는 홈 화면에 추가한 앱에서만 가능)"
+                  : "새 매칭과 메시지를 놓치지 마세요"}
+              </p>
+            </div>
+            {pushUi === "prompt" && (
+              <button
+                type="button"
+                onClick={onEnablePush}
+                style={{
+                  flexShrink: 0,
+                  background: COLORS.accent,
+                  color: "white",
+                  borderRadius: "999px",
+                  padding: "8px 14px",
+                  ...TYPOGRAPHY.caption,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                켜기
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 매칭 카드 */}
         <div
           style={{
