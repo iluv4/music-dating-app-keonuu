@@ -22,6 +22,7 @@ import {
   sendMessage,
 } from "~/lib/repos/messages.server";
 import { endMatch } from "~/lib/repos/matches.server";
+import { sendPushToUser } from "~/lib/push.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
@@ -103,6 +104,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
       { status: 400, headers: ctx.headers },
     );
   }
+  // 상대에게 푸시 알림 (실패해도 전송 흐름 막지 않음)
+  try {
+    await sendPushToUser(ctx.match.partnerId, {
+      title: "새 메시지가 도착했어요 💬",
+      body: imageUrl && !content.trim() ? "사진을 보냈어요" : content.slice(0, 50),
+      url: `/chat/${matchId}`,
+    });
+  } catch (e) {
+    console.error("[chat message push]", e);
+  }
+
   // 송신 직후 클라이언트가 본인 메시지를 바로 표시할 수 있도록 row 반환
   return json(
     { ok: true, message: result.message },

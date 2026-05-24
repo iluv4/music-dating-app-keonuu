@@ -5,6 +5,7 @@ type ClientEnv = {
   SUPABASE_ANON_KEY: string;
   POSTHOG_KEY?: string;
   POSTHOG_HOST?: string;
+  VAPID_PUBLIC_KEY?: string;
 };
 
 declare global {

@@ -23,9 +23,11 @@ import {
   requireApprovedUser,
 } from "~/lib/auth.server";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
-import { listUserMatches } from "~/lib/repos/matches.server";
+import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
+import { sendPushToUser } from "~/lib/push.server";
 import { capture } from "~/lib/analytics.client";
+import { initPush } from "~/lib/push.client";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
@@ -64,6 +66,19 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const matchId = data as string | null;
   if (matchId) {
+    // 매칭된 상대에게 푸시 (본인은 채팅으로 이동하므로 상대만)
+    try {
+      const m = await getMatchWithPartner(ctx.supabase, matchId, ctx.user.id);
+      if (m?.partnerId) {
+        await sendPushToUser(m.partnerId, {
+          title: "새 매칭이 성사됐어요! 💘",
+          body: "음악 취향이 통하는 상대와 매칭됐어요.",
+          url: `/chat/${matchId}`,
+        });
+      }
+    } catch (e) {
+      console.error("[music.match push]", e);
+    }
     return redirect(`/chat/${matchId}`, { headers: ctx.headers });
   }
 
@@ -128,6 +143,11 @@ export default function Music() {
   const navigation = useNavigation();
   const matching = navigation.state === "submitting";
   const noCandidate = actionData != null && !actionData.error;
+
+  // 로그인 홈 진입 시 푸시 구독 시도 (VAPID 키 없으면 no-op)
+  useEffect(() => {
+    void initPush();
+  }, []);
 
   // 매칭 성사 후 1시간 카운트다운 (생성시각 기준, 클라이언트 계산)
   const MATCH_WINDOW_MS = 60 * 60 * 1000;
