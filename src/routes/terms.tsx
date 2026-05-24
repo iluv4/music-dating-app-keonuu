@@ -134,7 +134,7 @@ export default function Terms() {
         }}
       >
         <div style={{ marginTop: "24px", marginBottom: "28px" }}>
-          <ProgressDots total={4} current={1} />
+          <ProgressDots total={3} current={1} />
         </div>
 
         <h1
