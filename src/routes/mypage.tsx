@@ -91,7 +91,7 @@ export default function MyPage() {
   ];
 
   return (
-    <PhoneFrame style={{ paddingBottom: "76px" }}>
+    <PhoneFrame style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
       <StatusBar />
       <div style={{ position: "relative", flex: 1, paddingTop: "20px" }}>
         {/* 헤더 */}

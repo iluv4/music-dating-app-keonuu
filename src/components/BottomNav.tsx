@@ -57,9 +57,9 @@ export const BottomNav = ({ active }: BottomNavProps) => {
         transform: "translateX(-50%)",
         zIndex: 10,
         display: "flex",
-        // 바닥에 붙는 표준 하단탭: 위아래 균등 패딩 + iOS 홈인디케이터 safe-area
-        paddingTop: "8px",
-        paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))",
+        // 표준 하단탭: 위 여백 + 아래는 최소 16px 보장(바닥에 붙어 보이지 않게) + iOS 홈인디케이터 safe-area 추가
+        paddingTop: "10px",
+        paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       {NAV_ITEMS.map((item) => {

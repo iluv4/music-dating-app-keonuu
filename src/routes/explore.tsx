@@ -256,7 +256,7 @@ export default function Explore() {
         : "이런 분들이 음악으로 인연을 기다리고 있어요 🎶";
 
   return (
-    <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "76px" }}>
+    <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
       <StatusBar />
 
       <div

@@ -43,7 +43,7 @@ export default function ChatList() {
   const { matches } = useLoaderData<typeof loader>();
 
   return (
-    <PhoneFrame style={{ paddingBottom: "76px" }}>
+    <PhoneFrame style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
       <StatusBar />
       <div
         style={{
