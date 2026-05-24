@@ -362,7 +362,7 @@ export default function Music() {
                   color: COLORS.accent,
                 }}
               >
-                ＋ 매칭 한 번 더 하기
+                ＋ 한 명 더 만나기
               </button>
             </>
           ) : (

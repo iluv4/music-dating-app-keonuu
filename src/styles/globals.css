@@ -109,5 +109,5 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 5, 88, 0.35);
+  box-shadow: 0 0 0 2px rgba(255, 98, 93, 0.35);
 }
