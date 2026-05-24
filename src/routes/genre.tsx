@@ -137,6 +137,8 @@ export default function Genre() {
               <button
                 key={g.id}
                 type="button"
+                aria-pressed={isSelected}
+                aria-label={g.label}
                 onClick={() => toggle(g.id)}
                 style={{
                   display: "flex",

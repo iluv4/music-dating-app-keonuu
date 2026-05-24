@@ -14,6 +14,7 @@ import {
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
+import Modal from "~/components/Modal";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireMatchAccess } from "~/lib/auth.server";
 import {
@@ -680,29 +681,20 @@ export default function ChatRoom() {
       )}
 
       {/* 채팅 끊기 확인 모달 */}
-      {showEndConfirm && (
+      <Modal
+        open={showEndConfirm}
+        onClose={() => setShowEndConfirm(false)}
+        dismissable={!ending}
+      >
         <div
-          onClick={() => !ending && setShowEndConfirm(false)}
           style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 100,
+            width: "300px",
+            background: "white",
+            borderRadius: "16px",
+            padding: "26px 22px 18px",
+            textAlign: "center",
           }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "300px",
-              background: "white",
-              borderRadius: "16px",
-              padding: "26px 22px 18px",
-              textAlign: "center",
-            }}
-          >
             <p
               style={{
                 ...TYPOGRAPHY.bodyBold,
@@ -760,9 +752,8 @@ export default function ChatRoom() {
                 {ending ? "끊는 중..." : "끊기"}
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       <HomeIndicator />
     </PhoneFrame>
