@@ -3,7 +3,7 @@ import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
-import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
+import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
 import {
   listNotifications,
@@ -18,22 +18,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return json({ items }, { headers: ctx.headers });
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "방금";
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  const d = Math.floor(h / 24);
-  return `${d}일 전`;
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
-
-const ICON: Record<string, string> = {
-  match: "💘",
-  message: "💬",
-  system: "🔔",
-};
 
 export default function Notifications() {
   const { items } = useLoaderData<typeof loader>();
@@ -97,56 +88,83 @@ export default function Notifications() {
             아직 새로운 알림이 없어요.
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             {items.map((n) => {
               const inner = (
                 <div
                   style={{
-                    display: "flex",
-                    gap: "12px",
-                    padding: "14px 16px",
-                    background: n.is_read ? "white" : COLORS.accentSoft,
-                    borderRadius: RADIUS.alert,
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-                    alignItems: "flex-start",
+                    padding: "16px 4px",
+                    borderBottom: `1px solid ${COLORS.divider2}`,
                   }}
                 >
-                  <span style={{ fontSize: "20px", lineHeight: 1.2 }}>
-                    {ICON[n.type] ?? "🔔"}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    {!n.is_read && (
+                      <span
+                        style={{
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          background: COLORS.accent,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    {n.type === "system" && (
+                      <span
+                        style={{
+                          ...TYPOGRAPHY.tiny,
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color: COLORS.text.secondary,
+                          background: COLORS.cardBg,
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        공지
+                      </span>
+                    )}
+                    <span
                       style={{
                         ...TYPOGRAPHY.bodyBold,
                         fontSize: "15px",
-                        margin: 0,
                         color: COLORS.text.primary,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {n.title}
-                    </p>
-                    {n.body && (
-                      <p
-                        style={{
-                          ...TYPOGRAPHY.label,
-                          margin: "4px 0 0",
-                          color: COLORS.text.secondary,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {n.body}
-                      </p>
-                    )}
+                    </span>
+                  </div>
+                  {n.body && (
                     <p
                       style={{
-                        ...TYPOGRAPHY.caption,
-                        margin: "6px 0 0",
-                        color: COLORS.text.placeholder,
+                        ...TYPOGRAPHY.label,
+                        margin: "4px 0 0",
+                        color: COLORS.text.secondary,
+                        lineHeight: 1.5,
                       }}
                     >
-                      {timeAgo(n.created_at)}
+                      {n.body}
                     </p>
-                  </div>
+                  )}
+                  <p
+                    style={{
+                      ...TYPOGRAPHY.caption,
+                      margin: "6px 0 0",
+                      color: COLORS.text.placeholder,
+                    }}
+                  >
+                    {formatDate(n.created_at)}
+                  </p>
                 </div>
               );
               return n.link ? (
