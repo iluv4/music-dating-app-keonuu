@@ -150,7 +150,7 @@ export default function Music() {
   };
 
   return (
-    <PhoneFrame style={{ paddingBottom: "107px" }}>
+    <PhoneFrame style={{ paddingBottom: "76px" }}>
       <StatusBar />
 
       <div
