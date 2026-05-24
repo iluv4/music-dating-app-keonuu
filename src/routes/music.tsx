@@ -17,7 +17,6 @@ import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
-import NoteIcon from "~/components/NoteIcon";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import {
   postApprovalDestination,
@@ -27,7 +26,6 @@ import { listUserSongs } from "~/lib/repos/user-songs.server";
 import { listUserMatches } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
 import { capture } from "~/lib/analytics.client";
-import type { Song } from "~/lib/song-types";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
@@ -110,90 +108,6 @@ const BellIcon = ({ hasAlert = false }: { hasAlert?: boolean }) => (
         }}
       />
     )}
-  </div>
-);
-
-const AlbumThumb = ({ src, size }: { src?: string; size: number }) => {
-  const [errored, setErrored] = useState(false);
-  if (!src || errored) {
-    return (
-      <div
-        style={{
-          width: `${size}px`,
-          height: `${size}px`,
-          borderRadius: "10px",
-          background: COLORS.cardBg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <NoteIcon size={size * 0.4} color={COLORS.text.placeholder} />
-      </div>
-    );
-  }
-  return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      onError={() => setErrored(true)}
-      style={{
-        width: `${size}px`,
-        height: `${size}px`,
-        borderRadius: "10px",
-        objectFit: "cover",
-        background: COLORS.cardBg,
-        flexShrink: 0,
-      }}
-    />
-  );
-};
-
-const SongCard = ({ song }: { song: Song }) => (
-  <div
-    style={{
-      flexShrink: 0,
-      width: "230px",
-      padding: "10px 14px",
-      background: "white",
-      border: "none",
-      borderRadius: RADIUS.info,
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-    }}
-  >
-    <AlbumThumb src={song.albumImg} size={42} />
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <p
-        style={{
-          ...TYPOGRAPHY.bodyBold,
-          fontSize: "14px",
-          margin: 0,
-          color: COLORS.text.primary,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {song.title}
-      </p>
-      <p
-        style={{
-          ...TYPOGRAPHY.tiny,
-          margin: "2px 0 0",
-          color: COLORS.text.placeholder,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {song.artist}
-      </p>
-    </div>
-    <span style={{ color: COLORS.text.placeholder, fontSize: "16px" }}>›</span>
   </div>
 );
 
@@ -445,74 +359,6 @@ export default function Music() {
           )}
         </div>
 
-        {/* 내가 선택한 음악 섹션 */}
-        <div style={{ marginTop: "28px" }}>
-          <button
-            type="button"
-            onClick={() => navigate("/music-select")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "none",
-              padding: 0,
-              marginBottom: "6px",
-              border: "none",
-            }}
-          >
-            <span
-              style={{
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "15px",
-                color: COLORS.text.primary,
-              }}
-            >
-              어떤 노래를 선택하실지 고민이신가요?
-            </span>
-            <span style={{ color: COLORS.text.placeholder, fontSize: "16px" }}>
-              ›
-            </span>
-          </button>
-          <p
-            style={{
-              ...TYPOGRAPHY.label,
-              color: COLORS.text.placeholder,
-              margin: 0,
-              marginBottom: "12px",
-            }}
-          >
-            취향이 같으면 대화도 쉬워져요! 노래를 둘러보세요.
-          </p>
-
-          {songs.length === 0 ? (
-            <p
-              style={{
-                ...TYPOGRAPHY.label,
-                color: COLORS.text.placeholder,
-                padding: "16px 0",
-              }}
-            >
-              아직 선택한 곡이 없어요.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                overflowX: "auto",
-                paddingBottom: "4px",
-                marginLeft: "-20px",
-                marginRight: "-20px",
-                paddingLeft: "20px",
-                paddingRight: "20px",
-              }}
-            >
-              {songs.map((s) => (
-                <SongCard key={s.songNo} song={s} />
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       <BottomNav active="home" />
