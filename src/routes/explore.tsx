@@ -234,7 +234,7 @@ export default function Explore() {
   const isGuest = data.guest;
 
   return (
-    <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "107px" }}>
+    <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "76px" }}>
       <StatusBar />
 
       <div

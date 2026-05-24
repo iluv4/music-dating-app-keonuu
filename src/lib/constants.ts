@@ -152,5 +152,5 @@ export const FRAME = {
   width: "390px",
   statusBarHeight: "60px",
   homeIndicatorHeight: "34px",
-  bottomNavHeight: "107px",
+  bottomNavHeight: "62px",
 } as const;
