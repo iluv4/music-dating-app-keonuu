@@ -120,7 +120,7 @@ export default function Terms() {
       <StatusBar />
 
       <SignupStepNav
-        onBack={() => navigate(-1)}
+        onBack={() => navigate("/welcome")}
         onNext={goNext}
         canNext={allChecked}
       />
