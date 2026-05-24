@@ -106,7 +106,7 @@ export default function ProfilePayment() {
     <PhoneFrame>
       <StatusBar />
       <SignupStepNav
-        onBack={() => navigate("/profile/school")}
+        onBack={() => navigate(-1)}
         onNext={() => formRef.current?.requestSubmit()}
         canNext={canSubmit}
       />

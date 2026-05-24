@@ -23,7 +23,7 @@ export default function ProfileSchool() {
     <PhoneFrame>
       <StatusBar />
       <SignupStepNav
-        onBack={() => navigate("/profile/basic")}
+        onBack={() => navigate(-1)}
         onNext={() => navigate("/profile/payment")}
         canNext={canNext}
       />
