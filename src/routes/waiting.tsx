@@ -141,7 +141,7 @@ export default function Waiting() {
               lineHeight: 1.6,
             }}
           >
-            <li>입금 확인 후 영업일 기준 1일 이내 승인됩니다.</li>
+            <li>입금 확인 후 영업일 기준 조만간 승인됩니다.</li>
             <li>승인 완료 시 매칭·채팅 기능을 이용할 수 있어요.</li>
             <li>오래 걸리면 운영팀에 문의해주세요.</li>
           </ul>

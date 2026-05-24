@@ -5,13 +5,13 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { requireUser } from "~/lib/auth.server";
+import { requireApprovedUser } from "~/lib/auth.server";
 import { listUserMatches } from "~/lib/repos/matches.server";
 
 // 채팅 목록 — 진행 중인 모든 매칭을 보여준다(다중 매칭 지원).
 // 연락을 끊지 않고 여러 상대와 동시에 대화할 수 있도록 단일 자동이동을 폐기.
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireUser(request);
+  const ctx = await requireApprovedUser(request);
   // 종료된 매칭도 회색으로 남겨 히스토리 유지(연락 끊겨도 기록은 보존).
   const matches = await listUserMatches(ctx.supabase, ctx.user.id, {
     status: "all",

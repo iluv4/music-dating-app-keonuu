@@ -72,7 +72,8 @@ export async function requireApprovedUser(request: Request) {
 
 /**
  * 채팅방 접근 게이트.
- * - 로그인 필수 (승인 여부는 무관 — 매칭 직후 강등돼도 기존 매칭과 대화 가능해야 함)
+ * - 로그인 필수
+ * - 미승인(승인대기) 사용자는 채팅 접근 불가 → /waiting
  * - matchId 가 본인 참여 매칭이어야 함 (RLS 가 1차 차단, 여기서 명시적으로 확인)
  */
 export async function requireMatchAccess(
@@ -84,7 +85,7 @@ export async function requireMatchAccess(
   headers: Headers;
   match: MatchWithPartner;
 }> {
-  const ctx = await requireUser(request);
+  const ctx = await requireApprovedUser(request);
   const match = await getMatchWithPartner(
     ctx.supabase,
     matchId,
