@@ -33,6 +33,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (ctx.user) {
     const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
       "is_approved",
+      "gender",
     ]);
     if (profile?.is_approved) {
       const { data, error } = await ctx.supabase.rpc("list_discover_members", {
@@ -45,7 +46,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
         name: maskName(m.name),
       }));
       return json(
-        { guest: false, members, preview: [] as PreviewMember[] },
+        {
+          guest: false,
+          members,
+          preview: [] as PreviewMember[],
+          viewerGender: (profile.gender as string | null) ?? null,
+        },
         { headers: ctx.headers },
       );
     }
@@ -54,7 +60,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { data, error } = await ctx.supabase.rpc("list_discover_preview");
   if (error) console.error("[explore.list_discover_preview]", error);
   return json(
-    { guest: true, members: [] as DiscoverMember[], preview: (data ?? []) as PreviewMember[] },
+    {
+      guest: true,
+      members: [] as DiscoverMember[],
+      preview: (data ?? []) as PreviewMember[],
+      viewerGender: null as string | null,
+    },
     { headers: ctx.headers },
   );
 }
@@ -232,6 +243,13 @@ const PreviewCard = ({ m, idx }: { m: PreviewMember; idx: number }) => (
 export default function Explore() {
   const data = useLoaderData<typeof loader>();
   const isGuest = data.guest;
+  // 보는 사람 성별에 맞춰 반대 성별 카피
+  const introCopy =
+    data.viewerGender === "female"
+      ? "멋진 남자분들이 음악으로 인연을 기다리고 있어요 🎶"
+      : data.viewerGender === "male"
+        ? "예쁜 여자분들이 음악으로 인연을 기다리고 있어요 🎶"
+        : "이런 분들이 음악으로 인연을 기다리고 있어요 🎶";
 
   return (
     <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "76px" }}>
@@ -267,7 +285,7 @@ export default function Explore() {
             lineHeight: 1.5,
           }}
         >
-          이런 분들이 음악으로 인연을 기다리고 있어요 🎶
+          {introCopy}
         </p>
 
         {isGuest ? (
