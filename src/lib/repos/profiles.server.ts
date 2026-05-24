@@ -16,6 +16,7 @@ const FIELD_MAX: Record<string, number> = {
   name: 40,
   school: 80,
   major: 80,
+  club: 60,
   bank_holder: 40,
 };
 

@@ -5,6 +5,7 @@ import PhoneFrame from "~/components/PhoneFrame";
 import ProgressDots from "~/components/ProgressDots";
 import TextInput from "~/components/TextInput";
 import DeptSelect from "~/components/DeptSelect";
+import ClubSelect from "~/components/ClubSelect";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
@@ -75,6 +76,11 @@ export default function ProfileSchool() {
             label="학과"
             value={state.major}
             onChange={(major) => update({ major })}
+          />
+          <ClubSelect
+            label="동아리"
+            value={state.club}
+            onChange={(club) => update({ club })}
           />
         </div>
       </div>
