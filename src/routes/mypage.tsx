@@ -1,28 +1,73 @@
+import { useState } from "react";
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
+import NoteIcon from "~/components/NoteIcon";
 import { SmallButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
 import { getProfile } from "~/lib/repos/profiles.server";
+import { listUserSongs } from "~/lib/repos/user-songs.server";
+import type { Song } from "~/lib/song-types";
 
 type Row = { label: string; value: string };
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireUser(request);
-  const profile = await getProfile(ctx.supabase, ctx.user.id);
+  const [profile, songs] = await Promise.all([
+    getProfile(ctx.supabase, ctx.user.id),
+    listUserSongs(ctx.supabase, ctx.user.id),
+  ]);
   return json(
-    { profile, email: ctx.user.email ?? "" },
+    { profile, email: ctx.user.email ?? "", songs },
     { headers: ctx.headers },
   );
 }
 
+const SongThumb = ({ src }: { src?: string }) => {
+  const [errored, setErrored] = useState(false);
+  if (!src || errored) {
+    return (
+      <div
+        style={{
+          width: "50px",
+          height: "50px",
+          borderRadius: "8px",
+          background: COLORS.cardBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <NoteIcon size={20} color={COLORS.text.placeholder} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setErrored(true)}
+      style={{
+        width: "50px",
+        height: "50px",
+        borderRadius: "8px",
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
 export default function MyPage() {
-  const { profile, email } = useLoaderData<typeof loader>();
+  const { profile, email, songs } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const mySongs: Song[] = songs ?? [];
 
   const rows: Row[] = [
     { label: "이메일", value: email || "-" },
@@ -163,55 +208,84 @@ export default function MyPage() {
           </div>
         </div>
 
-        {/* mehro 추천 카드 */}
-        <div
-          style={{
-            margin: "30px 25px 20px",
-            padding: "13px 14px",
-            background: "white",
-            border: "none",
-            borderRadius: RADIUS.alert,
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <div
+        {/* 내 음악 — 실제 선택 곡 */}
+        <div style={{ margin: "30px 25px 20px" }}>
+          <p
             style={{
-              width: "50px",
-              height: "48px",
-              borderRadius: "8px",
-              background: "#eaeaea",
-              flexShrink: 0,
+              ...TYPOGRAPHY.caption,
+              color: COLORS.text.helper,
+              margin: "0 2px 8px",
+              fontWeight: 600,
             }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p
+          >
+            내 음악 {mySongs.length > 0 ? `(${mySongs.length}곡)` : ""}
+          </p>
+          {mySongs.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => navigate("/music-select")}
               style={{
-                fontFamily: '"Avenir Next", -apple-system, sans-serif',
-                fontWeight: 500,
-                fontSize: "16px",
-                color: COLORS.text.primary,
-                margin: 0,
-                marginBottom: "4px",
-                lineHeight: 1.3,
+                width: "100%",
+                padding: "16px 14px",
+                background: "white",
+                borderRadius: RADIUS.alert,
+                border: "none",
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.placeholder,
+                textAlign: "left",
+                cursor: "pointer",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
               }}
             >
-              chance with you
-            </p>
-            <p
-              style={{
-                fontFamily: '"Avenir Next", -apple-system, sans-serif',
-                fontWeight: 500,
-                fontSize: "13px",
-                color: "#949494",
-                margin: 0,
-              }}
-            >
-              mehro
-            </p>
-          </div>
-          <span style={{ color: COLORS.text.muted, fontSize: "20px" }}>⋯</span>
+              아직 선택한 곡이 없어요. 곡을 골라보세요 ›
+            </button>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {mySongs.map((s) => (
+                <div
+                  key={s.songNo}
+                  style={{
+                    padding: "12px 14px",
+                    background: "white",
+                    borderRadius: RADIUS.alert,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <SongThumb src={s.albumImg} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        ...TYPOGRAPHY.bodyBold,
+                        fontSize: "15px",
+                        color: COLORS.text.primary,
+                        margin: "0 0 3px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {s.title}
+                    </p>
+                    <p
+                      style={{
+                        ...TYPOGRAPHY.tiny,
+                        color: COLORS.text.placeholder,
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {s.artist}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 정보 박스 */}
