@@ -46,7 +46,7 @@ export default function Waiting() {
   const { name, bankHolder, hasMatched } = useLoaderData<typeof loader>();
 
   return (
-    <PhoneFrame style={{ paddingBottom: "76px" }}>
+    <PhoneFrame style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
       <StatusBar />
       <div
         style={{
