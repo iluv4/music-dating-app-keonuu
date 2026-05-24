@@ -11,6 +11,7 @@ export type ProfileRow = {
   gender: Gender | null;
   school: string;
   major: string;
+  club: string | null;
   bank_holder: string | null;
   is_approved: boolean;
   approved_at: string | null;
@@ -26,6 +27,7 @@ export type ProfileUpsert = {
   gender: Gender | null;
   school: string;
   major: string;
+  club?: string | null;
   bank_holder: string | null;
   updated_at?: string;
 };

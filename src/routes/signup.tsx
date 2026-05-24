@@ -7,10 +7,37 @@ import PhoneFrame from "~/components/PhoneFrame";
 import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
-import { COLORS, TYPOGRAPHY } from "~/lib/constants";
+import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { requireGuest } from "~/lib/auth.server";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
+import { TERMS, TERM_BODIES, type TermItem } from "~/lib/terms-content";
+
+const Check = ({ checked, size = 22 }: { checked: boolean; size?: number }) => (
+  <span
+    style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      borderRadius: "50%",
+      background: checked ? COLORS.accent : "#e5e5e5",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      transition: "background 0.15s",
+    }}
+  >
+    <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+      <path
+        d="M1 4.5L4 7.5L10 1"
+        stroke="white"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </span>
+);
 
 const EMAIL_RE = /^[\w.+-]+@[\w-]+\.[\w.-]+$/;
 
@@ -36,6 +63,10 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   if (password !== confirm) {
     return json<ActionData>({ error: "비밀번호가 일치하지 않습니다." }, { status: 400 });
+  }
+  // 약관 동의는 회원가입 단계에 통합됨 — 미동의 제출 차단(클라 우회 대비 서버 검증)
+  if (String(formData.get("terms_agreed") ?? "") !== "1") {
+    return json<ActionData>({ error: "약관에 모두 동의해주세요." }, { status: 400 });
   }
 
   const admin = getSupabaseAdmin();
@@ -106,11 +137,27 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [agreed, setAgreed] = useState<Record<string, boolean>>({});
+  const [viewing, setViewing] = useState<TermItem | null>(null);
+
+  const allChecked = TERMS.every((t) => agreed[t.id]);
+  const toggle = (id: string) =>
+    setAgreed((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleAll = () => {
+    const next = !allChecked;
+    setAgreed(
+      TERMS.reduce<Record<string, boolean>>((acc, t) => {
+        acc[t.id] = next;
+        return acc;
+      }, {}),
+    );
+  };
 
   const emailValid = EMAIL_RE.test(email);
   const passwordValid = password.length >= 8;
   const confirmValid = confirm === password && confirm.length > 0;
-  const canSubmit = emailValid && passwordValid && confirmValid && !submitting;
+  const canSubmit =
+    emailValid && passwordValid && confirmValid && allChecked && !submitting;
 
   return (
     <PhoneFrame>
@@ -187,6 +234,100 @@ export default function Signup() {
           />
         </div>
 
+        {/* 약관 동의 — 별도 화면 대신 가입 단계에 통합(이탈 축소) */}
+        <input type="hidden" name="terms_agreed" value={allChecked ? "1" : ""} />
+        <div style={{ marginTop: "24px" }}>
+          <button
+            type="button"
+            onClick={toggleAll}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "14px 16px",
+              background: allChecked ? COLORS.accentSoft : COLORS.cardBg,
+              borderRadius: RADIUS.card,
+              border: "none",
+              textAlign: "left",
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            <Check checked={allChecked} />
+            <span
+              style={{
+                ...TYPOGRAPHY.bodyBold,
+                color: allChecked ? COLORS.accent : COLORS.text.primary,
+              }}
+            >
+              약관 전체동의
+            </span>
+          </button>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {TERMS.map((t) => (
+              <div
+                key={t.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 8px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggle(t.id)}
+                  aria-label={`${t.label} 동의`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    flex: 1,
+                    padding: 0,
+                    background: "none",
+                    border: "none",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Check checked={!!agreed[t.id]} size={20} />
+                  <span
+                    style={{
+                      ...TYPOGRAPHY.label,
+                      color: agreed[t.id]
+                        ? COLORS.text.primary
+                        : COLORS.text.secondary,
+                    }}
+                  >
+                    {t.label}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${t.label} 전문 보기`}
+                  onClick={() => setViewing(t)}
+                  style={{
+                    color: COLORS.text.placeholder,
+                    fontSize: "18px",
+                    minWidth: "44px",
+                    minHeight: "44px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "none",
+                    border: "none",
+                    flexShrink: 0,
+                    cursor: "pointer",
+                  }}
+                >
+                  ›
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {actionData?.error && (
           <p
             style={{
@@ -239,6 +380,84 @@ export default function Signup() {
         </div>
       </Form>
       <HomeIndicator />
+
+      {/* 약관 전문 모달 */}
+      {viewing && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-end",
+            zIndex: 100,
+          }}
+          onClick={() => setViewing(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "390px",
+              maxHeight: "75vh",
+              background: "white",
+              borderTopLeftRadius: "20px",
+              borderTopRightRadius: "20px",
+              padding: "24px 24px 32px",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
+              <h2
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  fontSize: "17px",
+                  color: COLORS.text.primary,
+                  margin: 0,
+                }}
+              >
+                {viewing.label.replace("(필수) ", "")}
+              </h2>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={() => setViewing(null)}
+                style={{
+                  fontSize: "22px",
+                  color: COLORS.text.secondary,
+                  background: "none",
+                  border: "none",
+                  minWidth: "44px",
+                  minHeight: "44px",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div
+              style={{
+                overflowY: "auto",
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.secondary,
+                lineHeight: 1.65,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {TERM_BODIES[viewing.id] ?? "준비 중입니다."}
+            </div>
+          </div>
+        </div>
+      )}
     </PhoneFrame>
   );
 }

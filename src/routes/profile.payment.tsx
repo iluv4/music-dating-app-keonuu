@@ -33,6 +33,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const gender = String(fd.get("gender") ?? "").trim() || null;
   const school = String(fd.get("school") ?? "").trim();
   const major = String(fd.get("major") ?? "").trim();
+  const club = String(fd.get("club") ?? "").trim();
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
 
   const birthYear = Number(birthYearStr);
@@ -53,6 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
     gender: gender as Gender | null,
     school,
     major,
+    club: club || null,
     bank_holder: bankHolder,
   });
 
@@ -126,9 +128,10 @@ export default function ProfilePayment() {
         <input type="hidden" name="gender" value={profile?.gender ?? ""} />
         <input type="hidden" name="school" value={profile?.school ?? ""} />
         <input type="hidden" name="major" value={profile?.major ?? ""} />
+        <input type="hidden" name="club" value={profile?.club ?? ""} />
 
         <div style={{ marginTop: "30px", marginBottom: "40px" }}>
-          <ProgressDots total={4} current={4} />
+          <ProgressDots total={2} current={2} />
         </div>
 
         <h1

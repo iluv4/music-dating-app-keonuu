@@ -34,7 +34,7 @@ const OG_IMAGE = `${SITE_URL}/images/welcome-mascot.png`;
 
 export const meta: MetaFunction = () => [
   { charset: "utf-8" },
-  { name: "theme-color", content: "#ff0558" },
+  { name: "theme-color", content: "#ff625d" },
   {
     name: "viewport",
     // interactive-widget: 키보드가 뜰 때 레이아웃을 밀어올려 입력창이 가려지지 않게

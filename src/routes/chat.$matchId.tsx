@@ -22,6 +22,8 @@ import {
   sendMessage,
 } from "~/lib/repos/messages.server";
 import { endMatch } from "~/lib/repos/matches.server";
+import { listUserSongs } from "~/lib/repos/user-songs.server";
+import { buildIcebreakers } from "~/lib/icebreakers";
 import { sendPushToUser } from "~/lib/push.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
@@ -38,11 +40,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // 진입 시 상대 메시지 read_at 일괄 갱신 (실패해도 무시)
   await markMessagesRead(ctx.supabase, matchId, ctx.user.id);
 
+  // 첫 메시지 추천 — 아직 대화가 없을 때만 내 선택곡 기반 오프너 제안
+  let icebreakers: string[] = [];
+  if (messages.length === 0 && ctx.match.status === "active") {
+    const mySongs = await listUserSongs(ctx.supabase, ctx.user.id);
+    icebreakers = buildIcebreakers(mySongs);
+  }
+
   return json(
     {
       match: ctx.match,
       currentUserId: ctx.user.id,
       messages,
+      icebreakers,
     },
     { headers: ctx.headers },
   );
@@ -150,7 +160,7 @@ function isSameDay(a: string, b: string): boolean {
 }
 
 export default function ChatRoom() {
-  const { match, currentUserId, messages: initial } =
+  const { match, currentUserId, messages: initial, icebreakers } =
     useLoaderData<typeof loader>();
   const params = useParams();
   const matchId = params.matchId as string;
@@ -277,11 +287,12 @@ export default function ChatRoom() {
     };
   }, [matchId, currentUserId]);
 
-  // sendFetcher 성공 시: 입력 비움 + 메시지 즉시 표시 (Realtime 실패해도 본인은 봄)
-  // 실패 시(텍스트·사진 공통): 서버 에러를 화면에 노출
+  // sendFetcher 응답 처리: 서버 확정 메시지로 낙관적 임시(temp-) 메시지를 교체.
+  // 실패 시(텍스트·사진 공통): 임시 메시지 롤백 + 서버 에러 노출.
   useEffect(() => {
     if (sendFetcher.state !== "idle") return;
     if (sendFetcher.data?.error) {
+      setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
       setUploadError(sendFetcher.data.error);
       return;
     }
@@ -289,10 +300,11 @@ export default function ChatRoom() {
     if (!newMsg) return;
     setUploadError(null);
     setMessages((prev) => {
-      if (prev.some((m) => m.id === newMsg.id)) return prev;
-      return [...prev, newMsg];
+      // 한 번에 하나만 전송(submitting 가드) → temp- 전부 제거 후 확정본 추가
+      const withoutTemp = prev.filter((m) => !m.id.startsWith("temp-"));
+      if (withoutTemp.some((m) => m.id === newMsg.id)) return withoutTemp;
+      return [...withoutTemp, newMsg];
     });
-    setDraft("");
     inputRef.current?.focus();
   }, [sendFetcher.state, sendFetcher.data]);
 
@@ -300,6 +312,19 @@ export default function ChatRoom() {
     e.preventDefault();
     const trimmed = draft.trim();
     if (!trimmed || submitting) return;
+    // 낙관적 표시 — 서버 왕복을 기다리지 않고 즉시 말풍선 노출
+    const temp: MessageRow = {
+      id: `temp-${Date.now()}`,
+      match_id: matchId,
+      sender_id: currentUserId,
+      content: trimmed,
+      image_url: null,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+    setMessages((prev) => [...prev, temp]);
+    setDraft("");
+    inputRef.current?.focus();
     const fd = new FormData();
     fd.set("content", trimmed);
     sendFetcher.submit(fd, { method: "post" });
@@ -437,16 +462,64 @@ export default function ChatRoom() {
         }}
       >
         {messages.length === 0 && (
-          <p
-            style={{
-              ...TYPOGRAPHY.label,
-              color: COLORS.text.placeholder,
-              textAlign: "center",
-              marginTop: "40px",
-            }}
-          >
-            아직 메시지가 없어요. 먼저 인사해보세요!
-          </p>
+          <div style={{ marginTop: "40px" }}>
+            <p
+              style={{
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.placeholder,
+                textAlign: "center",
+                margin: 0,
+              }}
+            >
+              아직 메시지가 없어요. 먼저 인사해보세요!
+            </p>
+            {!isEnded && icebreakers.length > 0 && (
+              <div style={{ marginTop: "24px" }}>
+                <p
+                  style={{
+                    ...TYPOGRAPHY.caption,
+                    color: COLORS.text.helper,
+                    textAlign: "center",
+                    margin: "0 0 12px",
+                  }}
+                >
+                  ✨ 이렇게 시작해보세요
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    padding: "0 8px",
+                  }}
+                >
+                  {icebreakers.map((text, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setDraft(text);
+                        inputRef.current?.focus();
+                      }}
+                      style={{
+                        textAlign: "left",
+                        background: "white",
+                        color: COLORS.text.primary,
+                        border: `1px solid ${COLORS.accentSoft}`,
+                        borderRadius: "14px",
+                        padding: "12px 14px",
+                        ...TYPOGRAPHY.label,
+                        lineHeight: 1.45,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
         {messages.map((msg, i) => {
           const fromMe = msg.sender_id === currentUserId;

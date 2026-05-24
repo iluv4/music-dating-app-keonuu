@@ -82,7 +82,7 @@ export default function Welcome() {
         }}
       >
         <PrimaryButton
-          onClick={() => navigate("/terms")}
+          onClick={() => navigate("/signup")}
           style={{ width: "100%", maxWidth: "350px" }}
         >
           시작하기

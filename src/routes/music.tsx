@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   json,
   redirect,
@@ -149,26 +149,6 @@ export default function Music() {
     void initPush();
   }, []);
 
-  // 매칭 성사 후 1시간 카운트다운 (생성시각 기준, 클라이언트 계산)
-  const MATCH_WINDOW_MS = 60 * 60 * 1000;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!match) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [match]);
-  const remainingMs = match
-    ? new Date(match.matchedAt).getTime() + MATCH_WINDOW_MS - now
-    : 0;
-  const expired = remainingMs <= 0;
-  const formatCountdown = (ms: number) => {
-    const s = Math.max(0, Math.floor(ms / 1000));
-    const hh = String(Math.floor(s / 3600)).padStart(2, "0");
-    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    const ss = String(s % 60).padStart(2, "0");
-    return `${hh}:${mm}:${ss}`;
-  };
-
   return (
     <PhoneFrame style={{ paddingBottom: "76px" }}>
       <StatusBar />
@@ -236,24 +216,6 @@ export default function Music() {
                 }}
               >
                 💘
-              </div>
-
-              {/* 1시간 카운트다운 */}
-              <div
-                style={{
-                  display: "inline-block",
-                  ...TYPOGRAPHY.caption,
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "0.5px",
-                  color: expired ? COLORS.text.placeholder : COLORS.accent,
-                  background: expired ? COLORS.cardBg : COLORS.accentSoft,
-                  padding: "4px 12px",
-                  borderRadius: "999px",
-                  marginBottom: "10px",
-                  fontWeight: 600,
-                }}
-              >
-                {expired ? "시간 만료" : `남은 시간 ${formatCountdown(remainingMs)}`}
               </div>
 
               <p

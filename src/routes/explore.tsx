@@ -48,6 +48,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       return json(
         {
           guest: false,
+          loggedIn: true,
           members,
           preview: [] as PreviewMember[],
           viewerGender: (profile.gender as string | null) ?? null,
@@ -57,11 +58,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
+  // 여기 도달: 비로그인 게스트 OR 로그인했지만 미승인 회원.
+  // 둘은 둘러보기 화면은 같지만 하단 CTA가 다르다(가입 유도 vs 입금 유도).
   const { data, error } = await ctx.supabase.rpc("list_discover_preview");
   if (error) console.error("[explore.list_discover_preview]", error);
   return json(
     {
       guest: true,
+      loggedIn: !!ctx.user,
       members: [] as DiscoverMember[],
       preview: (data ?? []) as PreviewMember[],
       viewerGender: null as string | null,
@@ -354,9 +358,12 @@ export default function Explore() {
             zIndex: 10,
           }}
         >
-          <Link to="/welcome" style={{ display: "block", width: "100%" }}>
+          <Link
+            to={data.loggedIn ? "/waiting" : "/welcome"}
+            style={{ display: "block", width: "100%" }}
+          >
             <PrimaryButton style={{ width: "100%", maxWidth: "none" }}>
-              가입하고 매칭 시작하기
+              {data.loggedIn ? "입금하고 매칭 시작하기" : "가입하고 매칭 시작하기"}
             </PrimaryButton>
           </Link>
         </div>
