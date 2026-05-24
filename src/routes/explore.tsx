@@ -332,6 +332,7 @@ export default function Explore() {
               <Link
                 key={m.user_id}
                 to={`/member/${m.user_id}`}
+                className="tappable"
                 style={{ display: "block", textDecoration: "none" }}
               >
                 <MemberCard m={m} idx={i} />

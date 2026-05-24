@@ -111,3 +111,82 @@ select:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(255, 98, 93, 0.35);
 }
+
+/* ===== 모션 (토스식: 빠르고 부드러운 expo-out, 한 타겟 한 모션, subtle) ===== */
+/* 화면 진입 — 살짝 떠오르며 페이드인 */
+@keyframes appScreenIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.app-screen {
+  animation: appScreenIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 바텀시트 — 아래에서 슬라이드업 */
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-up {
+  animation: sheetUp 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 중앙 다이얼로그 — 살짝 커지며 등장 */
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pop-in {
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 오버레이(딤) 페이드 */
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.overlay-in {
+  animation: overlayIn 0.18s ease;
+}
+
+/* 카드·행처럼 버튼이 아닌 탭 대상의 누름 피드백 */
+.tappable {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tappable:active {
+  transform: scale(0.985);
+}
+
+/* 접근성: 모션 최소화 설정 시 애니메이션 끔 */
+@media (prefers-reduced-motion: reduce) {
+  .app-screen,
+  .sheet-up,
+  .pop-in,
+  .overlay-in {
+    animation: none;
+  }
+  button:active:not(:disabled),
+  .tappable:active {
+    transform: none;
+  }
+}
