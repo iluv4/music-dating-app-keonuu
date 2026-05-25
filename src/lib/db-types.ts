@@ -10,8 +10,11 @@ export type ProfileRow = {
   birth_year: number;
   gender: Gender | null;
   school: string;
+  campus: string | null;
   major: string;
   club: string | null;
+  region: string | null;
+  match_campus_pref: string | null;
   bank_holder: string | null;
   photo_url: string | null;
   is_approved: boolean;
@@ -27,8 +30,11 @@ export type ProfileUpsert = {
   birth_year: number;
   gender: Gender | null;
   school: string;
+  campus?: string | null;
   major: string;
   club?: string | null;
+  region?: string | null;
+  match_campus_pref?: string | null;
   bank_holder: string | null;
   photo_url?: string | null;
   updated_at?: string;

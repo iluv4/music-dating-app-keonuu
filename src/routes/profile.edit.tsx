@@ -17,9 +17,20 @@ import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import TextInput from "~/components/TextInput";
+import CampusSelect from "~/components/CampusSelect";
+import DeptSelect from "~/components/DeptSelect";
+import RegionSelect from "~/components/RegionSelect";
+import MatchCampusPrefSelect from "~/components/MatchCampusPrefSelect";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
+import {
+  DEFAULT_SCHOOL,
+  isCampus,
+  isMatchCampusPref,
+  type Campus,
+  type MatchCampusPref,
+} from "~/lib/campus";
 import {
   getProfileFields,
   updateProfile,
@@ -37,7 +48,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     "birth_year",
     "gender",
     "school",
+    "campus",
     "major",
+    "region",
+    "match_campus_pref",
     "bank_holder",
     "photo_url",
   ]);
@@ -58,8 +72,13 @@ export async function action({ request }: ActionFunctionArgs) {
   const name = String(fd.get("name") ?? "").trim();
   const birthYearStr = String(fd.get("birth_year") ?? "").trim();
   const gender = String(fd.get("gender") ?? "").trim();
-  const school = String(fd.get("school") ?? "").trim();
+  const campusRaw = String(fd.get("campus") ?? "").trim();
+  const campus = isCampus(campusRaw) ? campusRaw : "";
+  const school = DEFAULT_SCHOOL.name;
   const major = String(fd.get("major") ?? "").trim();
+  const region = String(fd.get("region") ?? "").trim();
+  const matchPrefRaw = String(fd.get("match_campus_pref") ?? "").trim();
+  const matchCampusPref = isMatchCampusPref(matchPrefRaw) ? matchPrefRaw : "상관없음";
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
   const photoUrlRaw = String(fd.get("photo_url") ?? "").trim();
 
@@ -79,9 +98,9 @@ export async function action({ request }: ActionFunctionArgs) {
       { error: "성별을 선택해주세요." },
       { status: 400, headers: ctx.headers },
     );
-  if (school.length < 2)
+  if (!campus)
     return json<ActionData>(
-      { error: "학교명을 확인해주세요." },
+      { error: "캠퍼스를 선택해주세요." },
       { status: 400, headers: ctx.headers },
     );
   if (major.length < 2)
@@ -109,7 +128,10 @@ export async function action({ request }: ActionFunctionArgs) {
     birth_year: birthYear,
     gender,
     school,
+    campus,
     major,
+    region: region || null,
+    match_campus_pref: matchCampusPref,
     bank_holder: bankHolder,
     ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
   });
@@ -146,8 +168,16 @@ export default function ProfileEdit() {
   const [gender, setGender] = useState<"male" | "female">(
     profile.gender ?? "male",
   );
-  const [school, setSchool] = useState(profile.school);
+  const [campus, setCampus] = useState<Campus | "">(
+    isCampus(profile.campus) ? profile.campus : "",
+  );
   const [major, setMajor] = useState(profile.major);
+  const [region, setRegion] = useState(profile.region ?? "");
+  const [matchCampusPref, setMatchCampusPref] = useState<MatchCampusPref>(
+    isMatchCampusPref(profile.match_campus_pref)
+      ? profile.match_campus_pref
+      : "상관없음",
+  );
   const [bankHolder, setBankHolder] = useState(profile.bank_holder ?? "");
 
   // 프로필 사진 — 경로(photoPath)는 폼으로 저장하고, 미리보기는 단기 서명 URL.
@@ -229,6 +259,13 @@ export default function ProfileEdit() {
     }
   };
 
+  // 캠퍼스를 바꾸면 학과는 캠퍼스별 목록이라 초기화.
+  const selectCampus = (next: Campus) => {
+    if (next === campus) return;
+    setCampus(next);
+    setMajor("");
+  };
+
   const yearNum = Number(birthYear);
   const canSubmit =
     name.trim().length >= 1 &&
@@ -236,7 +273,7 @@ export default function ProfileEdit() {
     yearNum >= 1950 &&
     yearNum <= CURRENT_YEAR &&
     (gender === "male" || gender === "female") &&
-    school.trim().length >= 2 &&
+    campus !== "" &&
     major.trim().length >= 2 &&
     bankHolder.trim().length >= 2 &&
     !submitting;
@@ -402,7 +439,7 @@ export default function ProfileEdit() {
             type="text"
             inputMode="numeric"
             maxLength={4}
-            placeholder="2002"
+            placeholder="예) 2003"
             value={birthYear}
             onChange={(e) =>
               setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))
@@ -439,22 +476,30 @@ export default function ProfileEdit() {
             </div>
           </div>
 
-          <TextInput
-            label="학교"
-            name="school"
-            type="text"
-            placeholder="상명대학교 천안"
-            value={school}
-            onChange={(e) => setSchool(e.target.value)}
-          />
-          <TextInput
+          <input type="hidden" name="campus" value={campus} />
+          <CampusSelect label="학교" value={campus} onChange={selectCampus} />
+
+          <input type="hidden" name="major" value={major} />
+          <DeptSelect
             label="학과"
-            name="major"
-            type="text"
-            placeholder="커뮤니케이션 디자인"
             value={major}
-            onChange={(e) => setMajor(e.target.value)}
+            campus={campus}
+            onChange={setMajor}
           />
+
+          <input type="hidden" name="region" value={region} />
+          <RegionSelect label="거주지역" value={region} onChange={setRegion} />
+
+          <input
+            type="hidden"
+            name="match_campus_pref"
+            value={matchCampusPref}
+          />
+          <MatchCampusPrefSelect
+            value={matchCampusPref}
+            onChange={setMatchCampusPref}
+          />
+
           <TextInput
             label="입금자명"
             name="bank_holder"

@@ -15,8 +15,11 @@ type Pick<T, K extends keyof T> = { [P in K]: T[P] };
 const FIELD_MAX: Record<string, number> = {
   name: 40,
   school: 80,
+  campus: 10,
   major: 80,
   club: 60,
+  region: 30,
+  match_campus_pref: 10,
   bank_holder: 40,
 };
 
