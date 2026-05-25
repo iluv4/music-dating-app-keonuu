@@ -12,6 +12,7 @@ export type ProfileRow = {
   school: string;
   major: string;
   club: string | null;
+  genres: string[] | null;
   bank_holder: string | null;
   is_approved: boolean;
   approved_at: string | null;
@@ -28,6 +29,7 @@ export type ProfileUpsert = {
   school: string;
   major: string;
   club?: string | null;
+  genres?: string[] | null;
   bank_holder: string | null;
   updated_at?: string;
 };
