@@ -26,8 +26,10 @@ import {
 import PreviewBanner from "~/components/PreviewBanner";
 import { PREVIEW_SONGS, PREVIEW_MATCH } from "~/lib/preview-data";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
+import { listUserGenres } from "~/lib/repos/user-genres.server";
 import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
+import { GENRE_LABEL } from "~/lib/genres";
 import { sendPushToUser } from "~/lib/push.server";
 import { capture } from "~/lib/analytics.client";
 import {
@@ -46,6 +48,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       songs: PREVIEW_SONGS,
       match: PREVIEW_MATCH,
       unread: 0,
+      genres: [] as string[],
+      capped: false,
     });
   }
 
@@ -54,14 +58,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw redirect(dest, { headers: ctx.headers });
   }
 
-  const [songs, matches, unread] = await Promise.all([
+  // 곡 저장 직후 캡 도달로 리다이렉트된 경우 안내 표시.
+  const capped = new URL(request.url).searchParams.get("capped") === "1";
+
+  const [songs, genres, matches, unread] = await Promise.all([
     listUserSongs(ctx.supabase, ctx.user.id),
+    listUserGenres(ctx.supabase, ctx.user.id),
     listUserMatches(ctx.supabase, ctx.user.id),
     countUnreadNotifications(ctx.supabase, ctx.user.id),
   ]);
 
   return json(
-    { guest: false as const, songs, match: matches[0] ?? null, unread },
+    {
+      guest: false as const,
+      songs,
+      match: matches[0] ?? null,
+      unread,
+      genres,
+      capped,
+    },
     { headers: ctx.headers },
   );
 }
@@ -69,14 +84,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const ctx = await requireApprovedUser(request);
   // 재매칭(다시 결제)은 /rematch 에서 처리. 여기선 최초 매칭 탐색만.
-  const { data, error } = await ctx.supabase.rpc("find_or_create_match", {
+  // 장르 우선 매칭(find_best_match) — 안 겹쳐도 후보가 있으면 매칭.
+  const { data, error } = await ctx.supabase.rpc("find_best_match", {
     p_user_id: ctx.user.id,
   });
 
   if (error) {
-    console.error("[music.find_or_create_match]", error);
+    // 누적 매칭 캡 도달 → 후보 없음과 구분해 안내.
+    if (error.message?.includes("match_cap_reached")) {
+      return json(
+        { error: null as string | null, capped: true },
+        { headers: ctx.headers },
+      );
+    }
+    console.error("[music.find_best_match]", error);
     return json(
-      { error: "매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요." },
+      { error: "매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.", capped: false },
       { status: 500, headers: ctx.headers },
     );
   }
@@ -100,7 +123,10 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // 후보 없음
-  return json({ error: null as string | null }, { headers: ctx.headers });
+  return json(
+    { error: null as string | null, capped: false },
+    { headers: ctx.headers },
+  );
 }
 
 const BellIcon = ({ hasAlert = false }: { hasAlert?: boolean }) => (
@@ -155,11 +181,15 @@ const ctaBase = {
 
 export default function Music() {
   const navigate = useNavigate();
-  const { guest, songs, match, unread } = useLoaderData<typeof loader>();
+  const { guest, songs, match, unread, genres, capped: loaderCapped } =
+    useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const matching = navigation.state === "submitting";
-  const noCandidate = actionData != null && !actionData.error;
+  const capped = loaderCapped || actionData?.capped === true;
+  const noCandidate =
+    actionData != null && !actionData.error && !actionData.capped;
+  const genreLabels = genres.map((g) => GENRE_LABEL[g] ?? g);
 
   // 알림 켜기 배너 — iOS는 권한요청이 사용자 제스처 안에서만 동작하므로 버튼으로 노출.
   // 자동으로는 "이미 허용된 경우만" 조용히 구독 동기화.
@@ -411,10 +441,51 @@ export default function Music() {
                   lineHeight: 1.5,
                 }}
               >
-                음악 취향이 통하는
-                <br />
-                상대를 찾아볼까요?
+                {capped ? (
+                  <>
+                    매칭 기회를
+                    <br />
+                    모두 사용했어요
+                  </>
+                ) : (
+                  <>
+                    음악 취향이 통하는
+                    <br />
+                    상대를 찾아볼까요?
+                  </>
+                )}
               </p>
+
+              {/* 선택한 장르 칩 — 어떤 취향으로 매칭되는지 노출 */}
+              {!capped && genreLabels.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                    justifyContent: "center",
+                    marginTop: "12px",
+                  }}
+                >
+                  {genreLabels.map((label) => (
+                    <span
+                      key={label}
+                      style={{
+                        ...TYPOGRAPHY.tiny,
+                        fontWeight: 700,
+                        color: COLORS.accent,
+                        background: COLORS.accentSoft,
+                        borderRadius: "999px",
+                        padding: "4px 10px",
+                        letterSpacing: "0.3px",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <p
                 style={{
                   ...TYPOGRAPHY.label,
@@ -422,36 +493,45 @@ export default function Music() {
                   margin: "8px 0 0",
                 }}
               >
-                {noCandidate
-                  ? "아직 딱 맞는 상대를 찾지 못했어요. 잠시 후 다시 시도해주세요."
-                  : "선택한 노래가 겹치는 상대와 매칭돼요."}
+                {capped
+                  ? "더 만나려면 재입금 후 운영팀 승인이 필요해요."
+                  : noCandidate
+                    ? "아직 상대가 모이지 않았어요. 잠시 후 다시 시도해주세요."
+                    : genreLabels.length > 0
+                      ? "같은 장르를 고른 상대와 우선 매칭돼요."
+                      : "선택한 음악 취향이 통하는 상대와 매칭돼요."}
               </p>
-              <Form method="post">
-                <button
-                  type="submit"
-                  disabled={matching || noCandidate}
-                  onClick={() =>
-                    capture("match.search_started", {
-                      song_count: songs.length,
-                    })
-                  }
-                  style={{
-                    ...ctaBase,
-                    marginTop: "18px",
-                    // 한 번 시도해 후보가 없으면 회색 비활성 → 연타 방지(팀 피드백)
-                    background: noCandidate ? COLORS.cardBorder : COLORS.accent,
-                    color: "white",
-                    cursor: matching || noCandidate ? "not-allowed" : "pointer",
-                    opacity: matching ? 0.7 : 1,
-                  }}
-                >
-                  {matching
-                    ? "매칭 중..."
-                    : noCandidate
-                      ? "잠시 후 다시 시도"
-                      : "매칭 찾기"}
-                </button>
-              </Form>
+              {!capped && (
+                <Form method="post">
+                  <button
+                    type="submit"
+                    disabled={matching || noCandidate}
+                    onClick={() =>
+                      capture("match.search_started", {
+                        song_count: songs.length,
+                      })
+                    }
+                    style={{
+                      ...ctaBase,
+                      marginTop: "18px",
+                      // 한 번 시도해 후보가 없으면 회색 비활성 → 연타 방지(팀 피드백)
+                      background: noCandidate
+                        ? COLORS.cardBorder
+                        : COLORS.accent,
+                      color: "white",
+                      cursor:
+                        matching || noCandidate ? "not-allowed" : "pointer",
+                      opacity: matching ? 0.7 : 1,
+                    }}
+                  >
+                    {matching
+                      ? "매칭 중..."
+                      : noCandidate
+                        ? "잠시 후 다시 시도"
+                        : "매칭 찾기"}
+                  </button>
+                </Form>
+              )}
             </>
           )}
         </div>

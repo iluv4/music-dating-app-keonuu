@@ -1,39 +1,60 @@
 import { useEffect, useState } from "react";
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useNavigate } from "@remix-run/react";
+import {
+  json,
+  redirect,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import { requireApprovedUser } from "~/lib/auth.server";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
+import { GENRES, MAX_GENRES, sanitizeGenres } from "~/lib/genres";
+import {
+  listUserGenres,
+  replaceUserGenres,
+} from "~/lib/repos/user-genres.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
-  return json({}, { headers: ctx.headers });
+  const selected = await listUserGenres(ctx.supabase, ctx.user.id);
+  return json({ selected }, { headers: ctx.headers });
 }
 
-type Genre = {
-  id: string;
-  label: string;
-  hue: string; // 디스크 색감 placeholder
-};
+export async function action({ request }: ActionFunctionArgs) {
+  const ctx = await requireApprovedUser(request);
+  const fd = await request.formData();
 
-// 디자인 순서: BALLAD/HIPHOP, POP/INDIE, ROCK/JAZZ (영문 라벨 통일)
-const GENRES: Genre[] = [
-  { id: "ballad", label: "BALLAD", hue: "#a8a8a8" },
-  { id: "hiphop", label: "HIPHOP", hue: "#5d3a5f" },
-  { id: "pop", label: "POP", hue: "#d4a373" },
-  { id: "indie", label: "INDIE", hue: "#7a9eb0" },
-  { id: "rock", label: "ROCK", hue: "#2e2e2e" },
-  { id: "jazz", label: "JAZZ", hue: "#b08d57" },
-];
+  let parsed: unknown = [];
+  try {
+    parsed = JSON.parse(String(fd.get("genres") ?? "[]"));
+  } catch {
+    parsed = [];
+  }
+  const genres = sanitizeGenres(parsed);
 
-const MAX_GENRES = 3;
+  const result = await replaceUserGenres(ctx.supabase, ctx.user.id, genres);
+  if (!result.ok) {
+    return json(
+      { error: "장르 저장 중 오류가 발생했어요." },
+      { status: 500, headers: ctx.headers },
+    );
+  }
+
+  return redirect("/music-select", { headers: ctx.headers });
+}
 
 export default function Genre() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { selected: initialSelected } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const submitting = navigation.state === "submitting";
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(initialSelected),
+  );
   const [toast, setToast] = useState<string | null>(null);
   // 앨범커버 이미지가 없는(로드 실패한) 장르는 기존 LP판 모양으로 대체
   const [imgFailed, setImgFailed] = useState<Set<string>>(new Set());
@@ -233,7 +254,8 @@ export default function Genre() {
         </div>
       </div>
 
-      <div
+      <Form
+        method="post"
         style={{
           position: "absolute",
           bottom: "34px",
@@ -241,14 +263,19 @@ export default function Genre() {
           right: "25px",
         }}
       >
+        <input
+          type="hidden"
+          name="genres"
+          value={JSON.stringify([...selected])}
+        />
         <PrimaryButton
-          disabled={selected.size === 0}
-          onClick={() => navigate("/music-select")}
+          type="submit"
+          disabled={selected.size === 0 || submitting}
           style={{ maxWidth: "none" }}
         >
-          다음으로
+          {submitting ? "저장 중..." : "다음으로"}
         </PrimaryButton>
-      </div>
+      </Form>
       <HomeIndicator />
 
       {/* 토스트 */}

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
 import { getProfileFields } from "~/lib/repos/profiles.server";
 import { countUserSongs } from "~/lib/repos/user-songs.server";
-import { getMatchWithPartner } from "~/lib/repos/matches.server";
+import { getActiveMatchId, getMatchWithPartner } from "~/lib/repos/matches.server";
 import type { MatchWithPartner } from "~/lib/db-types";
 
 // 인증 게이트
@@ -85,14 +85,23 @@ export async function requireMatchAccess(
   headers: Headers;
   match: MatchWithPartner;
 }> {
-  const ctx = await requireApprovedUser(request);
-  const match = await getMatchWithPartner(
-    ctx.supabase,
-    matchId,
-    ctx.user.id,
-  );
+  // requireApprovedUser 대신 직접 검사 — 매칭 후 강등(미승인)됐어도
+  // 본인이 참여한 매칭의 채팅은 계속 열 수 있어야 한다.
+  const ctx = await requireUser(request);
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "user_id",
+    "is_approved",
+  ]);
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
+
+  const match = await getMatchWithPartner(ctx.supabase, matchId, ctx.user.id);
   if (!match) {
-    throw redirect("/chat", { headers: ctx.headers });
+    // 매칭 없음: 미승인이면 대기 화면, 승인 사용자면 채팅 목록으로.
+    throw redirect(profile.is_approved ? "/chat" : "/waiting", {
+      headers: ctx.headers,
+    });
   }
   return { ...ctx, match };
 }

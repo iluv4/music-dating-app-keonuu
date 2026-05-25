@@ -185,6 +185,29 @@ export async function getMatchWithPartner(
 }
 
 /**
+ * 본인이 참여한 active 매칭 id (가장 최근) 또는 null.
+ * 강등(미승인)됐어도 활성 매칭이 있으면 /chat 으로 보내는 라우팅에 사용.
+ */
+export async function getActiveMatchId(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("status", "active")
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+  if (error) {
+    console.error("[matches.getActiveMatchId]", error);
+    return null;
+  }
+  return data?.id ?? null;
+}
+
+/**
  * 채팅 끊기 — RPC 호출.
  * SECURITY DEFINER 함수가 본인 참여 매칭인지 확인 후 status='ended' 처리.
  */

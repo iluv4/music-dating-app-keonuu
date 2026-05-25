@@ -17,6 +17,8 @@ import {
   listUserSongs,
   replaceUserSongs,
 } from "~/lib/repos/user-songs.server";
+import { getMatchWithPartner } from "~/lib/repos/matches.server";
+import { sendPushToUser } from "~/lib/push.server";
 import { getChartTop } from "~/lib/melon-chart.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
@@ -95,6 +97,39 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "저장 중 오류가 발생했어요." }, { status: 500 });
   }
 
+  // 곡 저장 직후 자동 매칭 — 장르 우선, 안 겹쳐도 후보가 있으면 매칭.
+  const { data, error } = await ctx.supabase.rpc("find_best_match", {
+    p_user_id: ctx.user.id,
+  });
+
+  if (error) {
+    // 누적 매칭 캡 도달 → 매칭 화면에서 안내. 그 외 오류는 로그만 남기고 진행.
+    if (error.message?.includes("match_cap_reached")) {
+      return redirect("/music?capped=1", { headers: ctx.headers });
+    }
+    console.error("[music-select.find_best_match]", error);
+    return redirect("/music", { headers: ctx.headers });
+  }
+
+  const matchId = data as string | null;
+  if (matchId) {
+    // 매칭된 상대에게 푸시 (본인은 채팅으로 이동하므로 상대만).
+    try {
+      const m = await getMatchWithPartner(ctx.supabase, matchId, ctx.user.id);
+      if (m?.partnerId) {
+        await sendPushToUser(m.partnerId, {
+          title: "새 매칭이 성사됐어요! 💘",
+          body: "음악 취향이 통하는 상대와 매칭됐어요.",
+          url: `/chat/${matchId}`,
+        });
+      }
+    } catch (e) {
+      console.error("[music-select.match push]", e);
+    }
+    return redirect(`/chat/${matchId}`, { headers: ctx.headers });
+  }
+
+  // 후보 없음 → 매칭 대기 화면.
   return redirect("/music", { headers: ctx.headers });
 }
 

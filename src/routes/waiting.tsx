@@ -7,7 +7,7 @@ import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { postApprovalDestination, requireUser } from "~/lib/auth.server";
 import { getProfileFields } from "~/lib/repos/profiles.server";
-import { listUserMatches } from "~/lib/repos/matches.server";
+import { getActiveMatchId, listUserMatches } from "~/lib/repos/matches.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireUser(request);
@@ -26,6 +26,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (profile.is_approved) {
     const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
     throw redirect(dest, { headers: ctx.headers });
+  }
+
+  // 매칭 후 강등됐어도 활성 매칭이 있으면 대기 화면 대신 채팅방으로.
+  const activeId = await getActiveMatchId(ctx.supabase, ctx.user.id);
+  if (activeId) {
+    throw redirect(`/chat/${activeId}`, { headers: ctx.headers });
   }
 
   // 매칭 기록 있으면 "재매칭 모드" 안내

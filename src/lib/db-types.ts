@@ -63,6 +63,13 @@ export type UserSongInsert = {
   album_img: string | null;
 };
 
+// user_genres ----------------------------------------------------------------
+export type UserGenreRow = {
+  user_id: string;
+  genre: string;
+  selected_at: string;
+};
+
 // matches --------------------------------------------------------------------
 export type MatchStatus = "pending" | "active" | "ended";
 
