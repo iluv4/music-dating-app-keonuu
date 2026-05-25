@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   json,
   redirect,
@@ -24,6 +24,9 @@ import {
   getProfileFields,
   updateProfile,
 } from "~/lib/repos/profiles.server";
+import { getSupabaseBrowser } from "~/lib/supabase.client";
+import { getClientEnv } from "~/lib/env.client";
+import { downscaleImage } from "~/lib/image.client";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -36,6 +39,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     "school",
     "major",
     "bank_holder",
+    "photo_url",
   ]);
 
   if (!profile) {
@@ -57,6 +61,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const school = String(fd.get("school") ?? "").trim();
   const major = String(fd.get("major") ?? "").trim();
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
+  const photoUrlRaw = String(fd.get("photo_url") ?? "").trim();
 
   const birthYear = Number(birthYearStr);
   if (!name)
@@ -90,6 +95,15 @@ export async function action({ request }: ActionFunctionArgs) {
       { status: 400, headers: ctx.headers },
     );
 
+  // 사진 경로는 본인 폴더(user_id/...)만 허용 — 임의 경로 주입 방지.
+  // 빈 값이면 사진 제거(null)로 처리.
+  const photoUrl =
+    photoUrlRaw && photoUrlRaw.startsWith(`${ctx.user.id}/`)
+      ? photoUrlRaw
+      : photoUrlRaw === ""
+        ? null
+        : undefined;
+
   const result = await updateProfile(ctx.supabase, ctx.user.id, {
     name,
     birth_year: birthYear,
@@ -97,6 +111,7 @@ export async function action({ request }: ActionFunctionArgs) {
     school,
     major,
     bank_holder: bankHolder,
+    ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
   });
 
   if (!result.ok) {
@@ -134,6 +149,85 @@ export default function ProfileEdit() {
   const [school, setSchool] = useState(profile.school);
   const [major, setMajor] = useState(profile.major);
   const [bankHolder, setBankHolder] = useState(profile.bank_holder ?? "");
+
+  // 프로필 사진 — 경로(photoPath)는 폼으로 저장하고, 미리보기는 단기 서명 URL.
+  const [photoPath, setPhotoPath] = useState<string>(profile.photo_url ?? "");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 본인 사진 미리보기: 자기 버킷 객체라 브라우저에서 직접 서명 가능(RLS owner select).
+  useEffect(() => {
+    let active = true;
+    if (!photoPath) {
+      setPhotoPreview(null);
+      return;
+    }
+    (async () => {
+      try {
+        const env = getClientEnv();
+        const supabase = getSupabaseBrowser({
+          url: env.SUPABASE_URL,
+          anonKey: env.SUPABASE_ANON_KEY,
+        });
+        const { data } = await supabase.storage
+          .from("profile-photos")
+          .createSignedUrl(photoPath, 300);
+        if (active && data?.signedUrl) setPhotoPreview(data.signedUrl);
+      } catch {
+        /* 미리보기 실패는 무시(저장에는 영향 없음) */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [photoPath]);
+
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || photoUploading) return;
+    setPhotoError(null);
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("이미지 파일만 올릴 수 있어요.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError("사진은 5MB 이하만 올릴 수 있어요.");
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const env = getClientEnv();
+      const supabase = getSupabaseBrowser({
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      });
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setPhotoError("로그인이 만료됐어요. 새로고침 후 다시 시도해주세요.");
+        return;
+      }
+      const { blob, ext } = await downscaleImage(file);
+      const path = `${session.user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("profile-photos")
+        .upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error) throw error;
+      setPhotoPath(path);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[profile photo upload]", err);
+      setPhotoError(`사진 업로드 실패: ${msg}`);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const yearNum = Number(birthYear);
   const canSubmit =
@@ -206,6 +300,94 @@ export default function ProfileEdit() {
             marginTop: "20px",
           }}
         >
+          {/* 프로필 사진 — 본인 인증(입구컷) + 매칭 후 상대에게만 공개 */}
+          <input type="hidden" name="photo_url" value={photoPath} />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="프로필 사진 등록"
+              style={{
+                width: "104px",
+                height: "104px",
+                borderRadius: "50%",
+                border: `2px solid ${COLORS.accentSoft}`,
+                background: photoPreview
+                  ? `center / cover no-repeat url(${photoPreview})`
+                  : COLORS.cardBg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "32px",
+                color: COLORS.text.placeholder,
+                position: "relative",
+                overflow: "hidden",
+                cursor: photoUploading ? "wait" : "pointer",
+              }}
+            >
+              {!photoPreview && (photoUploading ? "…" : "＋")}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={onPickPhoto}
+              style={{ display: "none" }}
+            />
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  color: COLORS.text.secondary,
+                }}
+              >
+                {photoUploading
+                  ? "업로드 중…"
+                  : photoPreview
+                    ? "사진 변경하려면 눌러주세요"
+                    : "프로필 사진을 등록해주세요"}
+              </div>
+              <div
+                style={{
+                  ...TYPOGRAPHY.tiny,
+                  color: COLORS.text.placeholder,
+                  marginTop: "3px",
+                }}
+              >
+                본인 확인용이며, 매칭된 상대에게만 공개돼요
+              </div>
+            </div>
+            {photoPreview && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoPath("");
+                  setPhotoPreview(null);
+                }}
+                style={{
+                  ...TYPOGRAPHY.tiny,
+                  color: COLORS.text.helper,
+                  background: "none",
+                  textDecoration: "underline",
+                }}
+              >
+                사진 삭제
+              </button>
+            )}
+            {photoError && (
+              <div style={{ ...TYPOGRAPHY.tiny, color: COLORS.accent }}>
+                {photoError}
+              </div>
+            )}
+          </div>
+
           <TextInput
             label="이름"
             name="name"

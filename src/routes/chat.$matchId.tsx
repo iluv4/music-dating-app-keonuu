@@ -32,6 +32,7 @@ import { dispatchPushToUser } from "~/lib/push.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
+import { downscaleImage } from "~/lib/image.client";
 import { capture } from "~/lib/analytics.client";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -204,38 +205,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
 // 업로드 전 클라이언트에서 사진을 축소·재인코딩 — 원본(최대 5MB)을 그대로 올리고
 // 받던 탓에 전송·렌더가 느렸다. 긴 변 1280px·JPEG 품질 0.82 로 보통 수백 KB 이하가 됨.
 // canvas 미지원/실패 시 원본을 그대로 사용(안전 폴백).
-async function downscaleImage(
-  file: File,
-): Promise<{ blob: Blob; ext: string }> {
-  const fallbackExt = (file.name.split(".").pop() || "jpg").toLowerCase();
-  // 사진 위주 포맷만 변환 (gif/svg 등은 원본 유지)
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== "function") {
-    return { blob: file, ext: fallbackExt };
-  }
-  try {
-    const bitmap = await createImageBitmap(file);
-    const maxDim = 1280;
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-    const w = Math.max(1, Math.round(bitmap.width * scale));
-    const h = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return { blob: file, ext: fallbackExt };
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.82),
-    );
-    // 변환 실패하거나 오히려 더 커지면 원본 사용
-    if (!blob || blob.size >= file.size) return { blob: file, ext: fallbackExt };
-    return { blob, ext: "jpg" };
-  } catch {
-    return { blob: file, ext: fallbackExt };
-  }
-}
-
 function formatBubbleTime(iso: string): string {
   const d = new Date(iso);
   const h = d.getHours();
@@ -451,6 +420,8 @@ export default function ChatRoom() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // 매칭 후 공개: 상대 프로필 사진(서버가 활성 매칭 확인 후 서명 URL 발급).
+  const [partnerPhoto, setPartnerPhoto] = useState<string | null>(null);
   // 사진 메시지: image_url 은 비공개 버킷 경로 → 서명 URL 로 변환해 렌더
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   // 보내기 옵션: 펑(읽으면 소멸) / 한 번만 보기(사진)
@@ -463,6 +434,22 @@ export default function ChatRoom() {
   const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
   // 캡처 억제: 탭을 벗어나면 화면을 가린다 (전환 중 캡처/녹화 미리보기 방지)
   const [obscured, setObscured] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!match.partnerId) return;
+    fetch(`/api/member-photo?userId=${encodeURIComponent(match.partnerId)}`)
+      .then((r) => r.json())
+      .then((d: { url?: string | null }) => {
+        if (active && d?.url) setPartnerPhoto(d.url);
+      })
+      .catch(() => {
+        /* 사진 미공개/미등록은 무시 */
+      });
+    return () => {
+      active = false;
+    };
+  }, [match.partnerId]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -881,12 +868,32 @@ export default function ChatRoom() {
         </button>
         <span
           style={{
-            ...TYPOGRAPHY.bodyBold,
-            fontSize: "17px",
-            color: COLORS.text.primary,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          {match.partnerName}
+          {partnerPhoto && (
+            <img
+              src={partnerPhoto}
+              alt=""
+              style={{
+                width: "30px",
+                height: "30px",
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+          <span
+            style={{
+              ...TYPOGRAPHY.bodyBold,
+              fontSize: "17px",
+              color: COLORS.text.primary,
+            }}
+          >
+            {match.partnerName}
+          </span>
         </span>
         {!isEnded && (
           <button

@@ -25,6 +25,8 @@ type Pending = {
   school: string | null;
   major: string | null;
   bank_holder: string | null;
+  photo_url: string | null;
+  photo_signed_url: string | null;
   created_at: string;
 };
 
@@ -53,7 +55,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const [profilesRes, matchesRes] = await Promise.all([
     admin
       .from("profiles")
-      .select("user_id, name, birth_year, school, major, bank_holder, created_at")
+      .select("user_id, name, birth_year, school, major, bank_holder, photo_url, created_at")
       .eq("is_approved", false)
       .order("created_at", { ascending: true }),
     admin
@@ -101,10 +103,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bName: nameMap.get(m.user_b) ?? "(알 수 없음)",
   }));
 
-  return json({
-    pending: (profilesRes.data ?? []) as unknown as Pending[],
-    pendingMatches,
-  });
+  // 입구컷: 신청자 사진 썸네일을 운영팀이 입금자명·학생증과 대조할 수 있게 서명 URL 첨부.
+  const rawPending = (profilesRes.data ?? []) as unknown as Omit<
+    Pending,
+    "photo_signed_url"
+  >[];
+  const pending: Pending[] = await Promise.all(
+    rawPending.map(async (p) => {
+      let photo_signed_url: string | null = null;
+      if (p.photo_url) {
+        const { data } = await admin.storage
+          .from("profile-photos")
+          .createSignedUrl(p.photo_url, 600);
+        photo_signed_url = data?.signedUrl ?? null;
+      }
+      return { ...p, photo_signed_url };
+    }),
+  );
+
+  return json({ pending, pendingMatches });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -253,7 +270,49 @@ export default function Admin() {
                 gap: "12px",
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              {p.photo_signed_url ? (
+                <a
+                  href={p.photo_signed_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ flexShrink: 0 }}
+                >
+                  <img
+                    src={p.photo_signed_url}
+                    alt={`${p.name} 프로필 사진`}
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "12px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </a>
+              ) : (
+                <div
+                  title="사진 미등록"
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "12px",
+                    flexShrink: 0,
+                    background: "#f3f3f3",
+                    color: "#bbb",
+                    fontSize: "11px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  사진
+                  <br />
+                  없음
+                </div>
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: "16px", fontWeight: 600 }}>
                   {p.name}{" "}
                   <span style={{ color: "#999", fontWeight: 400, fontSize: "13px" }}>
