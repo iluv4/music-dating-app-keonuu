@@ -257,7 +257,7 @@ export default function ProfileEdit() {
             type="text"
             inputMode="numeric"
             maxLength={4}
-            placeholder="2002"
+            placeholder="예) 2003"
             value={birthYear}
             onChange={(e) =>
               setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))
