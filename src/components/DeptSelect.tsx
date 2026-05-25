@@ -5,12 +5,14 @@ import {
   COLLEGE_COLORS,
   type DeptLevel,
 } from "~/lib/departments";
+import type { Campus } from "~/lib/campus";
 
 type DeptSelectProps = {
   label?: string;
   value: string;
   onChange: (name: string) => void;
   placeholder?: string;
+  campus?: Campus | "";
 };
 
 const LEVEL_BADGE: Record<DeptLevel, { bg: string; color: string }> = {
@@ -24,12 +26,16 @@ export const DeptSelect = ({
   value,
   onChange,
   placeholder = "학과·전공 검색 (예: 소프트웨어, 디자인)",
+  campus = "",
 }: DeptSelectProps) => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const groups = useMemo(() => filterDepartments(query), [query]);
+  const groups = useMemo(
+    () => (campus ? filterDepartments(campus, query) : []),
+    [campus, query],
+  );
 
   const select = (name: string) => {
     onChange(name);
@@ -55,7 +61,8 @@ export const DeptSelect = ({
       <input
         type="text"
         value={open ? query : value || query}
-        placeholder={value ? value : placeholder}
+        placeholder={campus ? (value ? value : placeholder) : "먼저 캠퍼스를 선택해주세요"}
+        disabled={!campus}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -68,7 +75,7 @@ export const DeptSelect = ({
           width: "100%",
           height: "56px",
           padding: "0 16px",
-          background: COLORS.cardBg,
+          background: campus ? COLORS.cardBg : COLORS.divider2,
           border: "none",
           borderRadius: RADIUS.info,
           ...TYPOGRAPHY.body,

@@ -1,6 +1,8 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import * as cheerio from "cheerio";
 import type { SearchResponse, Song } from "~/lib/song-types";
+import { getCache, setCache, CACHE_TTL } from "~/lib/melona-cache.server";
+import fallbackData from "~/lib/song-fallback.json";
 
 // 멜론 검색 페이지를 직접 fetch + cheerio 로 파싱
 // melona의 searchSong은 albumImg를 추출하지 않으므로 자체 파서 사용
@@ -85,6 +87,18 @@ function parseSearchHtml(html: string): Song[] {
   return songs;
 }
 
+// 멜론 장애 시: 폴백 곡 목록을 검색어로 필터해 빈 결과 대신 근사치라도 반환
+function searchFallback(query: string): Song[] {
+  const q = query.toLowerCase();
+  return (fallbackData.items as Song[])
+    .filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        s.artist.toLowerCase().includes(q),
+    )
+    .slice(0, MAX_RESULTS);
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim();
@@ -93,15 +107,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json<SearchResponse>({ items: [], source: "live" });
   }
 
+  const cacheKey = `search:${query.toLowerCase()}`;
+  const cached = getCache<SearchResponse>(cacheKey);
+  if (cached) return json<SearchResponse>(cached);
+
   try {
     const html = await fetchSearchHtml(query);
     const items = parseSearchHtml(html).slice(0, MAX_RESULTS);
-    return json<SearchResponse>({ items, source: "live" });
+    const payload: SearchResponse = { items, source: "live" };
+    setCache(cacheKey, payload, CACHE_TTL.search);
+    return json<SearchResponse>(payload);
   } catch (err) {
     console.error("[melona search failed]", err);
-    return json<SearchResponse>(
-      { items: [], source: "fallback" },
-      { status: 200 },
-    );
+    const payload: SearchResponse = {
+      items: searchFallback(query),
+      source: "fallback",
+    };
+    setCache(cacheKey, payload, CACHE_TTL.searchFail);
+    return json<SearchResponse>(payload, { status: 200 });
   }
 }

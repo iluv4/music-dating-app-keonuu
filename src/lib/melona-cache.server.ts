@@ -24,4 +24,6 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
 
 export const CACHE_TTL = {
   chart: 5 * 60 * 1000, // 5분
+  search: 10 * 60 * 1000, // 10분 — 같은 검색어 반복 시 멜론 재호출 방지
+  searchFail: 30 * 1000, // 30초 — 멜론 장애 시 폴백 결과를 짧게만 캐시(복구 빠르게)
 } as const;

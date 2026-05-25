@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import type { Campus, MatchCampusPref } from "./campus";
 
 export type ProfileForm = {
   name: string;
   birthYear: string;
   gender: "male" | "female" | "";
-  school: string;
+  campus: Campus | "";
   major: string;
   club: string;
+  region: string;
+  matchCampusPref: MatchCampusPref;
   bankHolder: string;
 };
 
@@ -14,9 +17,11 @@ const EMPTY: ProfileForm = {
   name: "",
   birthYear: "",
   gender: "",
-  school: "",
+  campus: "",
   major: "",
   club: "",
+  region: "",
+  matchCampusPref: "상관없음",
   bankHolder: "",
 };
 

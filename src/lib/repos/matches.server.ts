@@ -6,6 +6,7 @@ import type {
   MatchWithPartner,
 } from "~/lib/db-types";
 import { maskName } from "~/lib/format";
+import { formatSchool } from "~/lib/campus";
 
 // matches 테이블 접근. RLS 가 적용된 server client 사용.
 // matches ↔ profiles 사이 직접 FK 가 없어 PostgREST 의 nested select 미사용.
@@ -15,6 +16,7 @@ type PartnerProfile = {
   user_id: string;
   name: string;
   school: string;
+  campus: string | null;
   gender: Gender | null;
 };
 
@@ -36,7 +38,7 @@ async function fetchPartnerProfiles(
   if (userIds.length === 0) return map;
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, name, school, gender")
+    .select("user_id, name, school, campus, gender")
     .in("user_id", userIds)
     .returns<PartnerProfile[]>();
   if (error) {
@@ -120,7 +122,7 @@ export async function listUserMatches(
       partnerId,
       // 개인정보 보호: 상대 실명은 마스킹해서만 노출
       partnerName: maskName(partner?.name),
-      partnerSchool: partner?.school ?? "",
+      partnerSchool: partner ? formatSchool(partner.school, partner.campus) : "",
       partnerGender: partner?.gender ?? null,
       matchedAt: m.created_at,
       status: m.status,
