@@ -17,6 +17,7 @@ import { requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
+import { DEFAULT_SCHOOL, isCampus, isMatchCampusPref } from "~/lib/campus";
 import type { Gender } from "~/lib/db-types";
 
 type ActionData = { error: string };
@@ -31,14 +32,20 @@ export async function action({ request }: ActionFunctionArgs) {
   const name = String(fd.get("name") ?? "").trim();
   const birthYearStr = String(fd.get("birth_year") ?? "").trim();
   const gender = String(fd.get("gender") ?? "").trim() || null;
-  const school = String(fd.get("school") ?? "").trim();
+  const campusRaw = String(fd.get("campus") ?? "").trim();
+  const campus = isCampus(campusRaw) ? campusRaw : "";
+  // 단일 대학 운영 단계 — 대학교명은 고정, 캠퍼스만 선택.
+  const school = DEFAULT_SCHOOL.name;
   const major = String(fd.get("major") ?? "").trim();
   const club = String(fd.get("club") ?? "").trim();
+  const region = String(fd.get("region") ?? "").trim();
+  const matchPrefRaw = String(fd.get("match_campus_pref") ?? "").trim();
+  const matchCampusPref = isMatchCampusPref(matchPrefRaw) ? matchPrefRaw : "상관없음";
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
 
   const birthYear = Number(birthYearStr);
   // 스킵이 아니면 입금자명 필수
-  if (!name || !birthYear || !school || !major || (!skip && !bankHolder)) {
+  if (!name || !birthYear || !campus || !major || (!skip && !bankHolder)) {
     return json<ActionData>(
       {
         error: "프로필 정보가 누락됐어요. 이전 단계로 돌아가 다시 진행해주세요.",
@@ -53,8 +60,11 @@ export async function action({ request }: ActionFunctionArgs) {
     birth_year: birthYear,
     gender: gender as Gender | null,
     school,
+    campus: campus || null,
     major,
     club: club || null,
+    region: region || null,
+    match_campus_pref: matchCampusPref,
     bank_holder: bankHolder,
   });
 
@@ -126,9 +136,15 @@ export default function ProfilePayment() {
         <input type="hidden" name="name" value={profile?.name ?? ""} />
         <input type="hidden" name="birth_year" value={profile?.birthYear ?? ""} />
         <input type="hidden" name="gender" value={profile?.gender ?? ""} />
-        <input type="hidden" name="school" value={profile?.school ?? ""} />
+        <input type="hidden" name="campus" value={profile?.campus ?? ""} />
         <input type="hidden" name="major" value={profile?.major ?? ""} />
         <input type="hidden" name="club" value={profile?.club ?? ""} />
+        <input type="hidden" name="region" value={profile?.region ?? ""} />
+        <input
+          type="hidden"
+          name="match_campus_pref"
+          value={profile?.matchCampusPref ?? "상관없음"}
+        />
 
         <div style={{ marginTop: "30px", marginBottom: "40px" }}>
           <ProgressDots total={2} current={2} />

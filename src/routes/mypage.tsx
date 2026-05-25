@@ -10,6 +10,7 @@ import { SmallButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser } from "~/lib/auth.server";
 import { getProfile, signPhotoUrl } from "~/lib/repos/profiles.server";
+import { formatSchool } from "~/lib/campus";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import type { Song } from "~/lib/song-types";
 import PreviewBanner from "~/components/PreviewBanner";
@@ -105,8 +106,9 @@ export default function MyPage() {
           ? "여자"
           : "-",
     },
-    { label: "학교", value: profile?.school ?? "-" },
+    { label: "학교", value: formatSchool(profile?.school, profile?.campus) },
     { label: "학과", value: profile?.major ?? "-" },
+    { label: "거주지역", value: profile?.region || "-" },
     { label: "입금자명", value: profile?.bank_holder ?? "-" },
   ];
 

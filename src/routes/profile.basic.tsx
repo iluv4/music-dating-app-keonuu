@@ -1,19 +1,22 @@
-import { useEffect, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import { useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import ProgressDots from "~/components/ProgressDots";
 import TextInput from "~/components/TextInput";
+import CampusSelect from "~/components/CampusSelect";
 import DeptSelect from "~/components/DeptSelect";
 import ClubSelect from "~/components/ClubSelect";
+import RegionSelect from "~/components/RegionSelect";
+import MatchCampusPrefSelect from "~/components/MatchCampusPrefSelect";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { useProfile } from "~/lib/profile-state";
+import type { Campus } from "~/lib/campus";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const DEFAULT_SCHOOL = "상명대학교 천안";
 const NEXT = "/profile/payment";
 
 const genderBtnStyle = (selected: boolean): CSSProperties => ({
@@ -32,9 +35,11 @@ export default function ProfileBasic() {
   const navigate = useNavigate();
   const { state, update, hydrated } = useProfile();
 
-  useEffect(() => {
-    if (hydrated && !state.school.trim()) update({ school: DEFAULT_SCHOOL });
-  }, [hydrated, state.school]);
+  // 캠퍼스를 바꾸면 학과·동아리는 캠퍼스별 목록이라 초기화한다.
+  const selectCampus = (campus: Campus) => {
+    if (campus === state.campus) return;
+    update({ campus, major: "", club: "" });
+  };
 
   const yearNum = Number(state.birthYear);
   const canNext =
@@ -44,6 +49,7 @@ export default function ProfileBasic() {
     yearNum >= 1950 &&
     yearNum <= CURRENT_YEAR &&
     (state.gender === "male" || state.gender === "female") &&
+    state.campus !== "" &&
     state.major.trim().length >= 2;
 
   return (
@@ -87,7 +93,7 @@ export default function ProfileBasic() {
             marginBottom: "32px",
           }}
         >
-          상명대 천안캠퍼스 전용 서비스예요. 한 번에 입력하면 끝!
+          상명대학교 전용 서비스예요. 한 번에 입력하면 끝!
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -103,7 +109,7 @@ export default function ProfileBasic() {
             type="text"
             inputMode="numeric"
             maxLength={4}
-            placeholder="2002"
+            placeholder="예) 2003"
             value={state.birthYear}
             onChange={(e) =>
               update({
@@ -138,24 +144,31 @@ export default function ProfileBasic() {
               </button>
             </div>
           </div>
-          <TextInput
+          <CampusSelect
             label="학교"
-            type="text"
-            value={state.school || DEFAULT_SCHOOL}
-            readOnly
-            aria-readonly="true"
-            style={{ background: COLORS.divider2, color: COLORS.text.secondary }}
-            onChange={() => {}}
+            value={state.campus}
+            onChange={selectCampus}
           />
           <DeptSelect
             label="학과"
             value={state.major}
+            campus={state.campus}
             onChange={(major) => update({ major })}
           />
           <ClubSelect
             label="동아리"
             value={state.club}
+            campus={state.campus}
             onChange={(club) => update({ club })}
+          />
+          <RegionSelect
+            label="거주지역"
+            value={state.region}
+            onChange={(region) => update({ region })}
+          />
+          <MatchCampusPrefSelect
+            value={state.matchCampusPref}
+            onChange={(matchCampusPref) => update({ matchCampusPref })}
           />
         </div>
       </div>

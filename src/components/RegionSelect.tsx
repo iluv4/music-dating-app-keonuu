@@ -1,26 +1,22 @@
 import { useId } from "react";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { clubsForCampus } from "~/lib/clubs";
-import type { Campus } from "~/lib/campus";
+import { REGIONS } from "~/lib/campus";
 
-type ClubSelectProps = {
+type RegionSelectProps = {
   label?: string;
   value: string;
-  onChange: (name: string) => void;
+  onChange: (region: string) => void;
   placeholder?: string;
-  campus?: Campus | "";
 };
 
-// 동아리 입력 — datalist 자동완성(검색) + 목록에 없으면 직접 입력(자유 등록).
-export const ClubSelect = ({
-  label = "동아리",
+// 거주지역(고향·본가·자취) — datalist 자동완성 + 직접 입력.
+export const RegionSelect = ({
+  label = "거주지역",
   value,
   onChange,
-  placeholder = "동아리 검색 (없으면 직접 입력)",
-  campus = "",
-}: ClubSelectProps) => {
+  placeholder = "사는 지역 검색 (예: 서울, 천안)",
+}: RegionSelectProps) => {
   const listId = useId();
-  const clubs = campus ? clubsForCampus(campus) : [];
 
   return (
     <div>
@@ -35,7 +31,7 @@ export const ClubSelect = ({
         >
           {label}{" "}
           <span style={{ ...TYPOGRAPHY.caption, color: COLORS.text.placeholder, fontWeight: 500 }}>
-            (선택 · 지인 매칭 제외에 사용)
+            (선택 · 가까운 상대 매칭에 사용)
           </span>
         </label>
       )}
@@ -58,12 +54,12 @@ export const ClubSelect = ({
         }}
       />
       <datalist id={listId}>
-        {clubs.map((c) => (
-          <option key={c} value={c} />
+        {REGIONS.map((r) => (
+          <option key={r} value={r} />
         ))}
       </datalist>
     </div>
   );
 };
 
-export default ClubSelect;
+export default RegionSelect;

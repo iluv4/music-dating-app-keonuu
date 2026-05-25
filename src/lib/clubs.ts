@@ -1,24 +1,53 @@
-// 상명대학교 천안캠퍼스 중앙동아리 시드 목록 (공식 동아리정보 페이지 기준).
-// datalist 자동완성 힌트용 — 목록에 없으면 직접 입력(자유 등록) 가능.
-// 동아리는 매년 바뀌므로 최신 목록 받으면 이 배열만 교체. 출처: https://www.smu.ac.kr/ko/life/circles2.do
-export const CLUBS: string[] = [
-  // 공연/예술
-  "Darkness (락밴드)", "Soulo (어쿠스틱)", "Crunk Brain (흑인음악)", "CHEEZE (사진)", "SM 미공간 (만화)",
-  // 체육
-  "FREEZE (댄스)", "ISSUE (축구)", "리뉴 (농구)", "버저비터 (길거리농구)", "Top-Spin (테니스)",
-  "UNIT (수영)", "벌크업 (보디빌딩)", "한큐 (당구)", "더킹 (복싱)",
-  // 학술/교양
-  "광년이 (광고기획)", "CodeCure (정보보호)", "Questioners (토론·독서)", "우리말글 가꿈이", "휴머노이드 로봇클럽",
-  // 봉사/문화
-  "Youth-Jc (사회봉사)", "RCY (적십자)", "생생생 은빛봉사단", "나, 여기 (여행)", "점프 (행사기획)", "품에안고 (동물보호)",
-  // 종교
-  "CCC", "IVF", "이레 (가톨릭)",
+// 상명대학교 캠퍼스별 중앙동아리 목록 (분과별).
+// 천안: 2024 동아리현황 / 서울: 2025 중앙동아리현황 기준. 매년 바뀌므로 목록 받으면 교체.
+// 분과 표기가 없던 천안캠은 활동내용 기반으로 분류.
+
+import type { Campus } from "./campus";
+
+export type ClubCategory = "공연" | "체육" | "학술" | "취미" | "봉사" | "사회" | "종교";
+
+export type ClubGroup = {
+  category: ClubCategory;
+  items: string[];
+};
+
+const CHEONAN: ClubGroup[] = [
+  { category: "공연", items: ["다크니스", "CRUNK BRAIN", "소울로", "프리즈(FREEZE)", "아리아"] },
+  {
+    category: "체육",
+    items: ["Movement", "RENEW", "블루버드", "이슈(ISSUE)", "MindSet", "ROUTE", "벌크업", "UNIT", "푸릉"],
+  },
+  { category: "학술", items: ["CODECURE", "우리말가꿈이", "Questioners", "같이가치투자", "멋쟁이사자처럼", "GDGoC"] },
+  { category: "취미", items: ["SM미공간", "CHEEZE", "상명유람단", "실오라기", "요쿡", "겟아웃", "쉼표", "HRC", "풋볼리즘"] },
+  { category: "봉사", items: ["Youth-JC", "SURROUND"] },
+  { category: "종교", items: ["CCC"] },
 ];
+
+const SEOUL: ClubGroup[] = [
+  { category: "공연", items: ["그루빈187", "발틱", "소리마을", "얘놀", "어우러짐흥", "토네이도", "프리에", "허밍"] },
+  { category: "체육", items: ["S.U.V.", "S.W.E.A.T.", "벅스", "위너", "자하랑", "테슬라"] },
+  { category: "학술", items: ["SMUMC", "모멘텀", "에듀플릿", "이니로", "체인지"] },
+  { category: "취미", items: ["맹가미", "자하포토"] },
+  { category: "봉사", items: ["IEMU11", "굿네이버스 가온누리"] },
+  { category: "사회", items: ["상냥행", "상명또래상담"] },
+  { category: "종교", items: ["CCC(한국대학생선교회)", "한국기독학생회IVF"] },
+];
+
+export const CLUBS_BY_CAMPUS: Record<Campus, ClubGroup[]> = {
+  서울: SEOUL,
+  천안: CHEONAN,
+};
+
+// 해당 캠퍼스의 전체 동아리명을 평탄화(자동완성 datalist 힌트용).
+export function clubsForCampus(campus: Campus): string[] {
+  return (CLUBS_BY_CAMPUS[campus] ?? []).flatMap((g) => g.items);
+}
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 
-export function filterClubs(query: string, limit = 20): string[] {
+export function filterClubs(campus: Campus, query: string, limit = 30): string[] {
+  const all = clubsForCampus(campus);
   const q = norm(query.trim());
-  if (!q) return CLUBS.slice(0, limit);
-  return CLUBS.filter((c) => norm(c).includes(q)).slice(0, limit);
+  if (!q) return all.slice(0, limit);
+  return all.filter((c) => norm(c).includes(q)).slice(0, limit);
 }

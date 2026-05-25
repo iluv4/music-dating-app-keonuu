@@ -39,7 +39,9 @@ export const PREVIEW_PROFILE = {
   birth_year: 2001,
   gender: "male" as const,
   school: "OO대학교",
+  campus: null as string | null,
   major: "컴퓨터공학과",
+  region: null as string | null,
   bank_holder: null as string | null,
   is_approved: true,
 };
