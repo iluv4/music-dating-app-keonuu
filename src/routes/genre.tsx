@@ -168,7 +168,6 @@ export default function Genre() {
                 aria-pressed={isSelected}
                 aria-label={g.label}
                 onClick={() => toggle(g.id)}
-                aria-pressed={isSelected}
                 style={{ width: "100%", padding: 0, background: "none", border: "none" }}
               >
                 <div
