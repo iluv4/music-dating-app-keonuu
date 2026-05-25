@@ -11,6 +11,7 @@ import {
   useSearchParams,
 } from "@remix-run/react";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
+import { sendPushToUser } from "~/lib/push.server";
 
 // 입금 확인용 관리자 승인 화면.
 // 접근 제어: 환경변수 ADMIN_KEY 와 ?key= 쿼리(또는 폼 hidden)가 일치해야 함.
@@ -27,6 +28,14 @@ type Pending = {
   created_at: string;
 };
 
+// 운영팀 확인 대기 중인 추가 매칭(한 명 더 만나기). 승인 시 active 로 전환 + 양쪽 알림.
+type PendingMatch = {
+  matchId: string;
+  createdAt: string;
+  aName: string;
+  bName: string;
+};
+
 function assertKey(request: Request, key: string | null) {
   const expected = process.env.ADMIN_KEY;
   // 미설정이면 기능 자체를 숨김(404). 설정됐는데 불일치해도 404.
@@ -41,18 +50,61 @@ export async function loader({ request }: LoaderFunctionArgs) {
   assertKey(request, key);
 
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("user_id, name, birth_year, school, major, bank_holder, created_at")
-    .eq("is_approved", false)
-    .order("created_at", { ascending: true });
+  const [profilesRes, matchesRes] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("user_id, name, birth_year, school, major, bank_holder, created_at")
+      .eq("is_approved", false)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("matches")
+      .select("id, user_a, user_b, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
-    console.error("[admin.loader]", error);
+  if (profilesRes.error) {
+    console.error("[admin.loader.profiles]", profilesRes.error);
+    throw new Response("조회 오류", { status: 500 });
+  }
+  if (matchesRes.error) {
+    console.error("[admin.loader.matches]", matchesRes.error);
     throw new Response("조회 오류", { status: 500 });
   }
 
-  return json({ pending: (data ?? []) as unknown as Pending[] });
+  const rawMatches = (matchesRes.data ?? []) as unknown as {
+    id: string;
+    user_a: string;
+    user_b: string;
+    created_at: string;
+  }[];
+
+  // 대기 매칭 양쪽 실명 조회 (이름 대조용)
+  const ids = Array.from(
+    new Set(rawMatches.flatMap((m) => [m.user_a, m.user_b])),
+  );
+  const nameMap = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: names } = await admin
+      .from("profiles")
+      .select("user_id, name")
+      .in("user_id", ids);
+    for (const n of (names ?? []) as { user_id: string; name: string }[]) {
+      nameMap.set(n.user_id, n.name);
+    }
+  }
+
+  const pendingMatches: PendingMatch[] = rawMatches.map((m) => ({
+    matchId: m.id,
+    createdAt: m.created_at,
+    aName: nameMap.get(m.user_a) ?? "(알 수 없음)",
+    bName: nameMap.get(m.user_b) ?? "(알 수 없음)",
+  }));
+
+  return json({
+    pending: (profilesRes.data ?? []) as unknown as Pending[],
+    pendingMatches,
+  });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -60,12 +112,68 @@ export async function action({ request }: ActionFunctionArgs) {
   const key = String(fd.get("key") ?? "");
   assertKey(request, key);
 
+  const admin = getSupabaseAdmin();
+  const intent = String(fd.get("intent") ?? "approve");
+
+  // 추가 매칭 승인: pending → active + 양쪽 매칭 알림/푸시
+  if (intent === "confirm_match") {
+    const matchId = String(fd.get("match_id") ?? "").trim();
+    if (!matchId) {
+      return json({ ok: false, error: "match_id 누락" }, { status: 400 });
+    }
+    const { data, error } = await admin
+      .from("matches")
+      .update({ status: "active" } as never)
+      .eq("id", matchId)
+      .eq("status", "pending")
+      .select("id, user_a, user_b")
+      .maybeSingle<{ id: string; user_a: string; user_b: string }>();
+
+    if (error) {
+      console.error("[admin.confirm_match]", error);
+      return json({ ok: false, error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      // 이미 처리됐거나 없는 매칭 — 조용히 통과
+      return json({ ok: true });
+    }
+
+    const { error: notiErr } = await admin.from("notifications").insert([
+      {
+        user_id: data.user_a,
+        type: "match",
+        title: "새 매칭이 성사됐어요!",
+        body: "음악 취향이 통하는 상대와 매칭됐어요.",
+        link: `/chat/${data.id}`,
+      },
+      {
+        user_id: data.user_b,
+        type: "match",
+        title: "새 매칭이 성사됐어요!",
+        body: "음악 취향이 통하는 상대와 매칭됐어요.",
+        link: `/chat/${data.id}`,
+      },
+    ] as never);
+    if (notiErr) console.error("[admin.confirm_match.noti]", notiErr);
+
+    await Promise.allSettled(
+      [data.user_a, data.user_b].map((uid) =>
+        sendPushToUser(uid, {
+          title: "새 매칭이 성사됐어요! 💘",
+          body: "음악 취향이 통하는 상대와 매칭됐어요.",
+          url: `/chat/${data.id}`,
+        }),
+      ),
+    );
+    return json({ ok: true });
+  }
+
+  // 기본: 입금(프로필) 승인
   const userId = String(fd.get("user_id") ?? "").trim();
   if (!userId) {
     return json({ ok: false, error: "user_id 누락" }, { status: 400 });
   }
 
-  const admin = getSupabaseAdmin();
   const { error } = await admin
     .from("profiles")
     .update({
@@ -90,7 +198,7 @@ const fmtDate = (iso: string) => {
 };
 
 export default function Admin() {
-  const { pending } = useLoaderData<typeof loader>();
+  const { pending, pendingMatches } = useLoaderData<typeof loader>();
   const nav = useNavigation();
   const submitting = nav.state === "submitting";
   const [searchParams] = useSearchParams();
@@ -189,6 +297,69 @@ export default function Admin() {
             </div>
             );
           })}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: "18px", margin: "40px 0 4px" }}>
+        추가 매칭 승인
+      </h2>
+      <p style={{ color: "#888", fontSize: "14px", margin: "0 0 16px" }}>
+        "한 명 더 만나기" 입금 확인 후 승인하면 양쪽에 매칭 알림이 발송돼요. 대기:{" "}
+        <b>{pendingMatches.length}</b>건
+      </p>
+
+      {pendingMatches.length === 0 ? (
+        <p style={{ color: "#aaa", padding: "24px 0", textAlign: "center" }}>
+          대기 중인 추가 매칭이 없어요.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {pendingMatches.map((m) => (
+            <div
+              key={m.matchId}
+              style={{
+                border: "1px solid #eee",
+                background: "white",
+                borderRadius: "12px",
+                padding: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "15px", fontWeight: 600 }}>
+                  {m.aName} ↔ {m.bName}
+                </div>
+                <div style={{ color: "#bbb", fontSize: "13px", marginTop: "4px" }}>
+                  {fmtDate(m.createdAt)}
+                </div>
+              </div>
+              <Form method="post" replace>
+                <input type="hidden" name="key" value={key} />
+                <input type="hidden" name="intent" value="confirm_match" />
+                <input type="hidden" name="match_id" value={m.matchId} />
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    background: "#ff625d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "10px 18px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    cursor: submitting ? "wait" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  매칭 승인
+                </button>
+              </Form>
+            </div>
+          ))}
         </div>
       )}
     </div>

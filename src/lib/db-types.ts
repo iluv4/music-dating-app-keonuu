@@ -58,7 +58,7 @@ export type UserSongInsert = {
 };
 
 // matches --------------------------------------------------------------------
-export type MatchStatus = "active" | "ended";
+export type MatchStatus = "pending" | "active" | "ended";
 
 export type MatchRow = {
   id: string;
