@@ -78,6 +78,51 @@ export default function ChatList() {
         </div>
       )}
 
+      {guest && (
+        <div style={{ padding: "12px 20px 0" }}>
+          <Link
+            to="/chat/ai"
+            className="tappable"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "14px 16px",
+              borderRadius: RADIUS.card,
+              background: COLORS.accentSoft,
+              border: `1px solid ${COLORS.accent}`,
+              textDecoration: "none",
+            }}
+          >
+            <span style={{ fontSize: "26px" }} aria-hidden>
+              🤖
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  fontSize: "15px",
+                  color: COLORS.text.primary,
+                  margin: 0,
+                }}
+              >
+                AI와 체험 대화하기
+              </p>
+              <p
+                style={{
+                  ...TYPOGRAPHY.tiny,
+                  color: COLORS.text.helper,
+                  margin: "3px 0 0",
+                }}
+              >
+                매칭 상대와의 대화를 미리 주고받아 보세요
+              </p>
+            </div>
+            <span style={{ color: COLORS.accent, fontSize: "18px" }}>›</span>
+          </Link>
+        </div>
+      )}
+
       {matches.length === 0 ? (
         <div
           style={{

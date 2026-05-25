@@ -7,7 +7,7 @@ import BottomNav from "~/components/BottomNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser } from "~/lib/auth.server";
-import { getProfileFields, signPhotoUrls } from "~/lib/repos/profiles.server";
+import { getProfileFields } from "~/lib/repos/profiles.server";
 import { maskName } from "~/lib/format";
 import PreviewBanner from "~/components/PreviewBanner";
 
@@ -44,10 +44,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       if (error) console.error("[explore.list_discover_members]", error);
       // 개인정보 보호: 실명은 마스킹해서만 클라이언트로 보낸다 (탐색에선 실명 비노출)
       const rows = (data ?? []) as DiscoverMember[];
-      const photoUrls = await signPhotoUrls(
-        ctx.supabase,
-        rows.map((m) => m.photo_path),
-      );
+      // 매칭 후 공개 원칙: 탐색 목록에서는 얼굴 사진을 노출하지 않는다.
       const members = rows.map((m) => ({
         ...m,
         name: maskName(m.name),
@@ -57,7 +54,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
           guest: false,
           loggedIn: true,
           members,
-          photoUrls,
           preview: [] as PreviewMember[],
           viewerGender: (profile.gender as string | null) ?? null,
         },
@@ -75,7 +71,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       guest: true,
       loggedIn: !!ctx.user,
       members: [] as DiscoverMember[],
-      photoUrls: {} as Record<string, string>,
       preview: (data ?? []) as PreviewMember[],
       viewerGender: null as string | null,
     },
@@ -97,11 +92,9 @@ const AVATAR_BG = [
 const MemberCard = ({
   m,
   idx,
-  photoUrl,
 }: {
   m: DiscoverMember;
   idx: number;
-  photoUrl?: string;
 }) => (
   <div
     style={{
@@ -119,10 +112,7 @@ const MemberCard = ({
         width: "52px",
         height: "52px",
         borderRadius: "50%",
-        background: photoUrl ? "transparent" : AVATAR_BG[idx % AVATAR_BG.length],
-        backgroundImage: photoUrl ? `url(${photoUrl})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        background: AVATAR_BG[idx % AVATAR_BG.length],
         flexShrink: 0,
         display: "flex",
         alignItems: "center",
@@ -130,7 +120,7 @@ const MemberCard = ({
         fontSize: "22px",
       }}
     >
-      {!photoUrl && "🎵"}
+      🎵
     </div>
     <div style={{ flex: 1, minWidth: 0 }}>
       <p
@@ -371,11 +361,7 @@ export default function Explore() {
                 className="tappable"
                 style={{ display: "block", textDecoration: "none" }}
               >
-                <MemberCard
-                  m={m}
-                  idx={i}
-                  photoUrl={m.photo_path ? data.photoUrls[m.photo_path] : undefined}
-                />
+                <MemberCard m={m} idx={i} />
               </Link>
             ))}
           </div>

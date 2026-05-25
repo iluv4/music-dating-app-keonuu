@@ -417,6 +417,8 @@ export default function ChatRoom() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // 매칭 후 공개: 상대 프로필 사진(서버가 활성 매칭 확인 후 서명 URL 발급).
+  const [partnerPhoto, setPartnerPhoto] = useState<string | null>(null);
   // 사진 메시지: image_url 은 비공개 버킷 경로 → 서명 URL 로 변환해 렌더
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   // 보내기 옵션: 펑(읽으면 소멸) / 한 번만 보기(사진)
@@ -429,6 +431,22 @@ export default function ChatRoom() {
   const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
   // 캡처 억제: 탭을 벗어나면 화면을 가린다 (전환 중 캡처/녹화 미리보기 방지)
   const [obscured, setObscured] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!match.partnerId) return;
+    fetch(`/api/member-photo?userId=${encodeURIComponent(match.partnerId)}`)
+      .then((r) => r.json())
+      .then((d: { url?: string | null }) => {
+        if (active && d?.url) setPartnerPhoto(d.url);
+      })
+      .catch(() => {
+        /* 사진 미공개/미등록은 무시 */
+      });
+    return () => {
+      active = false;
+    };
+  }, [match.partnerId]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -847,12 +865,32 @@ export default function ChatRoom() {
         </button>
         <span
           style={{
-            ...TYPOGRAPHY.bodyBold,
-            fontSize: "17px",
-            color: COLORS.text.primary,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          {match.partnerName}
+          {partnerPhoto && (
+            <img
+              src={partnerPhoto}
+              alt=""
+              style={{
+                width: "30px",
+                height: "30px",
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+          <span
+            style={{
+              ...TYPOGRAPHY.bodyBold,
+              fontSize: "17px",
+              color: COLORS.text.primary,
+            }}
+          >
+            {match.partnerName}
+          </span>
         </span>
         {!isEnded && (
           <button

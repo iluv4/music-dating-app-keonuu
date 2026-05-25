@@ -7,7 +7,6 @@ import PhoneFrame from "~/components/PhoneFrame";
 import NoteIcon from "~/components/NoteIcon";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser, requireApprovedUser } from "~/lib/auth.server";
-import { signPhotoUrl } from "~/lib/repos/profiles.server";
 import { maskName } from "~/lib/format";
 import type { Song } from "~/lib/song-types";
 import PreviewBanner from "~/components/PreviewBanner";
@@ -48,9 +47,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw redirect("/explore", { headers: ctx.headers });
   }
   const detail = data as MemberDetail;
-  const photoUrl = await signPhotoUrl(ctx.supabase, detail.photo_path);
+  // 매칭 후 공개 원칙: 멤버 상세(탐색 경유)에서는 얼굴 사진을 노출하지 않는다.
   return json(
-    { guest: false as const, detail, photoUrl },
+    { guest: false as const, detail, photoUrl: null as string | null },
     { headers: ctx.headers },
   );
 }
