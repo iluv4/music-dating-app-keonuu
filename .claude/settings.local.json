@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "mcp__figma__get_design_context",
-      "mcp__figma__get_screenshot"
+      "mcp__figma__get_screenshot",
+      "mcp__54612c4d-d0b6-4e66-be4b-17b8cf44fa44__list_projects",
+      "mcp__54612c4d-d0b6-4e66-be4b-17b8cf44fa44__list_deployments"
     ]
   }
 }
