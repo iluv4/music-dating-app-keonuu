@@ -108,6 +108,48 @@ export async function updateProfile(
   return { ok: true };
 }
 
+export const PROFILE_PHOTOS_BUCKET = "profile-photos";
+const PHOTO_SIGN_TTL = 3600;
+
+// 비공개 profile-photos 버킷 경로 → 서명 URL. 실패/없음이면 null.
+export async function signPhotoUrl(
+  supabase: SupabaseClient,
+  path: string | null | undefined,
+): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await supabase.storage
+    .from(PROFILE_PHOTOS_BUCKET)
+    .createSignedUrl(path, PHOTO_SIGN_TTL);
+  if (error || !data?.signedUrl) {
+    console.error("[profiles.signPhotoUrl]", error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+// 여러 경로를 한 번에 서명. 경로 → 서명 URL 매핑 반환(실패한 항목은 누락).
+export async function signPhotoUrls(
+  supabase: SupabaseClient,
+  paths: (string | null | undefined)[],
+): Promise<Record<string, string>> {
+  const unique = Array.from(
+    new Set(paths.filter((p): p is string => !!p)),
+  );
+  if (unique.length === 0) return {};
+  const { data, error } = await supabase.storage
+    .from(PROFILE_PHOTOS_BUCKET)
+    .createSignedUrls(unique, PHOTO_SIGN_TTL);
+  if (error || !data) {
+    console.error("[profiles.signPhotoUrls]", error);
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const item of data) {
+    if (item.path && item.signedUrl) out[item.path] = item.signedUrl;
+  }
+  return out;
+}
+
 export async function isApproved(
   supabase: SupabaseClient,
   userId: string,

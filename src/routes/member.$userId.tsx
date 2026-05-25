@@ -18,6 +18,7 @@ type MemberDetail = {
   name: string;
   school: string | null;
   gender: string | null;
+  photo_path?: string | null;
   songs: Song[];
 };
 
@@ -30,7 +31,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // 비로그인 방문자 → 샘플 회원 상세로 미리보기 (실제 가입자 PII 노출 안 함)
   const base = await getUser(request);
   if (!base.user) {
-    return json({ guest: true as const, detail: PREVIEW_MEMBER as MemberDetail });
+    return json({
+      guest: true as const,
+      detail: PREVIEW_MEMBER as MemberDetail,
+      photoUrl: null as string | null,
+    });
   }
 
   const ctx = await requireApprovedUser(request);
@@ -41,8 +46,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     console.error("[member.get_member_detail]", error);
     throw redirect("/explore", { headers: ctx.headers });
   }
+  const detail = data as MemberDetail;
+  // 매칭 후 공개 원칙: 멤버 상세(탐색 경유)에서는 얼굴 사진을 노출하지 않는다.
   return json(
-    { guest: false as const, detail: data as MemberDetail },
+    { guest: false as const, detail, photoUrl: null as string | null },
     { headers: ctx.headers },
   );
 }
@@ -89,7 +96,7 @@ const AlbumThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MemberDetail() {
-  const { guest, detail } = useLoaderData<typeof loader>();
+  const { guest, detail, photoUrl } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const songs = detail.songs ?? [];
 
@@ -152,7 +159,12 @@ export default function MemberDetail() {
               width: "88px",
               height: "88px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, #ff9b97 0%, ${COLORS.accent} 100%)`,
+              background: photoUrl
+                ? "transparent"
+                : `linear-gradient(135deg, #ff9b97 0%, ${COLORS.accent} 100%)`,
+              backgroundImage: photoUrl ? `url(${photoUrl})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -160,7 +172,7 @@ export default function MemberDetail() {
               marginBottom: "14px",
             }}
           >
-            🎵
+            {!photoUrl && "🎵"}
           </div>
           <p
             style={{

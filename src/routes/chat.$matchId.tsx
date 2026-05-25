@@ -202,9 +202,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
   );
 }
 
-// 업로드 전 클라이언트에서 사진을 축소·재인코딩 — 원본(최대 5MB)을 그대로 올리고
-// 받던 탓에 전송·렌더가 느렸다. 긴 변 1280px·JPEG 품질 0.82 로 보통 수백 KB 이하가 됨.
-// canvas 미지원/실패 시 원본을 그대로 사용(안전 폴백).
 function formatBubbleTime(iso: string): string {
   const d = new Date(iso);
   const h = d.getHours();

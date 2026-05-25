@@ -109,7 +109,7 @@ export default function ProfileBasic() {
             type="text"
             inputMode="numeric"
             maxLength={4}
-            placeholder="예) 2003"
+            placeholder="태어난 연도를 입력해주세요 (예: 2002)"
             value={state.birthYear}
             onChange={(e) =>
               update({

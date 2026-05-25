@@ -33,15 +33,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
-  // photo_url(경로) 조회 후 service_role 로 서명.
+  // photo_path(경로) 조회 후 service_role 로 서명.
   const admin = getSupabaseAdmin();
   const { data: profile } = await admin
     .from("profiles")
-    .select("photo_url")
+    .select("photo_path")
     .eq("user_id", targetId)
-    .maybeSingle<{ photo_url: string | null }>();
+    .maybeSingle<{ photo_path: string | null }>();
 
-  const path = profile?.photo_url;
+  const path = profile?.photo_path;
   if (!path) {
     return json({ url: null }, { headers: ctx.headers });
   }

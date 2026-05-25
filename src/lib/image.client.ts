@@ -1,10 +1,12 @@
-// 브라우저 전용 이미지 축소. 업로드 전 크기를 줄여 전송 속도·렌더 속도를 함께 개선한다.
-// 사진 위주 포맷(jpeg/png/webp)만 변환하고, 그 외(gif/svg 등)나 변환 실패 시 원본을 그대로 반환.
+// 업로드 전 클라이언트에서 사진을 축소·재인코딩 — 원본을 그대로 올리면 전송·렌더가 느림.
+// 긴 변 maxDim px·JPEG 품질 0.82 로 보통 수백 KB 이하가 됨.
+// canvas 미지원/실패 시 원본을 그대로 사용(안전 폴백).
 export async function downscaleImage(
   file: File,
   maxDim = 1280,
 ): Promise<{ blob: Blob; ext: string }> {
   const fallbackExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+  // 사진 위주 포맷만 변환 (gif/svg 등은 원본 유지)
   if (
     !/^image\/(jpeg|png|webp)$/.test(file.type) ||
     typeof createImageBitmap !== "function"
@@ -26,6 +28,7 @@ export async function downscaleImage(
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", 0.82),
     );
+    // 변환 실패하거나 오히려 더 커지면 원본 사용
     if (!blob || blob.size >= file.size) return { blob: file, ext: fallbackExt };
     return { blob, ext: "jpg" };
   } catch {

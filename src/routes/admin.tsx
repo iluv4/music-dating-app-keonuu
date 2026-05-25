@@ -25,7 +25,7 @@ type Pending = {
   school: string | null;
   major: string | null;
   bank_holder: string | null;
-  photo_url: string | null;
+  photo_path: string | null;
   photo_signed_url: string | null;
   created_at: string;
 };
@@ -55,7 +55,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const [profilesRes, matchesRes] = await Promise.all([
     admin
       .from("profiles")
-      .select("user_id, name, birth_year, school, major, bank_holder, photo_url, created_at")
+      .select("user_id, name, birth_year, school, major, bank_holder, photo_path, created_at")
       .eq("is_approved", false)
       .order("created_at", { ascending: true }),
     admin
@@ -111,10 +111,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const pending: Pending[] = await Promise.all(
     rawPending.map(async (p) => {
       let photo_signed_url: string | null = null;
-      if (p.photo_url) {
+      if (p.photo_path) {
         const { data } = await admin.storage
           .from("profile-photos")
-          .createSignedUrl(p.photo_url, 600);
+          .createSignedUrl(p.photo_path, 600);
         photo_signed_url = data?.signedUrl ?? null;
       }
       return { ...p, photo_signed_url };

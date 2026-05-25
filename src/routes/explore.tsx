@@ -16,6 +16,7 @@ type DiscoverMember = {
   name: string;
   school: string;
   gender: string | null;
+  photo_path?: string | null;
   song_count: number;
 };
 
@@ -42,7 +43,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
       if (error) console.error("[explore.list_discover_members]", error);
       // 개인정보 보호: 실명은 마스킹해서만 클라이언트로 보낸다 (탐색에선 실명 비노출)
-      const members = ((data ?? []) as DiscoverMember[]).map((m) => ({
+      const rows = (data ?? []) as DiscoverMember[];
+      // 매칭 후 공개 원칙: 탐색 목록에서는 얼굴 사진을 노출하지 않는다.
+      const members = rows.map((m) => ({
         ...m,
         name: maskName(m.name),
       }));
@@ -86,7 +89,13 @@ const AVATAR_BG = [
   "linear-gradient(135deg, #b3f0d1, #5fcf9b)",
 ];
 
-const MemberCard = ({ m, idx }: { m: DiscoverMember; idx: number }) => (
+const MemberCard = ({
+  m,
+  idx,
+}: {
+  m: DiscoverMember;
+  idx: number;
+}) => (
   <div
     style={{
       background: "white",
