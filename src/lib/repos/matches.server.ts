@@ -23,6 +23,9 @@ type RawMessagePreview = {
   content: string;
   created_at: string;
   sender_id: string;
+  image_url: string | null;
+  deleted_at: string | null;
+  view_once: boolean;
 };
 
 async function fetchPartnerProfiles(
@@ -52,7 +55,7 @@ async function fetchLastMessages(
   if (matchIds.length === 0) return map;
   const { data, error } = await supabase
     .from("messages")
-    .select("match_id, content, created_at, sender_id")
+    .select("match_id, content, created_at, sender_id, image_url, deleted_at, view_once")
     .in("match_id", matchIds)
     .order("created_at", { ascending: false });
   if (error) {
@@ -124,7 +127,12 @@ export async function listUserMatches(
       endedAt: m.ended_at,
       lastMessage: last
         ? {
-            content: last.content,
+            // 삭제/소멸·한 번만 보기 사진은 미리보기에 원문을 노출하지 않음
+            content: last.deleted_at
+              ? "사라진 메시지"
+              : last.view_once
+                ? "사진"
+                : last.content || (last.image_url ? "사진을 보냈어요" : ""),
             createdAt: last.created_at,
             senderId: last.sender_id,
           }
