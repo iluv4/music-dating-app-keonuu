@@ -1,7 +1,7 @@
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
 
-export type OAuthProvider = "kakao" | "google";
+export type OAuthProvider = "kakao";
 
 // Starts the Supabase OAuth redirect flow. Returns to /auth/callback,
 // which exchanges the code for a session cookie.

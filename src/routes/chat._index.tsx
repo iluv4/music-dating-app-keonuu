@@ -5,18 +5,24 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { requireApprovedUser } from "~/lib/auth.server";
+import { approvedUserOrGuest } from "~/lib/auth.server";
 import { listUserMatches } from "~/lib/repos/matches.server";
+import PreviewBanner from "~/components/PreviewBanner";
+import { PREVIEW_MATCH } from "~/lib/preview-data";
 
 // 채팅 목록 — 진행 중인 모든 매칭을 보여준다(다중 매칭 지원).
 // 연락을 끊지 않고 여러 상대와 동시에 대화할 수 있도록 단일 자동이동을 폐기.
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await approvedUserOrGuest(request);
+  // 비로그인 방문자 → 샘플 대화 1건으로 채팅 목록 미리보기
+  if (ctx.guest) {
+    return json({ guest: true as const, matches: [PREVIEW_MATCH] });
+  }
   // 종료된 매칭도 회색으로 남겨 히스토리 유지(연락 끊겨도 기록은 보존).
   const matches = await listUserMatches(ctx.supabase, ctx.user.id, {
     status: "all",
   });
-  return json({ matches }, { headers: ctx.headers });
+  return json({ guest: false as const, matches }, { headers: ctx.headers });
 }
 
 const AVATAR_BG = [
@@ -40,7 +46,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function ChatList() {
-  const { matches } = useLoaderData<typeof loader>();
+  const { guest, matches } = useLoaderData<typeof loader>();
 
   return (
     <PhoneFrame style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
@@ -65,6 +71,12 @@ export default function ChatList() {
           채팅
         </h1>
       </div>
+
+      {guest && (
+        <div style={{ padding: "12px 20px 0" }}>
+          <PreviewBanner text="실제 매칭이 되면 여기서 바로 대화할 수 있어요." />
+        </div>
+      )}
 
       {matches.length === 0 ? (
         <div

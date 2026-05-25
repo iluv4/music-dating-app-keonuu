@@ -9,6 +9,7 @@ import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser } from "~/lib/auth.server";
 import { getProfileFields } from "~/lib/repos/profiles.server";
 import { maskName } from "~/lib/format";
+import PreviewBanner from "~/components/PreviewBanner";
 
 type DiscoverMember = {
   user_id: string;
@@ -247,6 +248,9 @@ const PreviewCard = ({ m, idx }: { m: PreviewMember; idx: number }) => (
 export default function Explore() {
   const data = useLoaderData<typeof loader>();
   const isGuest = data.guest;
+  // 비로그인 방문자(둘러보기) vs 로그인했지만 미승인(입금 대기) 구분
+  const isVisitor = data.guest && !data.loggedIn;
+  const isPending = data.guest && data.loggedIn;
   // 보는 사람 성별에 맞춰 반대 성별 카피
   const introCopy =
     data.viewerGender === "female"
@@ -256,7 +260,7 @@ export default function Explore() {
         : "이런 분들이 음악으로 인연을 기다리고 있어요 🎶";
 
   return (
-    <PhoneFrame style={{ paddingBottom: isGuest ? "92px" : "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
+    <PhoneFrame style={{ paddingBottom: isPending ? "92px" : "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
       <StatusBar />
 
       <div
@@ -281,6 +285,8 @@ export default function Explore() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 24px" }}>
+        {isVisitor && <PreviewBanner text="가입하면 실명·학교를 보고 매칭을 시작할 수 있어요." />}
+
         <p
           style={{
             ...TYPOGRAPHY.body,
@@ -307,9 +313,20 @@ export default function Explore() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {data.preview.map((m, i) => (
-                <PreviewCard key={i} m={m} idx={i} />
-              ))}
+              {data.preview.map((m, i) =>
+                isVisitor ? (
+                  <Link
+                    key={i}
+                    to="/member/preview"
+                    className="tappable"
+                    style={{ display: "block", textDecoration: "none" }}
+                  >
+                    <PreviewCard m={m} idx={i} />
+                  </Link>
+                ) : (
+                  <PreviewCard key={i} m={m} idx={i} />
+                ),
+              )}
             </div>
           )
         ) : data.members.length === 0 ? (
@@ -342,7 +359,7 @@ export default function Explore() {
         )}
       </div>
 
-      {isGuest ? (
+      {isPending ? (
         <div
           style={{
             position: "fixed",
@@ -359,12 +376,9 @@ export default function Explore() {
             zIndex: 10,
           }}
         >
-          <Link
-            to={data.loggedIn ? "/waiting" : "/welcome"}
-            style={{ display: "block", width: "100%" }}
-          >
+          <Link to="/waiting" style={{ display: "block", width: "100%" }}>
             <PrimaryButton style={{ width: "100%", maxWidth: "none" }}>
-              {data.loggedIn ? "입금하고 매칭 시작하기" : "가입하고 매칭 시작하기"}
+              입금하고 매칭 시작하기
             </PrimaryButton>
           </Link>
         </div>

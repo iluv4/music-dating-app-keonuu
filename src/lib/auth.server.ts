@@ -97,6 +97,42 @@ export async function requireMatchAccess(
   return { ...ctx, match };
 }
 
+/**
+ * 게스트 미리보기 허용 게이트.
+ * - 비로그인 → { guest: true } (호출 측에서 샘플 데이터로 미리보기 렌더)
+ * - 로그인 → requireApprovedUser 와 동일하게 프로필/승인 검사 후 통과
+ *   (미가입·미승인 로그인 사용자는 기존처럼 /profile/basic·/waiting 으로 리다이렉트)
+ */
+export async function approvedUserOrGuest(request: Request) {
+  const ctx = await getUser(request);
+  if (!ctx.user) {
+    return {
+      guest: true as const,
+      user: null,
+      supabase: ctx.supabase,
+      headers: ctx.headers,
+    };
+  }
+
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "user_id",
+    "is_approved",
+  ]);
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
+  if (!profile.is_approved) {
+    throw redirect("/waiting", { headers: ctx.headers });
+  }
+
+  return {
+    guest: false as const,
+    user: ctx.user,
+    supabase: ctx.supabase,
+    headers: ctx.headers,
+  };
+}
+
 export async function requireGuest(request: Request) {
   const ctx = await getUser(request);
   if (ctx.user) {

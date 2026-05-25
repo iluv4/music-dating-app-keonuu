@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import NoteIcon from "~/components/NoteIcon";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { requireApprovedUser } from "~/lib/auth.server";
+import { getUser, requireApprovedUser } from "~/lib/auth.server";
 import { maskName } from "~/lib/format";
 import type { Song } from "~/lib/song-types";
+import PreviewBanner from "~/components/PreviewBanner";
+import { PrimaryButton } from "~/components/Button";
+import { PREVIEW_MEMBER } from "~/lib/preview-data";
 
 type MemberDetail = {
   user_id: string;
@@ -24,6 +27,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = params.userId;
   if (!userId) throw redirect("/explore");
 
+  // 비로그인 방문자 → 샘플 회원 상세로 미리보기 (실제 가입자 PII 노출 안 함)
+  const base = await getUser(request);
+  if (!base.user) {
+    return json({ guest: true as const, detail: PREVIEW_MEMBER as MemberDetail });
+  }
+
   const ctx = await requireApprovedUser(request);
   const { data, error } = await ctx.supabase.rpc("get_member_detail", {
     p_user_id: userId,
@@ -32,7 +41,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     console.error("[member.get_member_detail]", error);
     throw redirect("/explore", { headers: ctx.headers });
   }
-  return json({ detail: data as MemberDetail }, { headers: ctx.headers });
+  return json(
+    { guest: false as const, detail: data as MemberDetail },
+    { headers: ctx.headers },
+  );
 }
 
 const genderLabel = (g: string | null) =>
@@ -77,7 +89,7 @@ const AlbumThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MemberDetail() {
-  const { detail } = useLoaderData<typeof loader>();
+  const { guest, detail } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const songs = detail.songs ?? [];
 
@@ -123,6 +135,8 @@ export default function MemberDetail() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 32px" }}>
+        {guest && <PreviewBanner text="가입하면 이런 분들과 음악으로 매칭돼요." />}
+
         {/* 프로필 헤더 */}
         <div
           style={{
@@ -254,6 +268,23 @@ export default function MemberDetail() {
           </div>
         )}
       </div>
+
+      {guest && (
+        <div
+          style={{
+            padding: "12px 20px",
+            paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+            background: "white",
+            borderTop: `1px solid ${COLORS.divider2}`,
+          }}
+        >
+          <Link to="/welcome" style={{ display: "block", textDecoration: "none" }}>
+            <PrimaryButton style={{ width: "100%", maxWidth: "none" }}>
+              가입하고 매칭 시작하기
+            </PrimaryButton>
+          </Link>
+        </div>
+      )}
 
       <HomeIndicator />
     </PhoneFrame>

@@ -8,21 +8,32 @@ import BottomNav from "~/components/BottomNav";
 import NoteIcon from "~/components/NoteIcon";
 import { SmallButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { requireUser } from "~/lib/auth.server";
+import { getUser } from "~/lib/auth.server";
 import { getProfile } from "~/lib/repos/profiles.server";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import type { Song } from "~/lib/song-types";
+import PreviewBanner from "~/components/PreviewBanner";
+import { PREVIEW_PROFILE, PREVIEW_SONGS } from "~/lib/preview-data";
 
 type Row = { label: string; value: string };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireUser(request);
+  const ctx = await getUser(request);
+  // 비로그인 방문자 → 샘플 프로필로 마이페이지 미리보기
+  if (!ctx.user) {
+    return json({
+      guest: true as const,
+      profile: PREVIEW_PROFILE,
+      email: "preview@musicmatch.app",
+      songs: PREVIEW_SONGS,
+    });
+  }
   const [profile, songs] = await Promise.all([
     getProfile(ctx.supabase, ctx.user.id),
     listUserSongs(ctx.supabase, ctx.user.id),
   ]);
   return json(
-    { profile, email: ctx.user.email ?? "", songs },
+    { guest: false as const, profile, email: ctx.user.email ?? "", songs },
     { headers: ctx.headers },
   );
 }
@@ -65,7 +76,7 @@ const SongThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MyPage() {
-  const { profile, email, songs } = useLoaderData<typeof loader>();
+  const { guest, profile, email, songs } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const mySongs: Song[] = songs ?? [];
 
@@ -123,6 +134,12 @@ export default function MyPage() {
             마이 페이지
           </span>
         </div>
+
+        {guest && (
+          <div style={{ padding: "0 20px" }}>
+            <PreviewBanner text="가입하면 내 프로필을 만들고 음악으로 매칭돼요." />
+          </div>
+        )}
 
         {/* 프로필 */}
         <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -188,8 +205,11 @@ export default function MyPage() {
               {profile?.is_approved ? "승인 완료" : "관리자 승인 대기 중"}
             </div>
           </div>
-          <SmallButton onClick={() => navigate("/profile/edit")}>
-            내 정보 수정
+          <SmallButton
+            onClick={() => navigate(guest ? "/welcome" : "/profile/edit")}
+            style={guest ? { width: "auto", padding: "0 18px" } : undefined}
+          >
+            {guest ? "가입하고 시작하기" : "내 정보 수정"}
           </SmallButton>
         </div>
 
@@ -322,25 +342,46 @@ export default function MyPage() {
           ))}
         </div>
 
-        {/* 로그아웃 */}
-        <Form method="post" action="/logout" style={{ margin: "24px 25px 0" }}>
+        {/* 로그아웃 (게스트는 가입 유도) */}
+        {guest ? (
           <button
-            type="submit"
+            type="button"
+            onClick={() => navigate("/welcome")}
             style={{
-              width: "100%",
+              width: "calc(100% - 50px)",
+              margin: "24px 25px 0",
               height: "48px",
               borderRadius: "12px",
-              background: "white",
-              border: `1px solid ${COLORS.cardBorder}`,
+              background: COLORS.accent,
+              border: "none",
               ...TYPOGRAPHY.bodyBold,
               fontSize: "14px",
-              color: COLORS.text.secondary,
+              color: "white",
               cursor: "pointer",
             }}
           >
-            로그아웃
+            가입하고 시작하기
           </button>
-        </Form>
+        ) : (
+          <Form method="post" action="/logout" style={{ margin: "24px 25px 0" }}>
+            <button
+              type="submit"
+              style={{
+                width: "100%",
+                height: "48px",
+                borderRadius: "12px",
+                background: "white",
+                border: `1px solid ${COLORS.cardBorder}`,
+                ...TYPOGRAPHY.bodyBold,
+                fontSize: "14px",
+                color: COLORS.text.secondary,
+                cursor: "pointer",
+              }}
+            >
+              로그아웃
+            </button>
+          </Form>
+        )}
       </div>
 
       <BottomNav active="my" />
