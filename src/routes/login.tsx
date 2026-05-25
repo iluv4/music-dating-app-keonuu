@@ -6,7 +6,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import TextInput from "~/components/TextInput";
 import { PrimaryButton } from "~/components/Button";
-import { KakaoButton, GoogleButton } from "~/components/SocialButton";
+import { KakaoButton } from "~/components/SocialButton";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { postApprovalDestination, requireGuest } from "~/lib/auth.server";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
@@ -210,7 +210,20 @@ export default function Login() {
           </div>
 
           <KakaoButton style={{ width: "100%" }}>카카오로 계속하기</KakaoButton>
-          <GoogleButton style={{ width: "100%" }}>Google로 계속하기</GoogleButton>
+
+          <Link
+            to="/explore"
+            style={{
+              ...TYPOGRAPHY.label,
+              color: COLORS.text.helper,
+              textAlign: "center",
+              textDecoration: "underline",
+              textUnderlineOffset: "3px",
+              marginTop: "4px",
+            }}
+          >
+            로그인 없이 둘러볼게요
+          </Link>
         </div>
       </Form>
       <HomeIndicator />

@@ -19,9 +19,12 @@ import PhoneFrame from "~/components/PhoneFrame";
 import BottomNav from "~/components/BottomNav";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import {
+  approvedUserOrGuest,
   postApprovalDestination,
   requireApprovedUser,
 } from "~/lib/auth.server";
+import PreviewBanner from "~/components/PreviewBanner";
+import { PREVIEW_SONGS, PREVIEW_MATCH } from "~/lib/preview-data";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
@@ -34,7 +37,17 @@ import {
 } from "~/lib/push.client";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await approvedUserOrGuest(request);
+
+  // 비로그인 방문자 → 샘플 매칭으로 홈 화면 미리보기
+  if (ctx.guest) {
+    return json({
+      guest: true as const,
+      songs: PREVIEW_SONGS,
+      match: PREVIEW_MATCH,
+      unread: 0,
+    });
+  }
 
   const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
   if (dest !== "/music") {
@@ -48,7 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   ]);
 
   return json(
-    { songs, match: matches[0] ?? null, unread },
+    { guest: false as const, songs, match: matches[0] ?? null, unread },
     { headers: ctx.headers },
   );
 }
@@ -142,7 +155,7 @@ const ctaBase = {
 
 export default function Music() {
   const navigate = useNavigate();
-  const { songs, match, unread } = useLoaderData<typeof loader>();
+  const { guest, songs, match, unread } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const matching = navigation.state === "submitting";
@@ -154,6 +167,7 @@ export default function Music() {
     "hidden" | "prompt" | "denied" | "ios-install"
   >("hidden");
   useEffect(() => {
+    if (guest) return; // 미리보기 방문자에겐 알림 권한 요청을 띄우지 않음
     void syncPushIfGranted();
     const perm = pushPermission();
     if (perm === "default") {
@@ -203,23 +217,27 @@ export default function Music() {
         >
           뮤직매치
         </h1>
-        <Link
-          to="/notifications"
-          aria-label="알림"
-          style={{
-            position: "absolute",
-            top: "50%",
-            right: "18px",
-            transform: "translateY(-50%)",
-          }}
-        >
-          <BellIcon hasAlert={unread > 0} />
-        </Link>
+        {!guest && (
+          <Link
+            to="/notifications"
+            aria-label="알림"
+            style={{
+              position: "absolute",
+              top: "50%",
+              right: "18px",
+              transform: "translateY(-50%)",
+            }}
+          >
+            <BellIcon hasAlert={unread > 0} />
+          </Link>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 24px" }}>
+        {guest && <PreviewBanner />}
+
         {/* 알림 켜기 배너 — 권한 미설정 시 버튼 탭으로 권한 요청(iOS 필수) */}
-        {pushUi !== "hidden" && (
+        {!guest && pushUi !== "hidden" && (
           <div
             style={{
               display: "flex",
@@ -352,18 +370,20 @@ export default function Music() {
               >
                 채팅하러 가기
               </button>
-              <button
-                type="button"
-                onClick={() => navigate("/rematch")}
-                style={{
-                  ...ctaBase,
-                  marginTop: "10px",
-                  background: COLORS.accentSoft,
-                  color: COLORS.accent,
-                }}
-              >
-                ＋ 한 명 더 만나기
-              </button>
+              {!guest && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/rematch")}
+                  style={{
+                    ...ctaBase,
+                    marginTop: "10px",
+                    background: COLORS.accentSoft,
+                    color: COLORS.accent,
+                  }}
+                >
+                  ＋ 한 명 더 만나기
+                </button>
+              )}
             </>
           ) : (
             <>

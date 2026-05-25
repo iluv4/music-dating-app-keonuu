@@ -4,7 +4,7 @@ import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import { PrimaryButton } from "~/components/Button";
 import { KakaoButton } from "~/components/SocialButton";
-import { COLORS, TYPOGRAPHY } from "~/lib/constants";
+import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -81,6 +81,34 @@ export default function Welcome() {
           gap: "10px",
         }}
       >
+        <Link
+          to="/explore"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "2px",
+            width: "100%",
+            maxWidth: "350px",
+            minHeight: "62px",
+            padding: "10px 16px",
+            background: COLORS.accentSoft,
+            color: COLORS.accent,
+            border: `1.5px solid ${COLORS.accent}`,
+            borderRadius: RADIUS.button,
+            textDecoration: "none",
+            boxSizing: "border-box",
+          }}
+        >
+          <span style={{ ...TYPOGRAPHY.title, fontSize: "17px" }}>
+            가입 없이 둘러보기
+          </span>
+          <span style={{ ...TYPOGRAPHY.caption, opacity: 0.85 }}>
+            회원가입 전에 먼저 구경해보세요
+          </span>
+        </Link>
+
         <PrimaryButton
           onClick={() => navigate("/signup")}
           style={{ width: "100%", maxWidth: "350px" }}
@@ -107,19 +135,6 @@ export default function Welcome() {
             로그인
           </Link>
         </div>
-
-        <Link
-          to="/explore"
-          style={{
-            ...TYPOGRAPHY.label,
-            color: COLORS.text.helper,
-            textDecoration: "underline",
-            textUnderlineOffset: "3px",
-            marginTop: "2px",
-          }}
-        >
-          로그인 없이 먼저 둘러볼게요
-        </Link>
       </div>
 
       <HomeIndicator />
