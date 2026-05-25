@@ -24,7 +24,7 @@ import {
 import { endMatch } from "~/lib/repos/matches.server";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import { buildIcebreakers } from "~/lib/icebreakers";
-import { sendPushToUser } from "~/lib/push.server";
+import { dispatchPushToUser } from "~/lib/push.server";
 import type { MessageRow } from "~/lib/db-types";
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
@@ -114,22 +114,54 @@ export async function action({ request, params }: ActionFunctionArgs) {
       { status: 400, headers: ctx.headers },
     );
   }
-  // 상대에게 푸시 알림 (실패해도 전송 흐름 막지 않음)
-  try {
-    await sendPushToUser(ctx.match.partnerId, {
-      title: "새 메시지가 도착했어요 💬",
-      body: imageUrl && !content.trim() ? "사진을 보냈어요" : content.slice(0, 50),
-      url: `/chat/${matchId}`,
-    });
-  } catch (e) {
-    console.error("[chat message push]", e);
-  }
+  // 상대에게 푸시 알림 — 응답을 막지 않도록 비동기 발송(waitUntil).
+  // 외부 push 서버 왕복을 기다리지 않아 전송 응답이 즉시 돌아온다.
+  dispatchPushToUser(ctx.match.partnerId, {
+    title: "새 메시지가 도착했어요 💬",
+    body: imageUrl && !content.trim() ? "사진을 보냈어요" : content.slice(0, 50),
+    url: `/chat/${matchId}`,
+  });
 
   // 송신 직후 클라이언트가 본인 메시지를 바로 표시할 수 있도록 row 반환
   return json(
     { ok: true, message: result.message },
     { headers: ctx.headers },
   );
+}
+
+// 업로드 전 클라이언트에서 사진을 축소·재인코딩 — 원본(최대 5MB)을 그대로 올리고
+// 받던 탓에 전송·렌더가 느렸다. 긴 변 1280px·JPEG 품질 0.82 로 보통 수백 KB 이하가 됨.
+// canvas 미지원/실패 시 원본을 그대로 사용(안전 폴백).
+async function downscaleImage(
+  file: File,
+): Promise<{ blob: Blob; ext: string }> {
+  const fallbackExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+  // 사진 위주 포맷만 변환 (gif/svg 등은 원본 유지)
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== "function") {
+    return { blob: file, ext: fallbackExt };
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDim = 1280;
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { blob: file, ext: fallbackExt };
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.82),
+    );
+    // 변환 실패하거나 오히려 더 커지면 원본 사용
+    if (!blob || blob.size >= file.size) return { blob: file, ext: fallbackExt };
+    return { blob, ext: "jpg" };
+  } catch {
+    return { blob: file, ext: fallbackExt };
+  }
 }
 
 function formatBubbleTime(iso: string): string {
@@ -182,6 +214,8 @@ export default function ChatRoom() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 이미 서명 URL을 받은 경로 — 메시지가 바뀔 때마다 전체를 재서명하던 낭비 방지
+  const signedPathsRef = useRef<Set<string>>(new Set());
   const endFetcher = useFetcher<{ error?: string }>();
   const ending = endFetcher.state === "submitting";
 
@@ -208,7 +242,7 @@ export default function ChatRoom() {
           .map((m) => m.image_url)
           .filter((p): p is string => !!p),
       ),
-    );
+    ).filter((p) => !signedPathsRef.current.has(p));
     if (paths.length === 0) return;
     let cancelled = false;
     (async () => {
@@ -224,7 +258,10 @@ export default function ChatRoom() {
       setImageUrls((prev) => {
         const next = { ...prev };
         for (const item of data) {
-          if (item.path && item.signedUrl) next[item.path] = item.signedUrl;
+          if (item.path && item.signedUrl) {
+            next[item.path] = item.signedUrl;
+            signedPathsRef.current.add(item.path);
+          }
         }
         return next;
       });
@@ -368,11 +405,12 @@ export default function ChatRoom() {
         setUploadError("로그인이 만료됐어요. 새로고침 후 다시 시도해주세요.");
         return;
       }
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      // 업로드 전 축소 — 전송 속도와 수신측 렌더 속도를 함께 개선
+      const { blob, ext } = await downscaleImage(file);
       const path = `${matchId}/${currentUserId}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from("chat-images")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, blob, { contentType: blob.type, upsert: false });
       if (error) throw error;
 
       // 비공개 버킷 → public URL 없음. 경로만 저장하고 렌더 시 서명 URL 생성.
