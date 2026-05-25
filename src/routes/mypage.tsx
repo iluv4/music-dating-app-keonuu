@@ -9,7 +9,7 @@ import NoteIcon from "~/components/NoteIcon";
 import { SmallButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser } from "~/lib/auth.server";
-import { getProfile } from "~/lib/repos/profiles.server";
+import { getProfile, signPhotoUrl } from "~/lib/repos/profiles.server";
 import { listUserSongs } from "~/lib/repos/user-songs.server";
 import type { Song } from "~/lib/song-types";
 import PreviewBanner from "~/components/PreviewBanner";
@@ -26,14 +26,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
       profile: PREVIEW_PROFILE,
       email: "preview@musicmatch.app",
       songs: PREVIEW_SONGS,
+      photoUrl: null as string | null,
     });
   }
   const [profile, songs] = await Promise.all([
     getProfile(ctx.supabase, ctx.user.id),
     listUserSongs(ctx.supabase, ctx.user.id),
   ]);
+  const photoUrl = await signPhotoUrl(ctx.supabase, profile?.photo_path);
   return json(
-    { guest: false as const, profile, email: ctx.user.email ?? "", songs },
+    {
+      guest: false as const,
+      profile,
+      email: ctx.user.email ?? "",
+      songs,
+      photoUrl,
+    },
     { headers: ctx.headers },
   );
 }
@@ -76,7 +84,8 @@ const SongThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MyPage() {
-  const { guest, profile, email, songs } = useLoaderData<typeof loader>();
+  const { guest, profile, email, songs, photoUrl } =
+    useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const mySongs: Song[] = songs ?? [];
 
@@ -157,13 +166,13 @@ export default function MyPage() {
             }}
           >
             <img
-              src="/images/profile-mascot.png"
+              src={photoUrl ?? "/images/profile-mascot.png"}
               alt=""
-              style={{
-                width: "132px",
-                height: "132px",
-                objectFit: "contain",
-              }}
+              style={
+                photoUrl
+                  ? { width: "100%", height: "100%", objectFit: "cover" }
+                  : { width: "132px", height: "132px", objectFit: "contain" }
+              }
             />
           </div>
           <h2
