@@ -13,6 +13,7 @@ export type ProfileRow = {
   campus: string | null;
   major: string;
   club: string | null;
+  genres: string[] | null;
   region: string | null;
   match_campus_pref: string | null;
   bank_holder: string | null;
@@ -33,6 +34,7 @@ export type ProfileUpsert = {
   campus?: string | null;
   major: string;
   club?: string | null;
+  genres?: string[] | null;
   region?: string | null;
   match_campus_pref?: string | null;
   bank_holder: string | null;

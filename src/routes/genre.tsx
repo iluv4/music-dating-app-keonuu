@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useNavigate } from "@remix-run/react";
+import {
+  json,
+  redirect,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
+import { useFetcher, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import { requireApprovedUser } from "~/lib/auth.server";
+import { updateProfile } from "~/lib/repos/profiles.server";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import { PrimaryButton } from "~/components/Button";
@@ -11,6 +17,24 @@ import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
   return json({}, { headers: ctx.headers });
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const ctx = await requireApprovedUser(request);
+  const fd = await request.formData();
+  const ids = String(fd.get("genres") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // 알려진 장르만, 최대 MAX_GENRES 개
+  const valid = ids
+    .filter((id) => GENRES.some((g) => g.id === id))
+    .slice(0, MAX_GENRES);
+  if (valid.length === 0) {
+    return json({ error: "장르를 한 개 이상 선택해주세요." }, { status: 400 });
+  }
+  await updateProfile(ctx.supabase, ctx.user.id, { genres: valid });
+  return redirect("/music-select", { headers: ctx.headers });
 }
 
 type Genre = {
@@ -33,6 +57,8 @@ const MAX_GENRES = 3;
 
 export default function Genre() {
   const navigate = useNavigate();
+  const fetcher = useFetcher<{ error?: string }>();
+  const submitting = fetcher.state !== "idle";
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   // 앨범커버 이미지가 없는(로드 실패한) 장르는 기존 LP판 모양으로 대체
@@ -242,11 +268,16 @@ export default function Genre() {
         }}
       >
         <PrimaryButton
-          disabled={selected.size === 0}
-          onClick={() => navigate("/music-select")}
+          disabled={selected.size === 0 || submitting}
+          onClick={() =>
+            fetcher.submit(
+              { genres: [...selected].join(",") },
+              { method: "post" },
+            )
+          }
           style={{ maxWidth: "none" }}
         >
-          다음으로
+          {submitting ? "저장 중…" : "다음으로"}
         </PrimaryButton>
       </div>
       <HomeIndicator />
