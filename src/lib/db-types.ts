@@ -16,6 +16,7 @@ export type ProfileRow = {
   region: string | null;
   match_campus_pref: string | null;
   bank_holder: string | null;
+  photo_path: string | null;
   is_approved: boolean;
   approved_at: string | null;
   approved_by: string | null;
@@ -35,6 +36,7 @@ export type ProfileUpsert = {
   region?: string | null;
   match_campus_pref?: string | null;
   bank_holder: string | null;
+  photo_path?: string | null;
   updated_at?: string;
 };
 

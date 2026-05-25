@@ -7,6 +7,7 @@ import PhoneFrame from "~/components/PhoneFrame";
 import NoteIcon from "~/components/NoteIcon";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { getUser, requireApprovedUser } from "~/lib/auth.server";
+import { signPhotoUrl } from "~/lib/repos/profiles.server";
 import { maskName } from "~/lib/format";
 import type { Song } from "~/lib/song-types";
 import PreviewBanner from "~/components/PreviewBanner";
@@ -18,6 +19,7 @@ type MemberDetail = {
   name: string;
   school: string | null;
   gender: string | null;
+  photo_path?: string | null;
   songs: Song[];
 };
 
@@ -30,7 +32,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // 비로그인 방문자 → 샘플 회원 상세로 미리보기 (실제 가입자 PII 노출 안 함)
   const base = await getUser(request);
   if (!base.user) {
-    return json({ guest: true as const, detail: PREVIEW_MEMBER as MemberDetail });
+    return json({
+      guest: true as const,
+      detail: PREVIEW_MEMBER as MemberDetail,
+      photoUrl: null as string | null,
+    });
   }
 
   const ctx = await requireApprovedUser(request);
@@ -41,8 +47,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     console.error("[member.get_member_detail]", error);
     throw redirect("/explore", { headers: ctx.headers });
   }
+  const detail = data as MemberDetail;
+  const photoUrl = await signPhotoUrl(ctx.supabase, detail.photo_path);
   return json(
-    { guest: false as const, detail: data as MemberDetail },
+    { guest: false as const, detail, photoUrl },
     { headers: ctx.headers },
   );
 }
@@ -89,7 +97,7 @@ const AlbumThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MemberDetail() {
-  const { guest, detail } = useLoaderData<typeof loader>();
+  const { guest, detail, photoUrl } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const songs = detail.songs ?? [];
 
@@ -152,7 +160,12 @@ export default function MemberDetail() {
               width: "88px",
               height: "88px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, #ff9b97 0%, ${COLORS.accent} 100%)`,
+              background: photoUrl
+                ? "transparent"
+                : `linear-gradient(135deg, #ff9b97 0%, ${COLORS.accent} 100%)`,
+              backgroundImage: photoUrl ? `url(${photoUrl})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -160,7 +173,7 @@ export default function MemberDetail() {
               marginBottom: "14px",
             }}
           >
-            🎵
+            {!photoUrl && "🎵"}
           </div>
           <p
             style={{
