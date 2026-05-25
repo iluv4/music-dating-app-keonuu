@@ -17,8 +17,12 @@ import PhoneFrame from "~/components/PhoneFrame";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireMatchAccess } from "~/lib/auth.server";
 import {
+  deleteMessage,
+  disappearMessage,
+  editMessage,
   listMessages,
   markMessagesRead,
+  markViewed,
   sendMessage,
 } from "~/lib/repos/messages.server";
 import { endMatch } from "~/lib/repos/matches.server";
@@ -82,6 +86,64 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect("/chat", { headers: ctx.headers });
   }
 
+  // 메시지 수정 (본인 텍스트)
+  if (intent === "edit") {
+    const messageId = String(fd.get("message_id") ?? "");
+    const newContent = String(fd.get("content") ?? "");
+    const result = await editMessage(
+      ctx.supabase,
+      messageId,
+      ctx.user.id,
+      newContent,
+    );
+    if (!result.ok || !result.message) {
+      return json(
+        { error: result.error ?? "메시지를 수정하지 못했어요." },
+        { status: 400, headers: ctx.headers },
+      );
+    }
+    return json({ ok: true, message: result.message }, { headers: ctx.headers });
+  }
+
+  // 메시지 삭제 (본인, 양쪽 적용)
+  if (intent === "delete") {
+    const messageId = String(fd.get("message_id") ?? "");
+    const result = await deleteMessage(ctx.supabase, messageId, ctx.user.id);
+    if (!result.ok || !result.message) {
+      return json(
+        { error: result.error ?? "메시지를 삭제하지 못했어요." },
+        { status: 400, headers: ctx.headers },
+      );
+    }
+    return json({ ok: true, message: result.message }, { headers: ctx.headers });
+  }
+
+  // 펑 — 수신자가 읽은 뒤 소멸
+  if (intent === "disappear") {
+    const messageId = String(fd.get("message_id") ?? "");
+    const result = await disappearMessage(ctx.supabase, messageId, ctx.user.id);
+    if (!result.ok || !result.message) {
+      return json(
+        { error: result.error ?? "메시지를 소멸시키지 못했어요." },
+        { status: 400, headers: ctx.headers },
+      );
+    }
+    return json({ ok: true, message: result.message }, { headers: ctx.headers });
+  }
+
+  // 한 번만 보기 사진 — 수신자 열람 처리 (스토리지 원본 삭제)
+  if (intent === "view") {
+    const messageId = String(fd.get("message_id") ?? "");
+    const result = await markViewed(ctx.supabase, messageId, ctx.user.id);
+    if (!result.ok || !result.message) {
+      return json(
+        { error: result.error ?? "사진을 열람 처리하지 못했어요." },
+        { status: 400, headers: ctx.headers },
+      );
+    }
+    return json({ ok: true, message: result.message }, { headers: ctx.headers });
+  }
+
   // 일반 메시지 전송 (텍스트 또는 사진)
   const content = String(fd.get("content") ?? "");
   const imagePathRaw = String(fd.get("image_url") ?? "").trim();
@@ -101,12 +163,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
       { status: 400, headers: ctx.headers },
     );
   }
+  const viewOnce = String(fd.get("view_once") ?? "") === "1";
+  const disappear = String(fd.get("disappear") ?? "") === "1";
   const result = await sendMessage(
     ctx.supabase,
     matchId,
     ctx.user.id,
     content,
     imageUrl,
+    { viewOnce, disappear },
   );
   if (!result.ok || !result.message) {
     return json(
@@ -118,7 +183,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // 외부 push 서버 왕복을 기다리지 않아 전송 응답이 즉시 돌아온다.
   dispatchPushToUser(ctx.match.partnerId, {
     title: "새 메시지가 도착했어요 💬",
-    body: imageUrl && !content.trim() ? "사진을 보냈어요" : content.slice(0, 50),
+    // 펑·한 번만 보기는 알림에 원문을 노출하지 않음
+    body: viewOnce
+      ? "사진을 보냈어요"
+      : disappear
+        ? "메시지를 보냈어요"
+        : imageUrl && !content.trim()
+          ? "사진을 보냈어요"
+          : content.slice(0, 50),
     url: `/chat/${matchId}`,
   });
 
@@ -191,6 +263,176 @@ function isSameDay(a: string, b: string): boolean {
   );
 }
 
+// 펑 메시지: 수신자가 읽은 뒤 소멸하기까지의 지연(ms)
+const DISAPPEAR_AFTER_MS = 6000;
+// 한 번만 보기: 뷰어 자동 닫힘(ms)
+const VIEW_ONCE_TIMEOUT_MS = 10000;
+
+// 캡처 억제용 반복 워터마크 — 보는 사람 식별자를 깔아 유출 시 추적 단서로 삼는다.
+// (웹은 OS 캡처를 100% 막을 수 없어 '억제 + 추적'이 현실적 최선)
+function Watermark({ text }: { text: string }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        zIndex: 3,
+        overflow: "hidden",
+        display: "flex",
+        flexWrap: "wrap",
+        alignContent: "center",
+        justifyContent: "center",
+        transform: "rotate(-28deg) scale(1.4)",
+        opacity: 0.22,
+        gap: "20px 14px",
+      }}
+    >
+      {Array.from({ length: 40 }).map((_, i) => (
+        <span
+          key={i}
+          style={{
+            whiteSpace: "nowrap",
+            fontSize: "10px",
+            fontWeight: 700,
+            color: "#000",
+          }}
+        >
+          {text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// 캡처 억제: 우클릭/드래그/길게눌러 저장 차단 + 워터마크 오버레이를 두른 사진.
+function SecureImg({
+  src,
+  watermark,
+  onLoad,
+  style,
+}: {
+  src: string;
+  watermark: string;
+  onLoad?: () => void;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ position: "relative", display: "inline-block", lineHeight: 0 }}
+    >
+      <img
+        src={src}
+        alt="사진 메시지"
+        loading="lazy"
+        draggable={false}
+        onLoad={onLoad}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
+        style={{
+          display: "block",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          WebkitTouchCallout: "none",
+          ...style,
+        }}
+      />
+      <Watermark text={watermark} />
+    </div>
+  );
+}
+
+// 한 번만 보기 사진 전체화면 뷰어 — 캡처 억제 + 워터마크 + 자동 닫힘.
+function ViewOnceViewer({
+  url,
+  watermark,
+  onLoaded,
+  onClose,
+}: {
+  url: string;
+  watermark: string;
+  onLoaded: () => void;
+  onClose: () => void;
+}) {
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    const t = setTimeout(onClose, VIEW_ONCE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  return (
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 300,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: "18px",
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          color: "rgba(255,255,255,0.7)",
+          fontSize: "12px",
+          padding: "0 16px",
+        }}
+      >
+        ⚠️ 캡처 금지 · 한 번만 볼 수 있어요 · 닫으면 사라집니다
+      </div>
+      <div style={{ position: "relative", display: "inline-block", lineHeight: 0 }}>
+        <img
+          src={url}
+          alt="한 번만 보기 사진"
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          onLoad={() => {
+            if (loadedRef.current) return;
+            loadedRef.current = true;
+            onLoaded();
+          }}
+          style={{
+            display: "block",
+            maxWidth: "90vw",
+            maxHeight: "70vh",
+            borderRadius: "12px",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
+        />
+        <Watermark text={watermark} />
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          marginTop: "24px",
+          padding: "12px 28px",
+          borderRadius: "24px",
+          background: "white",
+          color: "#000",
+          fontWeight: 700,
+          cursor: "pointer",
+        }}
+      >
+        닫기
+      </button>
+    </div>
+  );
+}
+
 export default function ChatRoom() {
   const { match, currentUserId, messages: initial, icebreakers } =
     useLoaderData<typeof loader>();
@@ -211,13 +453,51 @@ export default function ChatRoom() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   // 사진 메시지: image_url 은 비공개 버킷 경로 → 서명 URL 로 변환해 렌더
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  // 보내기 옵션: 펑(읽으면 소멸) / 한 번만 보기(사진)
+  const [showAttach, setShowAttach] = useState(false);
+  const [disappearMode, setDisappearMode] = useState(false);
+  const [viewOnceMode, setViewOnceMode] = useState(false);
+  // 수정 중인 메시지 / 길게눌러 뜨는 동작 시트 / 한 번만 보기 뷰어
+  const [editing, setEditing] = useState<MessageRow | null>(null);
+  const [actionSheet, setActionSheet] = useState<MessageRow | null>(null);
+  const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
+  // 캡처 억제: 탭을 벗어나면 화면을 가린다 (전환 중 캡처/녹화 미리보기 방지)
+  const [obscured, setObscured] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 이미 서명 URL을 받은 경로 — 메시지가 바뀔 때마다 전체를 재서명하던 낭비 방지
   const signedPathsRef = useRef<Set<string>>(new Set());
+  // 펑 메시지: 소멸 타이머 중복 예약 방지 + 언마운트 정리용
+  const disappearScheduledRef = useRef<Set<string>>(new Set());
+  const disappearTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const endFetcher = useFetcher<{ error?: string }>();
   const ending = endFetcher.state === "submitting";
+  // 수정/삭제/펑/열람 처리용 — send 와 분리해 응답 머지 로직을 단순화
+  const actionFetcher = useFetcher<{
+    ok?: boolean;
+    message?: MessageRow;
+    error?: string;
+  }>();
+
+  // 워터마크: 보는 사람(=현재 사용자) 식별자 — 유출 시 추적 단서
+  const watermark = `캡처 금지 · ${currentUserId.slice(0, 8)}`;
+
+  // 메시지 한 건을 id 기준으로 상태에 머지 (수정/삭제/펑/열람 공통)
+  const mergeMessage = (row: MessageRow) =>
+    setMessages((prev) => prev.map((m) => (m.id === row.id ? row : m)));
+
+  const submitMessageAction = (
+    intent: "edit" | "delete" | "disappear" | "view",
+    messageId: string,
+    extra?: Record<string, string>,
+  ) => {
+    const fd = new FormData();
+    fd.set("intent", intent);
+    fd.set("message_id", messageId);
+    if (extra) for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+    actionFetcher.submit(fd, { method: "post" });
+  };
 
   const isEnded = match.status === "ended";
   const confirmEnd = () => {
@@ -239,6 +519,8 @@ export default function ChatRoom() {
     const paths = Array.from(
       new Set(
         messages
+          // 한 번만 보기 사진은 미리 서명하지 않음 — 탭할 때 1회용으로 단기 서명
+          .filter((m) => !m.view_once)
           .map((m) => m.image_url)
           .filter((p): p is string => !!p),
       ),
@@ -313,6 +595,22 @@ export default function ChatRoom() {
             });
           },
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `match_id=eq.${matchId}`,
+          },
+          (payload) => {
+            // 수정/삭제/펑 소멸/열람 등 상태 변경을 양쪽에 실시간 반영
+            const updated = payload.new as MessageRow;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === updated.id ? updated : m)),
+            );
+          },
+        )
         .subscribe();
     };
 
@@ -345,10 +643,78 @@ export default function ChatRoom() {
     inputRef.current?.focus();
   }, [sendFetcher.state, sendFetcher.data]);
 
+  // 수정/삭제/펑/열람 응답 머지 (서버 확정 row 로 교체)
+  useEffect(() => {
+    if (actionFetcher.state !== "idle") return;
+    if (actionFetcher.data?.error) {
+      setUploadError(actionFetcher.data.error);
+      return;
+    }
+    const row = actionFetcher.data?.message;
+    if (row) mergeMessage(row);
+  }, [actionFetcher.state, actionFetcher.data]);
+
+  // 캡처 억제: 탭 전환·창 비활성 시 화면을 가린다 (전환 캡처/녹화 미리보기 방지)
+  useEffect(() => {
+    const onVis = () => setObscured(document.visibilityState !== "visible");
+    const onBlur = () => setObscured(true);
+    const onFocus = () => setObscured(false);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  // 펑(읽으면 소멸): 상대가 보낸 disappear 메시지를 화면에서 읽었으니
+  // 일정 시간 뒤 소멸 요청. 메시지 변경마다 재실행되므로 타이머는 한 번만 예약하고
+  // (messages 변경 시 cleanup 으로 지워버리면 다시 예약되지 않아) 언마운트 때만 정리.
+  useEffect(() => {
+    if (isEnded) return;
+    for (const m of messages) {
+      if (
+        m.disappear &&
+        !m.deleted_at &&
+        m.sender_id !== currentUserId &&
+        !m.id.startsWith("temp-") &&
+        !disappearScheduledRef.current.has(m.id)
+      ) {
+        const id = m.id;
+        disappearScheduledRef.current.add(id);
+        const timer = setTimeout(
+          () => submitMessageAction("disappear", id),
+          DISAPPEAR_AFTER_MS,
+        );
+        disappearTimersRef.current.push(timer);
+      }
+    }
+  }, [messages, isEnded, currentUserId]);
+
+  useEffect(() => {
+    const timers = disappearTimersRef.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   const send = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draft.trim();
     if (!trimmed || submitting) return;
+
+    // 수정 모드: 기존 메시지 내용 갱신
+    if (editing) {
+      const target = editing;
+      setEditing(null);
+      setDraft("");
+      // 낙관적: 내용 즉시 반영 (edited_at 은 서버 확정으로 머지)
+      mergeMessage({ ...target, content: trimmed });
+      submitMessageAction("edit", target.id, { content: trimmed });
+      return;
+    }
+
+    const isDisappear = disappearMode;
     // 낙관적 표시 — 서버 왕복을 기다리지 않고 즉시 말풍선 노출
     const temp: MessageRow = {
       id: `temp-${Date.now()}`,
@@ -358,12 +724,20 @@ export default function ChatRoom() {
       image_url: null,
       created_at: new Date().toISOString(),
       read_at: null,
+      edited_at: null,
+      deleted_at: null,
+      view_once: false,
+      viewed_at: null,
+      disappear: isDisappear,
     };
     setMessages((prev) => [...prev, temp]);
     setDraft("");
+    setDisappearMode(false);
+    setShowAttach(false);
     inputRef.current?.focus();
     const fd = new FormData();
     fd.set("content", trimmed);
+    if (isDisappear) fd.set("disappear", "1");
     sendFetcher.submit(fd, { method: "post" });
     capture("message.sent", {
       match_id: matchId,
@@ -416,8 +790,15 @@ export default function ChatRoom() {
       // 비공개 버킷 → public URL 없음. 경로만 저장하고 렌더 시 서명 URL 생성.
       const fd = new FormData();
       fd.set("image_url", path);
+      if (viewOnceMode) fd.set("view_once", "1");
       sendFetcher.submit(fd, { method: "post" });
-      capture("message.sent", { match_id: matchId, has_image: true });
+      capture("message.sent", {
+        match_id: matchId,
+        has_image: true,
+        view_once: viewOnceMode,
+      });
+      setViewOnceMode(false);
+      setShowAttach(false);
     } catch (err) {
       // 실제 원인을 화면·콘솔에 노출해 디버깅 가능하게 (이전엔 항상 같은 메시지라 원인 불명)
       const msg = err instanceof Error ? err.message : String(err);
@@ -426,6 +807,45 @@ export default function ChatRoom() {
     } finally {
       setUploading(false);
     }
+  };
+
+  // 한 번만 보기 사진 열기 (수신자) — 1회용 단기 서명 URL 생성 후 뷰어로.
+  // 이미지 로드 완료 시점에 view 처리(서버가 원본 삭제)하므로 재열람 불가.
+  const openViewOnce = async (msg: MessageRow) => {
+    if (!msg.image_url) return;
+    try {
+      const env = getClientEnv();
+      const supabase = getSupabaseBrowser({
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      });
+      const { data, error } = await supabase.storage
+        .from("chat-images")
+        .createSignedUrl(msg.image_url, 60);
+      if (error || !data?.signedUrl) {
+        setUploadError("사진을 불러오지 못했어요.");
+        return;
+      }
+      setViewer({ id: msg.id, url: data.signedUrl });
+    } catch {
+      setUploadError("사진을 불러오지 못했어요.");
+    }
+  };
+
+  const beginEdit = (msg: MessageRow) => {
+    setActionSheet(null);
+    setEditing(msg);
+    setDraft(msg.content);
+    setDisappearMode(false);
+    setShowAttach(false);
+    inputRef.current?.focus();
+  };
+
+  const confirmDelete = (msg: MessageRow) => {
+    setActionSheet(null);
+    // 낙관적: 즉시 삭제 표시 (서버 확정으로 머지)
+    mergeMessage({ ...msg, deleted_at: new Date().toISOString(), content: "", image_url: null });
+    submitMessageAction("delete", msg.id);
   };
 
   return (
@@ -609,83 +1029,157 @@ export default function ChatRoom() {
                   gap: "4px",
                 }}
               >
-              {msg.image_url ? (
-                imageUrls[msg.image_url] ? (
-                  <a
-                    href={imageUrls[msg.image_url]}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: "block", borderRadius: "16px", overflow: "hidden" }}
-                  >
-                    <img
-                      src={imageUrls[msg.image_url]}
-                      alt="사진 메시지"
-                      loading="lazy"
-                      style={{
-                        display: "block",
-                        maxWidth: "220px",
-                        maxHeight: "280px",
-                        width: "auto",
-                        height: "auto",
-                        borderRadius: "16px",
-                        objectFit: "cover",
-                        background: COLORS.cardBg,
-                      }}
-                    />
-                  </a>
-                ) : (
-                  // 서명 URL 로딩 중 placeholder
-                  <div
-                    style={{
-                      width: "180px",
-                      height: "180px",
-                      borderRadius: "16px",
-                      background: COLORS.cardBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      ...TYPOGRAPHY.caption,
-                      color: COLORS.text.placeholder,
-                    }}
-                  >
-                    사진 불러오는 중…
-                  </div>
-                )
-              ) : null}
-              {msg.content ? (
+              {msg.deleted_at ? (
+                // 삭제 / 펑 소멸 — 양쪽에 안내만 남긴다
                 <div
                   style={{
-                    background: fromMe ? COLORS.accentSoft : "white",
-                    color: COLORS.text.primary,
+                    background: COLORS.cardBg,
+                    color: COLORS.text.placeholder,
                     borderRadius: "16px",
                     padding: "10px 14px",
                     ...TYPOGRAPHY.body,
-                    fontSize: "14px",
-                    lineHeight: 1.4,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
+                    fontSize: "13px",
+                    fontStyle: "italic",
                   }}
                 >
-                  {msg.content}
+                  {msg.disappear ? "💨 사라진 메시지" : "삭제된 메시지예요"}
                 </div>
-              ) : null}
-              <span
-                style={{
-                  ...TYPOGRAPHY.tiny,
-                  fontSize: "11px",
-                  color: COLORS.text.muted,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                {fromMe && (
-                  <span style={{ color: msg.read_at ? COLORS.accent : COLORS.text.placeholder }}>
-                    {msg.read_at ? "읽음" : "전송됨"}
-                  </span>
-                )}
-                {formatBubbleTime(msg.created_at)}
-              </span>
+              ) : msg.view_once ? (
+                // 한 번만 볼 수 있는 사진
+                fromMe ? (
+                  <div
+                    style={{
+                      background: COLORS.accentSoft,
+                      borderRadius: "16px",
+                      padding: "12px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                    }}
+                  >
+                    <span style={{ ...TYPOGRAPHY.label, fontSize: "13px", color: COLORS.text.primary }}>
+                      📸 한 번만 볼 수 있는 사진
+                    </span>
+                    <span style={{ ...TYPOGRAPHY.tiny, fontSize: "11px", color: COLORS.text.placeholder }}>
+                      {msg.viewed_at ? "상대가 확인함" : "열람 전"}
+                    </span>
+                  </div>
+                ) : msg.image_url ? (
+                  <button
+                    type="button"
+                    onClick={() => openViewOnce(msg)}
+                    style={{
+                      background: "white",
+                      border: `1px solid ${COLORS.accentSoft}`,
+                      borderRadius: "16px",
+                      padding: "12px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ ...TYPOGRAPHY.label, fontSize: "13px", color: COLORS.text.primary, fontWeight: 600 }}>
+                      👁 한 번만 볼 수 있는 사진
+                    </span>
+                    <span style={{ ...TYPOGRAPHY.tiny, fontSize: "11px", color: COLORS.accent }}>
+                      탭하여 보기 · 1회만 열람 가능
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    style={{
+                      background: COLORS.cardBg,
+                      borderRadius: "16px",
+                      padding: "12px 16px",
+                      ...TYPOGRAPHY.label,
+                      fontSize: "13px",
+                      color: COLORS.text.placeholder,
+                    }}
+                  >
+                    👁 사진이 사라졌어요
+                  </div>
+                )
+              ) : (
+                <>
+                  {msg.image_url ? (
+                    imageUrls[msg.image_url] ? (
+                      <div style={{ borderRadius: "16px", overflow: "hidden" }}>
+                        <SecureImg
+                          src={imageUrls[msg.image_url]}
+                          watermark={watermark}
+                          style={{
+                            maxWidth: "220px",
+                            maxHeight: "280px",
+                            width: "auto",
+                            height: "auto",
+                            borderRadius: "16px",
+                            objectFit: "cover",
+                            background: COLORS.cardBg,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          width: "180px",
+                          height: "180px",
+                          borderRadius: "16px",
+                          background: COLORS.cardBg,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          ...TYPOGRAPHY.caption,
+                          color: COLORS.text.placeholder,
+                        }}
+                      >
+                        사진 불러오는 중…
+                      </div>
+                    )
+                  ) : null}
+                  {msg.content ? (
+                    <div
+                      onClick={fromMe ? () => setActionSheet(msg) : undefined}
+                      style={{
+                        background: fromMe ? COLORS.accentSoft : "white",
+                        color: COLORS.text.primary,
+                        borderRadius: "16px",
+                        padding: "10px 14px",
+                        ...TYPOGRAPHY.body,
+                        fontSize: "14px",
+                        lineHeight: 1.4,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        cursor: fromMe ? "pointer" : "default",
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {!msg.deleted_at && (
+                <span
+                  style={{
+                    ...TYPOGRAPHY.tiny,
+                    fontSize: "11px",
+                    color: COLORS.text.muted,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  {msg.disappear && <span title="읽으면 사라지는 메시지">💨</span>}
+                  {msg.edited_at && <span>수정됨</span>}
+                  {fromMe && (
+                    <span style={{ color: msg.read_at ? COLORS.accent : COLORS.text.placeholder }}>
+                      {msg.read_at ? "읽음" : "전송됨"}
+                    </span>
+                  )}
+                  {formatBubbleTime(msg.created_at)}
+                </span>
+              )}
               </div>
             </Fragment>
           );
@@ -720,37 +1214,17 @@ export default function ChatRoom() {
           </span>
         </div>
       ) : (
-        <form
-          onSubmit={send}
+        <div
           style={{
             position: "fixed",
             bottom: "34px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "390px",
-            padding: "10px 16px",
             background: "white",
-            borderTop: `1px solid ${COLORS.divider2}`,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
             zIndex: 5,
           }}
         >
-          {uploadError && (
-            <span
-              role="alert"
-              style={{
-                position: "absolute",
-                top: "-26px",
-                left: "16px",
-                ...TYPOGRAPHY.caption,
-                color: COLORS.accent,
-              }}
-            >
-              {uploadError}
-            </span>
-          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -758,57 +1232,187 @@ export default function ChatRoom() {
             onChange={onPickPhoto}
             style={{ display: "none" }}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            aria-label="사진 보내기"
+
+          {/* 수정 모드 안내 배너 */}
+          {editing && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 16px",
+                background: COLORS.accentSoft,
+                borderTop: `1px solid ${COLORS.divider2}`,
+              }}
+            >
+              <span style={{ ...TYPOGRAPHY.caption, color: COLORS.text.secondary }}>
+                ✏️ 메시지 수정 중
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setDraft("");
+                }}
+                style={{ ...TYPOGRAPHY.caption, color: COLORS.accent, padding: "2px 6px" }}
+              >
+                취소
+              </button>
+            </div>
+          )}
+
+          {/* 첨부/옵션 패널 */}
+          {showAttach && !editing && (
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                padding: "10px 16px",
+                background: COLORS.cardBg,
+                borderTop: `1px solid ${COLORS.divider2}`,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => {
+                  setViewOnceMode(false);
+                  fileInputRef.current?.click();
+                }}
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  padding: "8px 12px",
+                  borderRadius: "12px",
+                  background: "white",
+                  border: `1px solid ${COLORS.cardBorder}`,
+                  color: COLORS.text.primary,
+                  cursor: "pointer",
+                }}
+              >
+                📷 사진
+              </button>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => {
+                  setViewOnceMode(true);
+                  fileInputRef.current?.click();
+                }}
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  padding: "8px 12px",
+                  borderRadius: "12px",
+                  background: "white",
+                  border: `1px solid ${COLORS.cardBorder}`,
+                  color: COLORS.text.primary,
+                  cursor: "pointer",
+                }}
+              >
+                👁 한 번만 보기 사진
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisappearMode((v) => !v)}
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  padding: "8px 12px",
+                  borderRadius: "12px",
+                  background: disappearMode ? COLORS.accent : "white",
+                  border: `1px solid ${disappearMode ? COLORS.accent : COLORS.cardBorder}`,
+                  color: disappearMode ? "white" : COLORS.text.primary,
+                  cursor: "pointer",
+                }}
+              >
+                💨 펑 {disappearMode ? "켜짐" : "꺼짐"}
+              </button>
+            </div>
+          )}
+
+          <form
+            onSubmit={send}
             style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: COLORS.cardBg,
-              color: COLORS.text.secondary,
-              fontSize: "18px",
-              flexShrink: 0,
-              cursor: uploading ? "wait" : "pointer",
+              position: "relative",
+              padding: "10px 16px",
+              borderTop: `1px solid ${COLORS.divider2}`,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
-            {uploading ? "…" : "📷"}
-          </button>
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="메시지를 입력하세요"
-            maxLength={2000}
-            style={{
-              flex: 1,
-              height: "40px",
-              padding: "0 14px",
-              borderRadius: "20px",
-              background: COLORS.cardBg,
-              ...TYPOGRAPHY.label,
-              color: COLORS.text.primary,
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim() || submitting}
-            aria-label="send"
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: draft.trim() ? COLORS.accent : COLORS.cardBorder,
-              color: "white",
-              fontSize: "18px",
-              cursor: draft.trim() ? "pointer" : "not-allowed",
-            }}
-          >
-            ↑
-          </button>
-        </form>
+            {uploadError && (
+              <span
+                role="alert"
+                style={{
+                  position: "absolute",
+                  top: "-26px",
+                  left: "16px",
+                  ...TYPOGRAPHY.caption,
+                  color: COLORS.accent,
+                }}
+              >
+                {uploadError}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAttach((v) => !v)}
+              disabled={uploading || !!editing}
+              aria-label="첨부 / 옵션"
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: showAttach ? COLORS.accent : COLORS.cardBg,
+                color: showAttach ? "white" : COLORS.text.secondary,
+                fontSize: "20px",
+                flexShrink: 0,
+                cursor: uploading ? "wait" : "pointer",
+                opacity: editing ? 0.4 : 1,
+              }}
+            >
+              {uploading ? "…" : showAttach ? "×" : "+"}
+            </button>
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={
+                editing
+                  ? "메시지 수정…"
+                  : disappearMode
+                    ? "💨 읽으면 사라지는 메시지"
+                    : "메시지를 입력하세요"
+              }
+              maxLength={2000}
+              style={{
+                flex: 1,
+                height: "40px",
+                padding: "0 14px",
+                borderRadius: "20px",
+                background: COLORS.cardBg,
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.primary,
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim() || submitting}
+              aria-label="send"
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: draft.trim() ? COLORS.accent : COLORS.cardBorder,
+                color: "white",
+                fontSize: "18px",
+                cursor: draft.trim() ? "pointer" : "not-allowed",
+              }}
+            >
+              {editing ? "✓" : "↑"}
+            </button>
+          </form>
+        </div>
       )}
 
       {/* 채팅 끊기 확인 모달 */}
@@ -895,6 +1499,117 @@ export default function ChatRoom() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 내 메시지 동작 시트 (수정/삭제) */}
+      {actionSheet && (
+        <div
+          className="overlay-in"
+          onClick={() => setActionSheet(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-end",
+            zIndex: 100,
+          }}
+        >
+          <div
+            className="pop-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "390px",
+              background: "white",
+              borderTopLeftRadius: "18px",
+              borderTopRightRadius: "18px",
+              padding: "8px 0 28px",
+            }}
+          >
+            {/* 사진 없는 텍스트 메시지만 수정 가능 */}
+            {!actionSheet.image_url && (
+              <button
+                type="button"
+                onClick={() => beginEdit(actionSheet)}
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  textAlign: "center",
+                  ...TYPOGRAPHY.body,
+                  color: COLORS.text.primary,
+                }}
+              >
+                ✏️ 수정
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => confirmDelete(actionSheet)}
+              style={{
+                width: "100%",
+                padding: "16px",
+                textAlign: "center",
+                ...TYPOGRAPHY.body,
+                color: COLORS.accent,
+              }}
+            >
+              🗑 삭제
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionSheet(null)}
+              style={{
+                width: "100%",
+                padding: "16px",
+                textAlign: "center",
+                ...TYPOGRAPHY.body,
+                color: COLORS.text.secondary,
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 한 번만 보기 사진 뷰어 — 캡처 억제 + 워터마크. 로드되면 즉시 열람 처리. */}
+      {viewer && (
+        <ViewOnceViewer
+          url={viewer.url}
+          watermark={watermark}
+          onLoaded={() => submitMessageAction("view", viewer.id)}
+          onClose={() => setViewer(null)}
+        />
+      )}
+
+      {/* 캡처 억제: 탭/창을 벗어나면 화면을 가림 */}
+      {obscured && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 400,
+            background: "rgba(255,255,255,0.98)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            textAlign: "center",
+            padding: "0 24px",
+          }}
+        >
+          <span style={{ fontSize: "32px" }}>🔒</span>
+          <span style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text.primary }}>
+            보안을 위해 가려졌어요
+          </span>
+          <span style={{ ...TYPOGRAPHY.caption, color: COLORS.text.helper }}>
+            화면 보호를 위해 대화 내용을 일시적으로 숨깁니다
+          </span>
         </div>
       )}
 

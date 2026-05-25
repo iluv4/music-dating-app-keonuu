@@ -96,6 +96,11 @@ export type MessageRow = {
   image_url: string | null;
   created_at: string;
   read_at: string | null;
+  edited_at: string | null;
+  deleted_at: string | null;
+  view_once: boolean;
+  viewed_at: string | null;
+  disappear: boolean;
 };
 
 export type MessageInsert = {
@@ -103,6 +108,8 @@ export type MessageInsert = {
   sender_id: string;
   content: string;
   image_url?: string | null;
+  view_once?: boolean;
+  disappear?: boolean;
 };
 
 // notifications --------------------------------------------------------------
