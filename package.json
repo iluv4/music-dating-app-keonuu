@@ -10,6 +10,10 @@
     "type-check": "tsc",
     "lint:colors": "node scripts/check-colors.mjs",
     "db:apply": "node scripts/apply-sql.mjs",
+    "loadtest:seed": "node loadtest/seed.mjs",
+    "loadtest:run": "k6 run loadtest/match-concurrency.js",
+    "loadtest:verify": "node loadtest/verify.mjs",
+    "loadtest:cleanup": "node loadtest/cleanup.mjs",
     "prepare": "husky"
   },
   "dependencies": {

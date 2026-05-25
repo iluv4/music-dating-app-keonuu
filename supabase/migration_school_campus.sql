@@ -1,18 +1,37 @@
 -- ============================================================
--- 장르 매칭 — 같은 '곡'이 아니라 같은 '장르'가 겹치면 매칭.
--- 부스가 많아 사람이 분산되는 상황에서 동일 곡 기준은 너무 빡빡한 피드백 반영.
--- 1) profiles.genres 컬럼 (사용자가 고른 장르 id 배열)
--- 2) find_or_create_match / request_additional_match 후보 조건을
---    "장르 겹침 OR 곡 겹침" 으로 완화 (장르 미설정 기존 사용자는 곡 겹침으로 폴백)
--- ⚠️ Supabase SQL Editor 에서 실행. migration_school_campus.sql 이후 적용.
---    (advisory lock·학교/캠퍼스/지역 매칭 로직은 그대로 유지하고 장르 조건만 추가)
+-- 학교/캠퍼스/거주지역 + 캠퍼스 기반 매칭 선호 (SQL Editor 또는 MCP 로 실행, idempotent)
+--
+-- 설계: 다른 대학(백석대·단국대 천안 등) 확장을 고려해 school(대학교명)·campus(캠퍼스)를 분리.
+--   - school : "상명대학교" / "백석대학교" / "단국대학교" ...
+--   - campus : "서울" / "천안" / ...  (단일캠 대학은 null)
+-- 매칭 경계: 같은 대학(school)끼리만. 그 안에서 match_campus_pref 로 캠퍼스를 좁힌다(양방향).
+-- 거주지역(region)은 같은 지역을 우선 노출(soft).
 -- ============================================================
 
--- 1) 컬럼 + 조회 인덱스
-alter table public.profiles add column if not exists genres text[];
-create index if not exists profiles_genres_gin on public.profiles using gin (genres);
+-- 1) 컬럼 추가 ------------------------------------------------
+alter table public.profiles add column if not exists campus text;
+alter table public.profiles add column if not exists region text;
+alter table public.profiles add column if not exists match_campus_pref text;
 
--- 2) find_or_create_match (즉시 active 매칭, advisory lock 유지)
+-- 2) 기존 데이터 정규화 --------------------------------------
+--    과거엔 school 에 "상명대학교 천안" 형태로 캠퍼스가 붙어 저장됨 → 분리.
+update public.profiles
+set campus = case
+      when campus is not null and campus <> '' then campus
+      when school ilike '%서울%' then '서울'
+      when school ilike '%천안%' then '천안'
+      else campus
+    end
+where school ilike '상명대%';
+
+update public.profiles
+set school = '상명대학교'
+where school ilike '상명대%' and school <> '상명대학교';
+
+update public.profiles
+set match_campus_pref = coalesce(match_campus_pref, '상관없음');
+
+-- 3) 첫 매칭: find_or_create_match (advisory lock 유지 + 학교/캠퍼스/지역 반영) ----
 create or replace function public.find_or_create_match(p_user_id uuid)
 returns uuid language plpgsql security definer set search_path to 'public'
 as $function$
@@ -55,14 +74,9 @@ begin
          or p.campus is null or v_me.match_campus_pref = p.campus)
     and (coalesce(p.match_campus_pref, '상관없음') = '상관없음'
          or v_me.campus is null or p.match_campus_pref = v_me.campus)
-    -- 장르 겹침 OR 곡 겹침 (장르 미설정 사용자는 곡 겹침으로 폴백)
-    and (
-      (v_me.genres is not null and array_length(v_me.genres, 1) > 0
-       and p.genres is not null and v_me.genres && p.genres)
-      or exists (select 1 from public.user_songs a
-        join public.user_songs b on a.song_no = b.song_no
-        where a.user_id = p_user_id and b.user_id = p.user_id)
-    )
+    and exists (select 1 from public.user_songs a
+      join public.user_songs b on a.song_no = b.song_no
+      where a.user_id = p_user_id and b.user_id = p.user_id)
     and not exists (select 1 from public.matches m
       where (m.user_a = p_user_id and m.user_b = p.user_id)
          or (m.user_a = p.user_id and m.user_b = p_user_id))
@@ -87,7 +101,7 @@ $function$;
 
 grant execute on function public.find_or_create_match(uuid) to authenticated;
 
--- 3) request_additional_match (추가 매칭 — pending 으로만 생성)
+-- 4) 추가 매칭 요청: request_additional_match (같은 학교/캠퍼스/지역 반영) --------
 create or replace function public.request_additional_match(p_user_id uuid)
 returns uuid language plpgsql security definer set search_path = public
 as $$
@@ -127,15 +141,10 @@ begin
          or p.campus is null or v_me.match_campus_pref = p.campus)
     and (coalesce(p.match_campus_pref, '상관없음') = '상관없음'
          or v_me.campus is null or p.match_campus_pref = v_me.campus)
-    -- 장르 겹침 OR 곡 겹침 (장르 미설정 사용자는 곡 겹침으로 폴백)
-    and (
-      (v_me.genres is not null and array_length(v_me.genres, 1) > 0
-       and p.genres is not null and v_me.genres && p.genres)
-      or exists (
-        select 1 from public.user_songs a
-        join public.user_songs b on a.song_no = b.song_no
-        where a.user_id = p_user_id and b.user_id = p.user_id
-      )
+    and exists (
+      select 1 from public.user_songs a
+      join public.user_songs b on a.song_no = b.song_no
+      where a.user_id = p_user_id and b.user_id = p.user_id
     )
     and not exists (
       select 1 from public.matches m
@@ -171,3 +180,77 @@ $$;
 
 revoke all on function public.request_additional_match(uuid) from anon;
 grant execute on function public.request_additional_match(uuid) to authenticated;
+
+-- 5) 탐색 목록: 학교+캠퍼스 합본 라벨 반환 ---------------------
+create or replace function public.list_discover_members(p_user_id uuid)
+returns table (
+  user_id    uuid,
+  name       text,
+  school     text,
+  gender     text,
+  song_count bigint
+)
+language sql security definer set search_path = public
+as $$
+  select p.user_id, p.name,
+         (p.school || case when coalesce(p.campus, '') <> '' then ' ' || p.campus else '' end) as school,
+         p.gender::text, count(us.id) as song_count
+  from public.profiles p
+  left join public.user_songs us on us.user_id = p.user_id
+  where p.is_approved
+    and p.user_id <> p_user_id
+  group by p.user_id, p.name, p.school, p.campus, p.gender
+  order by random()
+  limit 20;
+$$;
+
+grant execute on function public.list_discover_members(uuid) to authenticated;
+
+-- 6) 멤버 상세: 학교+캠퍼스 합본 라벨 반환 --------------------
+create or replace function public.get_member_detail(p_user_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$
+declare
+  v_me_approved boolean;
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'unauthorized';
+  end if;
+
+  select is_approved into v_me_approved
+  from public.profiles where user_id = auth.uid();
+  if not coalesce(v_me_approved, false) then
+    raise exception 'not approved';
+  end if;
+
+  select jsonb_build_object(
+    'user_id', p.user_id,
+    'name', p.name,
+    'school', p.school || case when coalesce(p.campus, '') <> '' then ' ' || p.campus else '' end,
+    'gender', p.gender::text,
+    'songs', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'songNo', us.song_no,
+          'title', us.title,
+          'artist', us.artist,
+          'album', us.album,
+          'albumImg', us.album_img
+        ) order by us.selected_at
+      )
+      from public.user_songs us
+      where us.user_id = p.user_id
+    ), '[]'::jsonb)
+  ) into v_result
+  from public.profiles p
+  where p.user_id = p_user_id and p.is_approved;
+
+  if v_result is null then
+    raise exception 'member not found';
+  end if;
+  return v_result;
+end;
+$$;
+
+grant execute on function public.get_member_detail(uuid) to authenticated;
