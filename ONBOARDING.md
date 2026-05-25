@@ -2,7 +2,7 @@
 
 > 새 작업자(사람/AI)가 **5분 안에 올라타는** 현재 기준 요약.
 > 깊은 내용은 [HANDOVER.md](HANDOVER.md)·[research.md](research.md)·[PROJECT-STATUS.md](PROJECT-STATUS.md) 참고.
-> 마지막 갱신: 2026-05-24
+> 마지막 갱신: 2026-05-25 (main = `fe9b1a1`, PR #59까지 머지)
 
 ## 한 줄 요약
 대학생 대상 **음악 취향 기반 1:1 매칭 + 채팅** 모바일 웹앱(PWA). Remix v2 + Supabase + Vercel.
@@ -42,12 +42,25 @@ SQL은 `supabase/*.sql`. 적용 경로 2가지:
 - **권한 허용목록** — [.claude/settings.json](.claude/settings.json). 안전·되돌릴 수 있는 명령(읽기·tsc·git status 등)은 프롬프트 없이 실행. push/PR/머지/DB쓰기는 프롬프트 유지.
 - **db:apply** — 위 마이그레이션 스크립트.
 
-## 지금 열린 작업 (우선순위)
-1. **PR #42 (동아리)** — 머지 전 `supabase/migration_club.sql` 적용 필수(`profiles.club` 컬럼 + 매칭 같은동아리 제외). 컬럼 없이 머지하면 프로필 저장 깨짐.
-2. **PR #43 (색상)** — PWA theme-color #ff625d 통일. 머지 가능.
-3. **프로필 사진 등록** — 스토리지 버킷 필요(`chat-images` 패턴 재활용).
-4. **재매칭 "한 명 더"(1000원)** — 다중매칭+채팅목록 구조 결정 필요(제품 결정).
-5. **푸시 활성화** — Vercel env `VAPID_PUBLIC_KEY/PRIVATE_KEY/SUBJECT` + 재배포. iOS는 홈화면 추가(PWA 설치)해야 수신.
+## 그동안 한 일 (5/24 이후 main 머지분)
+- **#58 구글 로그인 제거 + 둘러보기** — 미구현 OAuth 폐기. 비로그인 방문자가 홈/탐색/채팅/마이 + 회원상세 + 샘플 채팅방을 샘플 데이터로 미리보기(`approvedUserOrGuest` 게이트, 화면 상단 미리보기 배너+가입 CTA).
+- **#59 채팅 고급 기능** — 본인 메시지 수정/삭제(soft delete), "펑"(읽으면 소멸), "한 번만 보기" 사진(1회 열람 후 스토리지 원본 삭제), 캡처 억제(워터마크·우클릭/드래그 차단·탭 이탈 가림). realtime UPDATE 구독으로 양쪽 실시간 반영. **DB `migration_chat_advanced.sql` prod 적용 완료.**
+- **#57 재매칭 "한 명 더"** — 즉시 연결 대신 운영팀 확인(대기) 방식.
+- **#54 채팅 이미지·전송 속도 개선**, **#53 승인대기 문구·미승인 채팅 차단**, **#52 `/배포` 슬래시 명령**, **#51 CLAUDE.md**.
+- 이전 머지: #40 PWA Web Push, #42 동아리, #43 색상 통일, #46~#50(iOS 배너·토스 인터랙션·카톡 브리지 등).
+
+## 지금 열린 PR (모두 draft, 머지 대기)
+| PR | 내용 | 머지 전 필요 |
+|----|------|-------------|
+| **#62** 프로필 사진 업로드 | profile.edit 아바타 업로드 → `profile-photos` 비공개 버킷, 탐색/멤버/마이에 서명URL 노출 | ⚠️ **`supabase/migration_profile_photo.sql`** SQL Editor 실행 (컬럼·버킷·RLS·RPC) |
+| **#55** 매칭 동시성 버그 fix | `find_or_create_match` advisory lock + active쌍 부분유니크 인덱스 | ⚠️ **`supabase/migration_match_concurrency.sql`** SQL Editor 실행 (중복 active쌍 있으면 먼저 정리). `find_additional_match`도 같은 패턴 수동 반영 필요 |
+| **#63** 멜론 검색 캐싱+폴백 | 검색결과 인메모리 캐시(10분) + 장애 시 폴백곡 필터 반환 | SQL 불필요. 머지 가능 |
+| **#61** 가입 출생연도 placeholder 안내문구 / **#60** welcome 로그인유도 문구 / **#56** 첫메시지 추천 카톡체 | 카피 다듬기 | SQL 불필요. 머지 가능 |
+| #11/#14/#18/#19 | Vercel Analytics·마스코트·a11y·QA (5/23~24, base 오래됨) | 충돌 확인 후 정리 필요 |
+
+## 남은 큰 작업
+- **푸시 활성화** — Vercel env `VAPID_PUBLIC_KEY/PRIVATE_KEY/SUBJECT` + 재배포. iOS는 홈화면 추가(PWA 설치)해야 수신.
+- 위 열린 PR 정리·머지 + 대기 중 SQL 2건 적용.
 
 ## 알려진 함정
 - **Vercel Preview env 누락** — Supabase 변수가 Production 스코프에만 → 프리뷰 배포는 DB/인증 화면 500. 검증은 main 머지 후 prod에서.
