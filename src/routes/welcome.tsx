@@ -99,7 +99,7 @@ export default function Welcome() {
             marginTop: "4px",
           }}
         >
-          이미 계정 있어요?{" "}
+          이미 계정이 있으신가요?{" "}
           <Link
             to="/login"
             style={{ color: COLORS.accent, fontWeight: 700, textDecoration: "none" }}

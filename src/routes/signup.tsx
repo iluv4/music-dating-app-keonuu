@@ -348,7 +348,7 @@ export default function Signup() {
             color: COLORS.text.helper,
           }}
         >
-          이미 계정이 있어요?{" "}
+          이미 계정이 있으신가요?{" "}
           <Link
             to="/login"
             style={{
