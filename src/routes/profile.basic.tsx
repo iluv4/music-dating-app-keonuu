@@ -103,7 +103,7 @@ export default function ProfileBasic() {
             type="text"
             inputMode="numeric"
             maxLength={4}
-            placeholder="2002"
+            placeholder="예) 2003"
             value={state.birthYear}
             onChange={(e) =>
               update({
