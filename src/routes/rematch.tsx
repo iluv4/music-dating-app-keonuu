@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   json,
-  redirect,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "@remix-run/node";
@@ -16,7 +15,9 @@ import { requireApprovedUser } from "~/lib/auth.server";
 import { listUserMatches } from "~/lib/repos/matches.server";
 
 // "한 명 더 만나기" = 추가형 매칭 (현재 대화는 그대로 유지, 새 상대를 추가로 매칭).
-// 참가비 입금 단계 후 find_additional_match 로 새 상대를 찾는다(기존 매칭 종료 안 함).
+// 입금 후 request_additional_match 로 후보를 'pending'(대기)으로만 잡아둔다.
+// 운영팀이 admin 에서 확인·승인해야 active 가 되고 양쪽에 매칭 알림이 발송된다.
+// (즉시 연결 X — 운영팀 확인 시간을 확보)
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
@@ -30,28 +31,32 @@ export async function action({ request }: ActionFunctionArgs) {
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
   if (bankHolder.length < 2) {
     return json(
-      { error: "입금자명을 입력해주세요." },
+      { status: "error" as const, error: "입금자명을 입력해주세요." },
       { status: 400, headers: ctx.headers },
     );
   }
 
-  // 현재 매칭은 그대로 두고, 새 상대를 "추가로" 탐색 (다중 매칭)
-  const { data, error } = await ctx.supabase.rpc("find_additional_match", {
+  // 현재 매칭은 그대로 두고, 새 상대를 "추가로" 대기(pending) 상태로 요청
+  const { data, error } = await ctx.supabase.rpc("request_additional_match", {
     p_user_id: ctx.user.id,
   });
   if (error) {
-    console.error("[rematch.find_additional_match]", error);
+    console.error("[rematch.request_additional_match]", error);
     return json(
-      { error: "추가 매칭 중 문제가 발생했어요. 잠시 후 다시 시도해주세요." },
+      {
+        status: "error" as const,
+        error: "추가 매칭 신청 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.",
+      },
       { status: 500, headers: ctx.headers },
     );
   }
-  const newId = data as string | null;
-  if (newId) {
-    return redirect(`/chat/${newId}`, { headers: ctx.headers });
+  const pendingId = data as string | null;
+  if (pendingId) {
+    // 즉시 연결하지 않고 "대기 중" 안내. 운영팀 승인 후 알림으로 연결됨.
+    return json({ status: "pending" as const }, { headers: ctx.headers });
   }
-  // 새 후보 없음 → 채팅 목록으로 (안내)
-  return redirect("/chat", { headers: ctx.headers });
+  // 지금은 매칭 가능한 후보가 없음
+  return json({ status: "none" as const }, { headers: ctx.headers });
 }
 
 export default function Rematch() {
@@ -62,37 +67,107 @@ export default function Rematch() {
   const submitting = navigation.state === "submitting";
   const [bankHolder, setBankHolder] = useState("");
 
+  const Header = ({ title }: { title: string }) => (
+    <div
+      style={{
+        height: "52px",
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "white",
+      }}
+    >
+      <button
+        type="button"
+        aria-label="뒤로"
+        onClick={() => navigate("/music")}
+        style={{
+          position: "absolute",
+          left: "8px",
+          fontSize: "22px",
+          color: COLORS.text.secondary,
+          padding: "4px 8px",
+        }}
+      >
+        ‹
+      </button>
+      <h1 style={{ ...TYPOGRAPHY.bodyBold, fontSize: "17px", margin: 0 }}>
+        {title}
+      </h1>
+    </div>
+  );
+
+  // 입금 신청 완료 → 운영팀 확인 대기 안내 화면 (즉시 연결되지 않음)
+  if (actionData?.status === "pending") {
+    return (
+      <PhoneFrame>
+        <StatusBar />
+        <Header title="매칭 대기 중" />
+        <div
+          style={{
+            flex: 1,
+            padding: "48px 25px 40px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: "84px",
+              height: "84px",
+              borderRadius: "50%",
+              background: COLORS.accentSoft,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "38px",
+              marginBottom: "20px",
+            }}
+          >
+            ⏳
+          </div>
+          <h2
+            style={{
+              ...TYPOGRAPHY.headlineSm,
+              color: COLORS.text.primary,
+              margin: "0 0 12px",
+            }}
+          >
+            매칭 대기 중이에요
+          </h2>
+          <p
+            style={{
+              ...TYPOGRAPHY.body,
+              color: COLORS.text.helper,
+              margin: "0 0 28px",
+              lineHeight: 1.6,
+            }}
+          >
+            입금 확인 후 운영팀이 매칭을 연결해드릴게요.
+            <br />
+            매칭이 성사되면 <b style={{ color: COLORS.accent }}>알림</b>으로
+            알려드려요.
+          </p>
+          <PrimaryButton
+            type="button"
+            onClick={() => navigate("/music")}
+            style={{ width: "100%" }}
+          >
+            확인
+          </PrimaryButton>
+        </div>
+        <HomeIndicator />
+      </PhoneFrame>
+    );
+  }
+
   return (
     <PhoneFrame>
       <StatusBar />
-      <div
-        style={{
-          height: "52px",
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "white",
-        }}
-      >
-        <button
-          type="button"
-          aria-label="뒤로"
-          onClick={() => navigate("/music")}
-          style={{
-            position: "absolute",
-            left: "8px",
-            fontSize: "22px",
-            color: COLORS.text.secondary,
-            padding: "4px 8px",
-          }}
-        >
-          ‹
-        </button>
-        <h1 style={{ ...TYPOGRAPHY.bodyBold, fontSize: "17px", margin: 0 }}>
-          한 명 더 만나기
-        </h1>
-      </div>
+      <Header title="한 명 더 만나기" />
 
       <Form
         method="post"
@@ -151,9 +226,14 @@ export default function Rematch() {
           onChange={(e) => setBankHolder(e.target.value)}
         />
 
-        {actionData?.error && (
+        {actionData?.status === "error" && (
           <p style={{ ...TYPOGRAPHY.caption, color: COLORS.accent, marginTop: "16px" }}>
             {actionData.error}
+          </p>
+        )}
+        {actionData?.status === "none" && (
+          <p style={{ ...TYPOGRAPHY.caption, color: COLORS.text.helper, marginTop: "16px", lineHeight: 1.5 }}>
+            지금은 매칭 가능한 상대가 없어요. 잠시 후 다시 시도해주세요.
           </p>
         )}
 
