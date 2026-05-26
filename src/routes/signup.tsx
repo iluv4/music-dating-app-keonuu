@@ -7,6 +7,7 @@ import PhoneFrame from "~/components/PhoneFrame";
 import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
+import { capture } from "~/lib/analytics.client";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { requireGuest } from "~/lib/auth.server";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
@@ -170,6 +171,7 @@ export default function Signup() {
       <Form
         ref={formRef}
         method="post"
+        onSubmit={() => capture("signup.submitted")}
         style={{
           flex: 1,
           padding: "0 25px 120px",

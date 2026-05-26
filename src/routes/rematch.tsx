@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   json,
   type ActionFunctionArgs,
@@ -12,6 +12,7 @@ import TextInput from "~/components/TextInput";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireApprovedUser } from "~/lib/auth.server";
+import { capture } from "~/lib/analytics.client";
 import { listUserMatches } from "~/lib/repos/matches.server";
 
 // "한 명 더 만나기" = 추가형 매칭 (현재 대화는 그대로 유지, 새 상대를 추가로 매칭).
@@ -66,6 +67,12 @@ export default function Rematch() {
   const navigate = useNavigate();
   const submitting = navigation.state === "submitting";
   const [bankHolder, setBankHolder] = useState("");
+
+  useEffect(() => {
+    if (actionData?.status === "pending") {
+      capture("match.rematch_requested", { current_count: currentCount });
+    }
+  }, [actionData?.status, currentCount]);
 
   const Header = ({ title }: { title: string }) => (
     <div

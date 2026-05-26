@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
@@ -15,6 +15,7 @@ import { listUserSongs } from "~/lib/repos/user-songs.server";
 import type { Song } from "~/lib/song-types";
 import PreviewBanner from "~/components/PreviewBanner";
 import { PREVIEW_PROFILE, PREVIEW_SONGS } from "~/lib/preview-data";
+import { identify } from "~/lib/analytics.client";
 
 type Row = { label: string; value: string };
 
@@ -38,6 +39,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return json(
     {
       guest: false as const,
+      userId: ctx.user.id,
       profile,
       email: ctx.user.email ?? "",
       songs,
@@ -85,10 +87,14 @@ const SongThumb = ({ src }: { src?: string }) => {
 };
 
 export default function MyPage() {
-  const { guest, profile, email, songs, photoUrl } =
-    useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const { guest, profile, email, songs, photoUrl } = data;
   const navigate = useNavigate();
   const mySongs: Song[] = songs ?? [];
+
+  useEffect(() => {
+    if (!data.guest) identify(data.userId, { gender: profile?.gender ?? null });
+  }, [data, profile?.gender]);
 
   const rows: Row[] = [
     { label: "이메일", value: email || "-" },
