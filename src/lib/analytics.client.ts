@@ -6,6 +6,10 @@ import type { PostHog } from "posthog-js";
 
 let client: PostHog | null = null;
 
+// 피처플래그(=실험) 준비 상태. 키 없으면 영원히 false → 실험 훅은 fallback(control) 유지.
+let flagsLoaded = false;
+const flagListeners = new Set<() => void>();
+
 export async function initAnalytics(): Promise<void> {
   if (client || typeof window === "undefined") return;
   const key = window.ENV?.POSTHOG_KEY;
@@ -25,6 +29,26 @@ export async function initAnalytics(): Promise<void> {
     },
   });
   client = posthog;
+
+  // 실험 플래그가 로드되면 구독자에게 알림 (init 전에 등록된 훅 포함).
+  posthog.onFeatureFlags(() => {
+    flagsLoaded = true;
+    flagListeners.forEach((cb) => cb());
+  });
+}
+
+// 실험 변형값 조회. 'control' / 'test' 같은 멀티배리언트 문자열 또는 boolean.
+export function getFeatureFlag(key: string): string | boolean | undefined {
+  return client?.getFeatureFlag(key);
+}
+
+// 플래그가 로드되면(혹은 이미 로드됐으면 즉시) 콜백 실행. 해제 함수 반환.
+export function onFeatureFlagsReady(cb: () => void): () => void {
+  flagListeners.add(cb);
+  if (flagsLoaded) cb();
+  return () => {
+    flagListeners.delete(cb);
+  };
 }
 
 export function capture(
