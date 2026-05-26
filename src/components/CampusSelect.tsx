@@ -1,18 +1,27 @@
+import { useId } from "react";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
-import { CAMPUSES, DEFAULT_SCHOOL, type Campus } from "~/lib/campus";
+import { SCHOOLS, findSchool, type Campus } from "~/lib/campus";
 
 type CampusSelectProps = {
   label?: string;
-  value: Campus | "";
-  onChange: (campus: Campus) => void;
+  school: string;
+  campus: Campus | "";
+  onSchoolChange: (school: string) => void;
+  onCampusChange: (campus: Campus) => void;
 };
 
-// 학교는 상명대학교 고정, 캠퍼스(서울/천안)만 선택.
+// 학교명 직접 입력(등록 대학은 자동완성) + 캠퍼스가 있는 대학이면 캠퍼스 버튼 노출.
 export const CampusSelect = ({
   label = "학교",
-  value,
-  onChange,
+  school,
+  campus,
+  onSchoolChange,
+  onCampusChange,
 }: CampusSelectProps) => {
+  const listId = useId();
+  const matched = findSchool(school);
+  const campuses = matched?.campuses ?? [];
+
   return (
     <div>
       {label && (
@@ -28,49 +37,58 @@ export const CampusSelect = ({
         </label>
       )}
 
-      {/* 상명대학교 (고정) */}
-      <div
+      {/* 학교명 직접 입력 — 등록 대학은 datalist 자동완성 */}
+      <input
+        type="text"
+        list={listId}
+        value={school}
+        placeholder="학교명 입력 (예: 상명대학교)"
+        onChange={(e) => onSchoolChange(e.target.value)}
         style={{
           boxSizing: "border-box",
           width: "100%",
           height: "56px",
           padding: "0 16px",
-          display: "flex",
-          alignItems: "center",
-          background: COLORS.divider2,
+          background: COLORS.cardBg,
+          border: `1px solid ${COLORS.cardBorder}`,
           borderRadius: RADIUS.alert,
           ...TYPOGRAPHY.body,
-          color: COLORS.text.secondary,
+          color: COLORS.text.primary,
         }}
-      >
-        {DEFAULT_SCHOOL.name}
-      </div>
+      />
+      <datalist id={listId}>
+        {SCHOOLS.map((s) => (
+          <option key={s.id} value={s.name} />
+        ))}
+      </datalist>
 
-      {/* 캠퍼스 선택 */}
-      <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
-        {CAMPUSES.map((c) => {
-          const selected = value === c;
-          return (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onChange(c)}
-              style={{
-                flex: 1,
-                height: "52px",
-                borderRadius: "12px",
-                border: "none",
-                background: selected ? COLORS.accentSoft : COLORS.cardBg,
-                color: selected ? COLORS.accent : COLORS.text.primary,
-                ...TYPOGRAPHY.bodyBold,
-                cursor: "pointer",
-              }}
-            >
-              {c}캠
-            </button>
-          );
-        })}
-      </div>
+      {/* 캠퍼스가 나뉜 대학만 캠퍼스 선택 */}
+      {campuses.length > 0 && (
+        <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+          {campuses.map((c) => {
+            const selected = campus === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onCampusChange(c)}
+                style={{
+                  flex: 1,
+                  height: "52px",
+                  borderRadius: "12px",
+                  border: "none",
+                  background: selected ? COLORS.accentSoft : COLORS.cardBg,
+                  color: selected ? COLORS.accent : COLORS.text.primary,
+                  ...TYPOGRAPHY.bodyBold,
+                  cursor: "pointer",
+                }}
+              >
+                {c}캠
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

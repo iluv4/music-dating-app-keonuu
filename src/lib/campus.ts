@@ -16,7 +16,8 @@ export type School = {
 
 export type Campus = "서울" | "천안";
 
-// 현재 지원 대학 목록. 새 대학 추가 = 여기에 항목 + 해당 학과/동아리 데이터만 채우면 됨.
+// 학과·동아리 데이터가 캠퍼스 키로 준비된 대학 목록(드롭다운 자동완성 지원).
+// 여기 없는 대학도 회원가입 시 학교명을 직접 입력해 가입할 수 있다(학과/동아리는 자유 입력).
 export const SCHOOLS: School[] = [
   { id: "smu", name: "상명대학교", campuses: ["서울", "천안"] },
   // 추후 예시:
@@ -24,13 +25,26 @@ export const SCHOOLS: School[] = [
   // { id: "dku", name: "단국대학교", campuses: ["천안"] },  // 단국대 천안
 ];
 
-// 단일 대학 운영 단계의 기본 대학.
+// 가입 화면에서 기본으로 제안하는 대학(주최교). 다른 대학은 직접 입력.
 export const DEFAULT_SCHOOL = SCHOOLS[0];
 
 export const CAMPUSES: Campus[] = ["서울", "천안"];
 
 export function isCampus(v: unknown): v is Campus {
   return v === "서울" || v === "천안";
+}
+
+// 입력한 학교명이 캠퍼스/학과 데이터가 준비된 등록 대학인지 조회.
+export function findSchool(name: string | null | undefined): School | undefined {
+  const n = (name ?? "").trim();
+  if (!n) return undefined;
+  return SCHOOLS.find((s) => s.name === n);
+}
+
+// 해당 학교가 캠퍼스(서울/천안 등)를 선택해야 하는 대학인지.
+// 등록되지 않은(직접 입력) 대학은 캠퍼스 개념 없이 학교명만으로 가입.
+export function schoolRequiresCampus(school: string | null | undefined): boolean {
+  return (findSchool(school)?.campuses.length ?? 0) > 0;
 }
 
 // 표시용: "상명대학교 서울" 형태. campus 가 비면 학교명만.
