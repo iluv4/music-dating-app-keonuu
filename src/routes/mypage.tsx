@@ -374,24 +374,42 @@ export default function MyPage() {
             가입하고 시작하기
           </button>
         ) : (
-          <Form method="post" action="/logout" style={{ margin: "24px 25px 0" }}>
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                height: "48px",
-                borderRadius: "12px",
-                background: "white",
-                border: `1px solid ${COLORS.cardBorder}`,
-                ...TYPOGRAPHY.bodyBold,
-                fontSize: "14px",
-                color: COLORS.text.secondary,
-                cursor: "pointer",
-              }}
-            >
-              로그아웃
-            </button>
-          </Form>
+          <>
+            <Form method="post" action="/logout" style={{ margin: "24px 25px 0" }}>
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: "white",
+                  border: `1px solid ${COLORS.cardBorder}`,
+                  ...TYPOGRAPHY.bodyBold,
+                  fontSize: "14px",
+                  color: COLORS.text.secondary,
+                  cursor: "pointer",
+                }}
+              >
+                로그아웃
+              </button>
+            </Form>
+            <div style={{ textAlign: "center", margin: "16px 25px 0" }}>
+              <button
+                type="button"
+                onClick={() => navigate("/account/delete")}
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  color: COLORS.text.placeholder,
+                  textDecoration: "underline",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                회원탈퇴
+              </button>
+            </div>
+          </>
         )}
       </div>
 

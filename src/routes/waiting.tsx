@@ -160,18 +160,30 @@ export default function Waiting() {
           내 정보 확인
         </Link>
 
-        <Form method="post" action="/logout">
-          <button
-            type="submit"
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          <Form method="post" action="/logout">
+            <button
+              type="submit"
+              style={{
+                ...TYPOGRAPHY.caption,
+                color: COLORS.text.placeholder,
+                textDecoration: "underline",
+              }}
+            >
+              로그아웃
+            </button>
+          </Form>
+          <Link
+            to="/account/delete"
             style={{
               ...TYPOGRAPHY.caption,
               color: COLORS.text.placeholder,
               textDecoration: "underline",
             }}
           >
-            로그아웃
-          </button>
-        </Form>
+            회원탈퇴
+          </Link>
+        </div>
       </div>
       <BottomNav />
       <HomeIndicator />
