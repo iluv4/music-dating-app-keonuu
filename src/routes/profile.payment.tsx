@@ -18,6 +18,7 @@ import { upsertProfile } from "~/lib/repos/profiles.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
 import { DEFAULT_SCHOOL, isCampus, isMatchCampusPref } from "~/lib/campus";
+import { capture } from "~/lib/analytics.client";
 import type { Gender } from "~/lib/db-types";
 
 type ActionData = { error: string };
@@ -119,7 +120,10 @@ export default function ProfilePayment() {
       <StatusBar />
       <SignupStepNav
         onBack={() => navigate(-1)}
-        onNext={() => formRef.current?.requestSubmit()}
+        onNext={() => {
+          capture("payment.submitted");
+          formRef.current?.requestSubmit();
+        }}
         canNext={canSubmit}
       />
       <Form

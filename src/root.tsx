@@ -60,14 +60,19 @@ export const meta: MetaFunction = () => [
   { name: "twitter:image", content: OG_IMAGE },
 ];
 
+// PostHog 공개 클라이언트 키(phc_*) — 어차피 window.ENV 로 브라우저에 노출되는 공개값.
+// env 가 우선이고, 미설정 시 이 기본값으로 폴백해 Vercel env 없이도 트래킹/리플레이 동작.
+const POSTHOG_KEY_DEFAULT = "phc_tJJ9JhT6UCDvB4PzmLeGqLPqY8rZb7DU2MiX6LtSDkgY";
+const POSTHOG_HOST_DEFAULT = "https://us.i.posthog.com";
+
 // 브라우저 Supabase 클라이언트(Realtime) + PostHog 용 공개 키 노출
 export async function loader() {
   return json({
     env: {
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-      POSTHOG_KEY: process.env.POSTHOG_KEY,
-      POSTHOG_HOST: process.env.POSTHOG_HOST,
+      POSTHOG_KEY: process.env.POSTHOG_KEY || POSTHOG_KEY_DEFAULT,
+      POSTHOG_HOST: process.env.POSTHOG_HOST || POSTHOG_HOST_DEFAULT,
       VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     },
   });

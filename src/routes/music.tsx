@@ -29,7 +29,7 @@ import { listUserSongs } from "~/lib/repos/user-songs.server";
 import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server";
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
 import { sendPushToUser } from "~/lib/push.server";
-import { capture } from "~/lib/analytics.client";
+import { capture, identify } from "~/lib/analytics.client";
 import {
   syncPushIfGranted,
   enablePush,
@@ -61,7 +61,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   ]);
 
   return json(
-    { guest: false as const, songs, match: matches[0] ?? null, unread },
+    {
+      guest: false as const,
+      userId: ctx.user.id,
+      songs,
+      match: matches[0] ?? null,
+      unread,
+    },
     { headers: ctx.headers },
   );
 }
@@ -155,7 +161,8 @@ const ctaBase = {
 
 export default function Music() {
   const navigate = useNavigate();
-  const { guest, songs, match, unread } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const { guest, songs, match, unread } = data;
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const matching = navigation.state === "submitting";
@@ -166,6 +173,10 @@ export default function Music() {
   const [pushUi, setPushUi] = useState<
     "hidden" | "prompt" | "denied" | "ios-install"
   >("hidden");
+  useEffect(() => {
+    if (!data.guest) identify(data.userId);
+  }, [data]);
+
   useEffect(() => {
     if (guest) return; // 미리보기 방문자에겐 알림 권한 요청을 띄우지 않음
     void syncPushIfGranted();

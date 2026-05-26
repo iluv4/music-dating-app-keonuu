@@ -16,6 +16,13 @@ export async function initAnalytics(): Promise<void> {
     api_host: window.ENV?.POSTHOG_HOST || "https://us.i.posthog.com",
     capture_pageview: true,
     person_profiles: "identified_only",
+    // 세션 리플레이: 데이팅 앱이라 이름·이메일·입금자명·채팅이 DOM째 녹화됨.
+    // → 모든 input 값 마스킹(비밀번호는 항상 마스킹). 텍스트는 노출(리플레이 유용성 위해).
+    //   더 엄격히 가리려면 maskTextSelector 로 민감 영역 지정.
+    disable_session_recording: false,
+    session_recording: {
+      maskAllInputs: true,
+    },
   });
   client = posthog;
 }
