@@ -430,6 +430,8 @@ export default function ChatRoom() {
   const [editing, setEditing] = useState<MessageRow | null>(null);
   const [actionSheet, setActionSheet] = useState<MessageRow | null>(null);
   const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
+  // 수정/삭제 진입(길게누르기) 1회성 안내 — 본 적 있으면 숨김
+  const [actionHintDismissed, setActionHintDismissed] = useState(true);
   // 캡처 억제: 탭을 벗어나면 화면을 가린다 (전환 중 캡처/녹화 미리보기 방지)
   const [obscured, setObscured] = useState(false);
   useEffect(() => {
@@ -456,6 +458,11 @@ export default function ChatRoom() {
   // 펑 메시지: 소멸 타이머 중복 예약 방지 + 언마운트 정리용
   const disappearScheduledRef = useRef<Set<string>>(new Set());
   const disappearTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // 길게눌러 동작 시트 열기 — 표준 채팅 제스처(KakaoTalk식). 탭/스크롤과 구분.
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  // 길게눌러 직후 따라오는 click 이 백드롭에 닿아 시트를 즉시 닫는 것 방지
+  const longPressFiredRef = useRef(false);
   const endFetcher = useFetcher<{ error?: string }>();
   const ending = endFetcher.state === "submitting";
   // 수정/삭제/펑/열람 처리용 — send 와 분리해 응답 머지 로직을 단순화
@@ -680,7 +687,21 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const timers = disappearTimersRef.current;
-    return () => timers.forEach(clearTimeout);
+    return () => {
+      timers.forEach(clearTimeout);
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
+
+  // 수정/삭제 안내: 아직 본 적 없고 내 메시지가 있으면 1회 노출
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("chatActionHint") !== "1") {
+        setActionHintDismissed(false);
+      }
+    } catch {
+      /* localStorage 접근 불가(프라이빗 모드 등)면 안내 생략 */
+    }
   }, []);
 
   const send = (e: React.FormEvent) => {
@@ -814,6 +835,54 @@ export default function ChatRoom() {
       setViewer({ id: msg.id, url: data.signedUrl });
     } catch {
       setUploadError("사진을 불러오지 못했어요.");
+    }
+  };
+
+  // 동작 시트 열기 (길게누르기/우클릭 공통) + 안내 숨김
+  const openActionSheet = (msg: MessageRow) => {
+    setActionSheet(msg);
+    dismissActionHint();
+  };
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  };
+  // 손가락을 뗄 때: 타이머 정리 + 길게누르기 직후 1회성 click 무시 플래그를 잠시 후 해제
+  const endLongPress = () => {
+    clearLongPress();
+    if (longPressFiredRef.current) {
+      setTimeout(() => {
+        longPressFiredRef.current = false;
+      }, 350);
+    }
+  };
+  const startLongPress = (msg: MessageRow, e: React.PointerEvent) => {
+    longPressFiredRef.current = false;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true;
+      longPressTimerRef.current = null;
+      openActionSheet(msg);
+    }, 450);
+  };
+  // 손가락이 움직이면(스크롤 의도) 길게누르기 취소
+  const moveLongPress = (e: React.PointerEvent) => {
+    const start = longPressStartRef.current;
+    if (!start) return;
+    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) {
+      clearLongPress();
+    }
+  };
+
+  const dismissActionHint = () => {
+    setActionHintDismissed(true);
+    try {
+      localStorage.setItem("chatActionHint", "1");
+    } catch {
+      /* 저장 실패 무시 */
     }
   };
 
@@ -986,6 +1055,9 @@ export default function ChatRoom() {
         )}
         {messages.map((msg, i) => {
           const fromMe = msg.sender_id === currentUserId;
+          // 내 메시지(삭제 전·임시 아님)는 길게눌러 수정/삭제 시트 진입
+          const canAct =
+            fromMe && !msg.deleted_at && !msg.id.startsWith("temp-");
           const prev = i > 0 ? messages[i - 1] : null;
           // 날짜가 바뀌면 구분선 표시
           const showDate =
@@ -1025,6 +1097,19 @@ export default function ChatRoom() {
                 </span>
               )}
               <div
+                onPointerDown={canAct ? (e) => startLongPress(msg, e) : undefined}
+                onPointerMove={canAct ? moveLongPress : undefined}
+                onPointerUp={canAct ? endLongPress : undefined}
+                onPointerCancel={canAct ? endLongPress : undefined}
+                onPointerLeave={canAct ? endLongPress : undefined}
+                onContextMenu={
+                  canAct
+                    ? (e) => {
+                        e.preventDefault();
+                        openActionSheet(msg);
+                      }
+                    : undefined
+                }
                 style={{
                   alignSelf: fromMe ? "flex-end" : "flex-start",
                   maxWidth: "75%",
@@ -1032,6 +1117,14 @@ export default function ChatRoom() {
                   flexDirection: "column",
                   alignItems: fromMe ? "flex-end" : "flex-start",
                   gap: "4px",
+                  ...(canAct
+                    ? {
+                        cursor: "pointer",
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                        WebkitTouchCallout: "none",
+                      }
+                    : {}),
                 }}
               >
               {msg.deleted_at ? (
@@ -1145,7 +1238,6 @@ export default function ChatRoom() {
                   ) : null}
                   {msg.content ? (
                     <div
-                      onClick={fromMe ? () => setActionSheet(msg) : undefined}
                       style={{
                         background: fromMe ? COLORS.accentSoft : "white",
                         color: COLORS.text.primary,
@@ -1156,7 +1248,6 @@ export default function ChatRoom() {
                         lineHeight: 1.4,
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
-                        cursor: fromMe ? "pointer" : "default",
                       }}
                     >
                       {msg.content}
@@ -1190,6 +1281,34 @@ export default function ChatRoom() {
           );
         })}
       </div>
+
+      {/* 수정/삭제 진입 안내 — 내 메시지가 있을 때 1회 노출 */}
+      {!actionHintDismissed &&
+        messages.some(
+          (m) => m.sender_id === currentUserId && !m.id.startsWith("temp-"),
+        ) && (
+          <button
+            type="button"
+            onClick={dismissActionHint}
+            style={{
+              position: "fixed",
+              bottom: isEnded ? "104px" : "118px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              ...TYPOGRAPHY.caption,
+              fontSize: "12px",
+              color: "white",
+              background: "rgba(0,0,0,0.72)",
+              padding: "7px 14px",
+              borderRadius: "16px",
+              zIndex: 6,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            💡 내 메시지를 꾹 누르면 수정·삭제할 수 있어요
+          </button>
+        )}
 
       {/* 입력 폼 / 종료 안내 */}
       {isEnded ? (
@@ -1499,7 +1618,12 @@ export default function ChatRoom() {
       {actionSheet && (
         <div
           className="overlay-in"
-          onClick={() => setActionSheet(null)}
+          onClick={() => {
+            // 길게누르기 직후 따라오는 click 은 무시(시트가 바로 닫히는 것 방지).
+            // 플래그 해제는 endLongPress 가 처리하므로 여기선 닫지만 않는다.
+            if (longPressFiredRef.current) return;
+            setActionSheet(null);
+          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -1522,7 +1646,7 @@ export default function ChatRoom() {
             }}
           >
             {/* 사진 없는 텍스트 메시지만 수정 가능 */}
-            {!actionSheet.image_url && (
+            {!actionSheet.image_url && !actionSheet.view_once && (
               <button
                 type="button"
                 onClick={() => beginEdit(actionSheet)}
