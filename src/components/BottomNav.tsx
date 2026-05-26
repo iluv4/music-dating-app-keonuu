@@ -19,9 +19,14 @@ type NavItem = {
   Icon: IconComponent;
 };
 
+// "탐색"은 is_approved 토글용 내부 디버그 화면 — 개발 환경에서만 노출
+const SHOW_EXPLORE = process.env.NODE_ENV !== "production";
+
 const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "홈", path: "/music", Icon: NavHomeIcon },
-  { key: "explore", label: "탐색", path: "/explore", Icon: NavSearchIcon },
+  ...(SHOW_EXPLORE
+    ? [{ key: "explore" as const, label: "탐색", path: "/explore", Icon: NavSearchIcon }]
+    : []),
   { key: "chat", label: "채팅", path: "/chat", Icon: NavChatIcon },
   { key: "my", label: "마이", path: "/mypage", Icon: NavMyIcon },
 ];

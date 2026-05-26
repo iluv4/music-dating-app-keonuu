@@ -12,6 +12,7 @@ import {
 import "./styles/globals.css";
 import { initAnalytics } from "~/lib/analytics.client";
 import GlobalLoadingBar from "~/components/GlobalLoadingBar";
+import { Analytics } from "@vercel/analytics/remix";
 
 export const links: LinksFunction = () => [
   // 파비콘 (브랜드 로고) — /favicon.ico 404 제거
@@ -98,6 +99,7 @@ export default function App() {
       </head>
       <body>
         <GlobalLoadingBar />
+        <Analytics />
         <Outlet />
         <ScrollRestoration />
         <script
