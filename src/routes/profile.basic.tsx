@@ -14,7 +14,7 @@ import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { useProfile } from "~/lib/profile-state";
-import type { Campus } from "~/lib/campus";
+import { schoolRequiresCampus, type Campus } from "~/lib/campus";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const NEXT = "/profile/payment";
@@ -30,10 +30,18 @@ const genderBtnStyle = (selected: boolean): CSSProperties => ({
 });
 
 // 가입 정보 입력 — 기존 basic(이름/연도/성별) + school(학교/학과/동아리)을 한 화면으로 통합.
-// 상명대 천안 단일 캠퍼스라 학교는 자동입력·읽기전용. 이탈 줄이기 위한 단계 축소.
+// 학교는 직접 입력(주최교는 기본 제안). 캠퍼스가 나뉜 대학만 캠퍼스를 고른다.
 export default function ProfileBasic() {
   const navigate = useNavigate();
   const { state, update, hydrated } = useProfile();
+
+  const needsCampus = schoolRequiresCampus(state.school);
+
+  // 학교를 바꾸면 캠퍼스·학과·동아리는 학교/캠퍼스별이라 초기화한다.
+  const selectSchool = (school: string) => {
+    if (school === state.school) return;
+    update({ school, campus: "", major: "", club: "" });
+  };
 
   // 캠퍼스를 바꾸면 학과·동아리는 캠퍼스별 목록이라 초기화한다.
   const selectCampus = (campus: Campus) => {
@@ -49,7 +57,8 @@ export default function ProfileBasic() {
     yearNum >= 1950 &&
     yearNum <= CURRENT_YEAR &&
     (state.gender === "male" || state.gender === "female") &&
-    state.campus !== "" &&
+    state.school.trim().length >= 2 &&
+    (!needsCampus || state.campus !== "") &&
     state.major.trim().length >= 2;
 
   return (
@@ -93,7 +102,7 @@ export default function ProfileBasic() {
             marginBottom: "32px",
           }}
         >
-          상명대학교 전용 서비스예요. 한 번에 입력하면 끝!
+          음악 취향으로 만나는 대학생 소개팅. 한 번에 입력하면 끝!
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -146,13 +155,16 @@ export default function ProfileBasic() {
           </div>
           <CampusSelect
             label="학교"
-            value={state.campus}
-            onChange={selectCampus}
+            school={state.school}
+            campus={state.campus}
+            onSchoolChange={selectSchool}
+            onCampusChange={selectCampus}
           />
           <DeptSelect
             label="학과"
             value={state.major}
             campus={state.campus}
+            freeText={!needsCampus}
             onChange={(major) => update({ major })}
           />
           <ClubSelect
@@ -166,10 +178,12 @@ export default function ProfileBasic() {
             value={state.region}
             onChange={(region) => update({ region })}
           />
-          <MatchCampusPrefSelect
-            value={state.matchCampusPref}
-            onChange={(matchCampusPref) => update({ matchCampusPref })}
-          />
+          {needsCampus && (
+            <MatchCampusPrefSelect
+              value={state.matchCampusPref}
+              onChange={(matchCampusPref) => update({ matchCampusPref })}
+            />
+          )}
         </div>
       </div>
 

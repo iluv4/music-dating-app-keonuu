@@ -25,9 +25,9 @@ import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
 import {
-  DEFAULT_SCHOOL,
   isCampus,
   isMatchCampusPref,
+  schoolRequiresCampus,
   type Campus,
   type MatchCampusPref,
 } from "~/lib/campus";
@@ -80,7 +80,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const gender = String(fd.get("gender") ?? "").trim();
   const campusRaw = String(fd.get("campus") ?? "").trim();
   const campus = isCampus(campusRaw) ? campusRaw : "";
-  const school = DEFAULT_SCHOOL.name;
+  const school = String(fd.get("school") ?? "").trim().slice(0, 80);
   const major = String(fd.get("major") ?? "").trim();
   const region = String(fd.get("region") ?? "").trim();
   const matchPrefRaw = String(fd.get("match_campus_pref") ?? "").trim();
@@ -122,7 +122,12 @@ export async function action({ request }: ActionFunctionArgs) {
       { error: "성별을 선택해주세요." },
       { status: 400, headers: ctx.headers },
     );
-  if (!campus)
+  if (school.length < 2)
+    return json<ActionData>(
+      { error: "학교명을 확인해주세요." },
+      { status: 400, headers: ctx.headers },
+    );
+  if (schoolRequiresCampus(school) && !campus)
     return json<ActionData>(
       { error: "캠퍼스를 선택해주세요." },
       { status: 400, headers: ctx.headers },
@@ -143,7 +148,7 @@ export async function action({ request }: ActionFunctionArgs) {
     birth_year: birthYear,
     gender,
     school,
-    campus,
+    campus: campus || null,
     major,
     region: region || null,
     match_campus_pref: matchCampusPref,
@@ -246,10 +251,12 @@ export default function ProfileEdit() {
   const [gender, setGender] = useState<"male" | "female">(
     profile.gender ?? "male",
   );
+  const [school, setSchool] = useState(profile.school ?? "");
   const [campus, setCampus] = useState<Campus | "">(
     isCampus(profile.campus) ? profile.campus : "",
   );
   const [major, setMajor] = useState(profile.major);
+  const needsCampus = schoolRequiresCampus(school);
   const [region, setRegion] = useState(profile.region ?? "");
   const [matchCampusPref, setMatchCampusPref] = useState<MatchCampusPref>(
     isMatchCampusPref(profile.match_campus_pref)
@@ -257,6 +264,14 @@ export default function ProfileEdit() {
       : "상관없음",
   );
   const [bankHolder, setBankHolder] = useState(profile.bank_holder ?? "");
+
+  // 학교를 바꾸면 캠퍼스·학과는 학교/캠퍼스별이라 초기화.
+  const selectSchool = (next: string) => {
+    if (next === school) return;
+    setSchool(next);
+    setCampus("");
+    setMajor("");
+  };
 
   // 캠퍼스를 바꾸면 학과는 캠퍼스별 목록이라 초기화.
   const selectCampus = (next: Campus) => {
@@ -272,7 +287,8 @@ export default function ProfileEdit() {
     yearNum >= 1950 &&
     yearNum <= CURRENT_YEAR &&
     (gender === "male" || gender === "female") &&
-    campus !== "" &&
+    school.trim().length >= 2 &&
+    (!needsCampus || campus !== "") &&
     major.trim().length >= 2 &&
     bankHolder.trim().length >= 2 &&
     !submitting &&
@@ -476,29 +492,41 @@ export default function ProfileEdit() {
             </div>
           </div>
 
+          <input type="hidden" name="school" value={school} />
           <input type="hidden" name="campus" value={campus} />
-          <CampusSelect label="학교" value={campus} onChange={selectCampus} />
+          <CampusSelect
+            label="학교"
+            school={school}
+            campus={campus}
+            onSchoolChange={selectSchool}
+            onCampusChange={selectCampus}
+          />
 
           <input type="hidden" name="major" value={major} />
           <DeptSelect
             label="학과"
             value={major}
             campus={campus}
+            freeText={!needsCampus}
             onChange={setMajor}
           />
 
           <input type="hidden" name="region" value={region} />
           <RegionSelect label="거주지역" value={region} onChange={setRegion} />
 
-          <input
-            type="hidden"
-            name="match_campus_pref"
-            value={matchCampusPref}
-          />
-          <MatchCampusPrefSelect
-            value={matchCampusPref}
-            onChange={setMatchCampusPref}
-          />
+          {needsCampus && (
+            <>
+              <input
+                type="hidden"
+                name="match_campus_pref"
+                value={matchCampusPref}
+              />
+              <MatchCampusPrefSelect
+                value={matchCampusPref}
+                onChange={setMatchCampusPref}
+              />
+            </>
+          )}
 
           <TextInput
             label="입금자명"

@@ -13,6 +13,8 @@ type DeptSelectProps = {
   onChange: (name: string) => void;
   placeholder?: string;
   campus?: Campus | "";
+  // 학과 데이터가 없는 대학(직접 입력)은 자유 텍스트로 받는다.
+  freeText?: boolean;
 };
 
 const LEVEL_BADGE: Record<DeptLevel, { bg: string; color: string }> = {
@@ -27,6 +29,7 @@ export const DeptSelect = ({
   onChange,
   placeholder = "학과·전공 검색 (예: 소프트웨어, 디자인)",
   campus = "",
+  freeText = false,
 }: DeptSelectProps) => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -42,6 +45,43 @@ export const DeptSelect = ({
     setQuery("");
     setOpen(false);
   };
+
+  // 등록 학과 데이터가 없는 대학 → 자유 입력 텍스트 필드.
+  if (freeText) {
+    return (
+      <div>
+        {label && (
+          <label
+            style={{
+              ...TYPOGRAPHY.bodyBold,
+              display: "block",
+              color: COLORS.text.primary,
+              marginBottom: "10px",
+            }}
+          >
+            {label}
+          </label>
+        )}
+        <input
+          type="text"
+          value={value}
+          placeholder="학과·전공 직접 입력 (예: 컴퓨터공학과)"
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            boxSizing: "border-box",
+            width: "100%",
+            height: "56px",
+            padding: "0 16px",
+            background: COLORS.cardBg,
+            border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: RADIUS.info,
+            ...TYPOGRAPHY.body,
+            color: COLORS.text.primary,
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>

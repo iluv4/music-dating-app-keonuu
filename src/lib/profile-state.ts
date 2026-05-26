@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { Campus, MatchCampusPref } from "./campus";
+import { DEFAULT_SCHOOL, type Campus, type MatchCampusPref } from "./campus";
 
 export type ProfileForm = {
   name: string;
   birthYear: string;
   gender: "male" | "female" | "";
+  school: string;
   campus: Campus | "";
   major: string;
   club: string;
@@ -17,6 +18,8 @@ const EMPTY: ProfileForm = {
   name: "",
   birthYear: "",
   gender: "",
+  // 주최교를 기본 제안. 다른 대학 학생은 가입 화면에서 학교명을 바꾸면 됨.
+  school: DEFAULT_SCHOOL.name,
   campus: "",
   major: "",
   club: "",

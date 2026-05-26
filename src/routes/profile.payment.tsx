@@ -17,7 +17,11 @@ import { requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
-import { DEFAULT_SCHOOL, isCampus, isMatchCampusPref } from "~/lib/campus";
+import {
+  isCampus,
+  isMatchCampusPref,
+  schoolRequiresCampus,
+} from "~/lib/campus";
 import { capture } from "~/lib/analytics.client";
 import type { Gender } from "~/lib/db-types";
 
@@ -35,8 +39,8 @@ export async function action({ request }: ActionFunctionArgs) {
   const gender = String(fd.get("gender") ?? "").trim() || null;
   const campusRaw = String(fd.get("campus") ?? "").trim();
   const campus = isCampus(campusRaw) ? campusRaw : "";
-  // 단일 대학 운영 단계 — 대학교명은 고정, 캠퍼스만 선택.
-  const school = DEFAULT_SCHOOL.name;
+  // 학교는 사용자가 직접 입력(주최교는 기본 제안). 다른 대학도 가입 가능.
+  const school = String(fd.get("school") ?? "").trim().slice(0, 80);
   const major = String(fd.get("major") ?? "").trim();
   const club = String(fd.get("club") ?? "").trim();
   const region = String(fd.get("region") ?? "").trim();
@@ -45,8 +49,10 @@ export async function action({ request }: ActionFunctionArgs) {
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
 
   const birthYear = Number(birthYearStr);
+  // 캠퍼스가 나뉜 대학만 캠퍼스 필수.
+  const campusOk = !schoolRequiresCampus(school) || !!campus;
   // 스킵이 아니면 입금자명 필수
-  if (!name || !birthYear || !campus || !major || (!skip && !bankHolder)) {
+  if (!name || !birthYear || !school || !campusOk || !major || (!skip && !bankHolder)) {
     return json<ActionData>(
       {
         error: "프로필 정보가 누락됐어요. 이전 단계로 돌아가 다시 진행해주세요.",
@@ -140,6 +146,7 @@ export default function ProfilePayment() {
         <input type="hidden" name="name" value={profile?.name ?? ""} />
         <input type="hidden" name="birth_year" value={profile?.birthYear ?? ""} />
         <input type="hidden" name="gender" value={profile?.gender ?? ""} />
+        <input type="hidden" name="school" value={profile?.school ?? ""} />
         <input type="hidden" name="campus" value={profile?.campus ?? ""} />
         <input type="hidden" name="major" value={profile?.major ?? ""} />
         <input type="hidden" name="club" value={profile?.club ?? ""} />
