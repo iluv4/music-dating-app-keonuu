@@ -211,7 +211,7 @@ export default function ProfilePayment() {
               marginBottom: "4px",
             }}
           >
-            카카오뱅크 1234-5678-9012
+            멋쟁이사자처럼 1002-5666-5941
           </p>
           <p
             style={{

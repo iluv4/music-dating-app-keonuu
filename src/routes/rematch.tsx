@@ -217,7 +217,7 @@ export default function Rematch() {
             입금 계좌
           </p>
           <p style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text.primary, margin: "0 0 4px" }}>
-            카카오뱅크 1234-5678-9012
+            멋쟁이사자처럼 1002-5666-5941
           </p>
           <p style={{ ...TYPOGRAPHY.label, color: COLORS.text.helper, margin: 0 }}>
             추가 매칭 참가비 1,000원
