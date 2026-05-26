@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useMemo, useState } from "react";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { REGIONS } from "~/lib/campus";
 
@@ -9,17 +9,23 @@ type RegionSelectProps = {
   placeholder?: string;
 };
 
-// 거주지역(고향·본가·자취) — datalist 자동완성 + 직접 입력.
+// 거주지역(고향·본가·자취) — 펼쳐지는 드롭다운 + 직접 입력.
 export const RegionSelect = ({
   label = "거주지역",
   value,
   onChange,
   placeholder = "사는 지역 검색 (예: 서울, 천안)",
 }: RegionSelectProps) => {
-  const listId = useId();
+  const [open, setOpen] = useState(false);
+
+  const matches = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return REGIONS;
+    return REGIONS.filter((r) => r.toLowerCase().includes(q));
+  }, [value]);
 
   return (
-    <div>
+    <div style={{ position: "relative" }}>
       {label && (
         <label
           style={{
@@ -37,10 +43,14 @@ export const RegionSelect = ({
       )}
       <input
         type="text"
-        list={listId}
         value={value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
         style={{
           boxSizing: "border-box",
           width: "100%",
@@ -53,11 +63,50 @@ export const RegionSelect = ({
           color: COLORS.text.primary,
         }}
       />
-      <datalist id={listId}>
-        {REGIONS.map((r) => (
-          <option key={r} value={r} />
-        ))}
-      </datalist>
+
+      {open && matches.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: label ? "92px" : "62px",
+            left: 0,
+            right: 0,
+            maxHeight: "260px",
+            overflowY: "auto",
+            background: "white",
+            border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: RADIUS.info,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 20,
+          }}
+        >
+          {matches.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(r);
+                setOpen(false);
+              }}
+              style={{
+                width: "100%",
+                display: "block",
+                padding: "12px 14px",
+                background: value === r ? COLORS.accentSoft : "white",
+                border: "none",
+                borderTop: `1px solid ${COLORS.divider2}`,
+                cursor: "pointer",
+                textAlign: "left",
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.primary,
+              }}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
