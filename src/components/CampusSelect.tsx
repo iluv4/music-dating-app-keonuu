@@ -1,7 +1,6 @@
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { SCHOOLS, findSchool, type Campus } from "~/lib/campus";
-import { KOREAN_UNIVERSITIES } from "~/lib/universities";
 
 type CampusSelectProps = {
   label?: string;
@@ -23,15 +22,6 @@ export const CampusSelect = ({
   const matched = findSchool(school);
   const campuses = matched?.campuses ?? [];
 
-  // 자동완성 후보: 전국 대학 목록 + 캠퍼스 데이터가 준비된 대학(SCHOOLS) 병합(중복 제거).
-  const options = useMemo(
-    () =>
-      Array.from(
-        new Set([...SCHOOLS.map((s) => s.name), ...KOREAN_UNIVERSITIES]),
-      ),
-    [],
-  );
-
   return (
     <div>
       {label && (
@@ -52,7 +42,7 @@ export const CampusSelect = ({
         type="text"
         list={listId}
         value={school}
-        placeholder="대학교 검색 (예: 상명대학교)"
+        placeholder="학교명 입력 (예: 상명대학교)"
         onChange={(e) => onSchoolChange(e.target.value)}
         style={{
           boxSizing: "border-box",
@@ -67,8 +57,8 @@ export const CampusSelect = ({
         }}
       />
       <datalist id={listId}>
-        {options.map((name) => (
-          <option key={name} value={name} />
+        {SCHOOLS.map((s) => (
+          <option key={s.id} value={s.name} />
         ))}
       </datalist>
 
