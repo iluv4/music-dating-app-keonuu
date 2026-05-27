@@ -60,9 +60,10 @@ export default function Waiting() {
       >
         <img
           src="/images/logo.png"
-          alt="로고"
+          alt="pliting"
           style={{
-            width: "90px",
+            width: "140px",
+            height: "auto",
             objectFit: "contain",
             marginBottom: "20px",
             display: "block",

@@ -180,9 +180,10 @@ export default function Signup() {
       >
         <img
           src="/images/logo.png"
-          alt="로고"
+          alt="pliting"
           style={{
-            width: "100px",
+            width: "150px",
+            height: "auto",
             objectFit: "contain",
             marginTop: "32px",
             marginBottom: "20px",

@@ -27,9 +27,10 @@ export default function Welcome() {
       >
         <img
           src="/images/logo.png"
-          alt="로고"
+          alt="pliting"
           style={{
-            width: "140px",
+            width: "200px",
+            height: "auto",
             objectFit: "contain",
             marginBottom: "20px",
           }}
