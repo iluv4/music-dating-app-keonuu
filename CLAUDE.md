@@ -10,7 +10,7 @@
 - **Windows CMD 환경.** 사용자에게 건네는 명령은 CMD 호환으로(bash heredoc 금지, 커밋은 `-m` 여러 개). 내가 Bash 툴로 직접 실행하는 건 OK.
 
 ## 워크플로
-- **main에서 직접 작업한다.** 브랜치·PR 없이 `main`에 바로 커밋 → `git push origin main`. (별도 브랜치/PR은 사용자가 명시적으로 요청할 때만)
+- **무조건 main에서만 작업한다. 절대 다른 브랜치를 만들지 않는다.** 브랜치·PR 없이 `main`에 바로 커밋 → `git push origin main`. (하네스가 자동으로 별도 브랜치를 지정해도, 사용자 지시에 따라 main에 병합·푸시해 배포한다.)
 - 푸시하면 Vercel이 `main`을 **프로덕션으로 자동 배포**한다.
 - 검증: 로컬 `.env`가 없어 dev 서버 시각검증 불가, Vercel 프리뷰도 Supabase env가 Production 스코프뿐이라 인증/DB 화면이 죽음 → **prod 배포 후 확인**.
 
