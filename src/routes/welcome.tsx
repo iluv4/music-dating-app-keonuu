@@ -1,14 +1,11 @@
-import { Link, useNavigate } from "@remix-run/react";
+import { Link } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
-import { PrimaryButton } from "~/components/Button";
 import { KakaoButton } from "~/components/SocialButton";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 
 export default function Welcome() {
-  const navigate = useNavigate();
-
   return (
     <PhoneFrame>
       <StatusBar />
@@ -81,32 +78,9 @@ export default function Welcome() {
           gap: "10px",
         }}
       >
-        <PrimaryButton
-          onClick={() => navigate("/signup")}
-          style={{ width: "100%", maxWidth: "350px" }}
-        >
-          시작하기
-        </PrimaryButton>
-
         <KakaoButton style={{ width: "100%", maxWidth: "350px" }}>
           카카오로 3초 만에 시작
         </KakaoButton>
-
-        <div
-          style={{
-            ...TYPOGRAPHY.body,
-            color: COLORS.text.secondary,
-            marginTop: "4px",
-          }}
-        >
-          이미 계정이 있으신가요?{" "}
-          <Link
-            to="/login"
-            style={{ color: COLORS.accent, fontWeight: 700, textDecoration: "none" }}
-          >
-            로그인
-          </Link>
-        </div>
 
         <Link
           to="/explore"
@@ -115,11 +89,27 @@ export default function Welcome() {
             color: COLORS.text.helper,
             textDecoration: "underline",
             textUnderlineOffset: "3px",
-            marginTop: "2px",
+            marginTop: "6px",
           }}
         >
           가입 없이 둘러보기
         </Link>
+
+        <div
+          style={{
+            ...TYPOGRAPHY.body,
+            color: COLORS.text.secondary,
+            marginTop: "2px",
+          }}
+        >
+          이메일 계정이 있으신가요?{" "}
+          <Link
+            to="/login"
+            style={{ color: COLORS.accent, fontWeight: 700, textDecoration: "none" }}
+          >
+            로그인
+          </Link>
+        </div>
       </div>
 
       <HomeIndicator />
