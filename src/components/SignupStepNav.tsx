@@ -1,7 +1,8 @@
 import { COLORS } from "~/lib/constants";
 
 type Props = {
-  onBack: () => void;
+  // onBack 미지정 시 뒤로가기 버튼을 숨긴다(가입 후 첫 단계 등 되돌아갈 곳이 없는 경우).
+  onBack?: () => void;
   onNext: () => void;
   canNext: boolean;
 };
@@ -19,23 +20,27 @@ export const SignupStepNav = ({ onBack, onNext, canNext }: Props) => (
       flexShrink: 0,
     }}
   >
-    <button
-      type="button"
-      aria-label="뒤로"
-      onClick={onBack}
-      style={{
-        width: "40px",
-        height: "40px",
-        fontSize: "24px",
-        color: COLORS.text.secondary,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-      }}
-    >
-      ‹
-    </button>
+    {onBack ? (
+      <button
+        type="button"
+        aria-label="뒤로"
+        onClick={onBack}
+        style={{
+          width: "40px",
+          height: "40px",
+          fontSize: "24px",
+          color: COLORS.text.secondary,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+        }}
+      >
+        ‹
+      </button>
+    ) : (
+      <span style={{ width: "40px", height: "40px", flexShrink: 0 }} />
+    )}
     <div
       style={{
         flex: 1,

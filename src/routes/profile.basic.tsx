@@ -65,7 +65,6 @@ export default function ProfileBasic() {
     <PhoneFrame>
       <StatusBar />
       <SignupStepNav
-        onBack={() => navigate(-1)}
         onNext={() => canNext && navigate(NEXT)}
         canNext={canNext}
       />
