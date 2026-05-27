@@ -160,6 +160,11 @@ export default function Signup() {
   const canSubmit =
     emailValid && passwordValid && confirmValid && allChecked && !submitting;
 
+  // 순차 노출 — 직전 항목이 유효해지면 다음 항목 등장
+  const showPassword = emailValid;
+  const showConfirm = emailValid && passwordValid;
+  const showTerms = emailValid && passwordValid && confirmValid;
+
   return (
     <PhoneFrame>
       <StatusBar />
@@ -209,9 +214,10 @@ export default function Signup() {
             marginBottom: "32px",
           }}
         >
-          사용하실 이메일로 가입할 수 있어요.
+          이메일만 있으면 시작할 수 있어요.
         </p>
 
+        {/* 순차 노출 — 한 항목을 끝내면 다음이 아래에 등장(초반 부담 축소) */}
         <div
           style={{
             display: "flex",
@@ -228,29 +234,40 @@ export default function Signup() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <TextInput
-            label="비밀번호"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="8자 이상"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <TextInput
-            label="비밀번호 확인"
-            name="confirm"
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호를 다시 입력"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
+          {showPassword && (
+            <div className="field-reveal">
+              <TextInput
+                label="비밀번호"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="8자 이상"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          )}
+          {showConfirm && (
+            <div className="field-reveal">
+              <TextInput
+                label="비밀번호 확인"
+                name="confirm"
+                type="password"
+                autoComplete="new-password"
+                placeholder="비밀번호를 다시 입력"
+                autoFocus
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {/* 약관 동의 — 별도 화면 대신 가입 단계에 통합(이탈 축소) */}
         <input type="hidden" name="terms_agreed" value={allChecked ? "1" : ""} />
-        <div style={{ marginTop: "24px" }}>
+        {showTerms && (
+        <div className="field-reveal" style={{ marginTop: "24px" }}>
           <button
             type="button"
             onClick={toggleAll}
@@ -341,6 +358,7 @@ export default function Signup() {
             ))}
           </div>
         </div>
+        )}
 
         {actionData?.error && (
           <p
