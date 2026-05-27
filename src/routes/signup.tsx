@@ -164,7 +164,7 @@ export default function Signup() {
     <PhoneFrame>
       <StatusBar />
       <SignupStepNav
-        onBack={() => navigate(-1)}
+        onBack={() => navigate("/welcome")}
         onNext={() => formRef.current?.requestSubmit()}
         canNext={canSubmit}
       />
