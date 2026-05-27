@@ -157,7 +157,19 @@ export default function ProfilePayment() {
           value={profile?.matchCampusPref ?? "상관없음"}
         />
 
-        <div style={{ marginTop: "30px", marginBottom: "40px" }}>
+        <img
+          src="/images/logo.png"
+          alt="로고"
+          style={{
+            width: "80px",
+            objectFit: "contain",
+            marginTop: "20px",
+            marginBottom: "16px",
+            display: "block",
+          }}
+        />
+
+        <div style={{ marginBottom: "40px" }}>
           <ProgressDots total={2} current={2} />
         </div>
 

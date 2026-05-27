@@ -25,20 +25,15 @@ export default function Welcome() {
           textAlign: "center",
         }}
       >
-        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-          {[16, 9, 9].map((s, i) => (
-            <span
-              key={i}
-              style={{
-                width: `${s}px`,
-                height: `${s}px`,
-                borderRadius: "50%",
-                background: COLORS.accentSoft,
-                alignSelf: "center",
-              }}
-            />
-          ))}
-        </div>
+        <img
+          src="/images/logo.png"
+          alt="로고"
+          style={{
+            width: "140px",
+            objectFit: "contain",
+            marginBottom: "20px",
+          }}
+        />
 
         <h1 style={{ ...TYPOGRAPHY.display, color: COLORS.accent, margin: 0 }}>
           환영합니다!

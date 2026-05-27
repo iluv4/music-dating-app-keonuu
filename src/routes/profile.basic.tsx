@@ -78,7 +78,19 @@ export default function ProfileBasic() {
           overflowY: "auto",
         }}
       >
-        <div style={{ marginTop: "30px", marginBottom: "30px" }}>
+        <img
+          src="/images/logo.png"
+          alt="로고"
+          style={{
+            width: "80px",
+            objectFit: "contain",
+            marginTop: "20px",
+            marginBottom: "16px",
+            display: "block",
+          }}
+        />
+
+        <div style={{ marginBottom: "30px" }}>
           <ProgressDots total={2} current={1} />
         </div>
 

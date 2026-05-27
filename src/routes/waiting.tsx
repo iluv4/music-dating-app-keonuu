@@ -59,6 +59,17 @@ export default function Waiting() {
         }}
       >
         <img
+          src="/images/logo.png"
+          alt="로고"
+          style={{
+            width: "90px",
+            objectFit: "contain",
+            marginBottom: "20px",
+            display: "block",
+          }}
+        />
+
+        <img
           src="/images/payment-complete.png"
           alt=""
           style={{

@@ -178,12 +178,23 @@ export default function Signup() {
           position: "relative",
         }}
       >
+        <img
+          src="/images/logo.png"
+          alt="로고"
+          style={{
+            width: "100px",
+            objectFit: "contain",
+            marginTop: "32px",
+            marginBottom: "20px",
+            display: "block",
+          }}
+        />
+
         <h1
           style={{
             ...TYPOGRAPHY.headlineMd,
             color: COLORS.text.primary,
             margin: 0,
-            marginTop: "40px",
             marginBottom: "12px",
           }}
         >
