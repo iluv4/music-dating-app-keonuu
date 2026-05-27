@@ -159,9 +159,10 @@ export default function ProfilePayment() {
 
         <img
           src="/images/logo.png"
-          alt="로고"
+          alt="pliting"
           style={{
-            width: "80px",
+            width: "120px",
+            height: "auto",
             objectFit: "contain",
             marginTop: "20px",
             marginBottom: "16px",
