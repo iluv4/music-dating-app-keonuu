@@ -1,5 +1,7 @@
-import { type CSSProperties } from "react";
-import { useNavigate } from "@remix-run/react";
+import { type CSSProperties, useEffect, useRef } from "react";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData, useNavigate } from "@remix-run/react";
+import { getUser } from "~/lib/auth.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -29,11 +31,33 @@ const genderBtnStyle = (selected: boolean): CSSProperties => ({
   ...TYPOGRAPHY.bodyBold,
 });
 
+// 카카오 로그인 사용자는 기본 동의항목(닉네임/이름)으로 이름을 미리 채운다.
+// scope·동의항목 승인 없이 받을 수 있는 값만 사용 — 성별/나이는 직접 입력.
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { user, headers } = await getUser(request);
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const pick = (k: string) =>
+    typeof meta[k] === "string" ? (meta[k] as string).trim() : "";
+  const kakaoName =
+    pick("name") || pick("full_name") || pick("nickname") || pick("preferred_username");
+  return json({ kakaoName }, { headers });
+}
+
 // 가입 정보 입력 — 기존 basic(이름/연도/성별) + school(학교/학과/동아리)을 한 화면으로 통합.
 // 학교는 직접 입력(주최교는 기본 제안). 캠퍼스가 나뉜 대학만 캠퍼스를 고른다.
 export default function ProfileBasic() {
   const navigate = useNavigate();
+  const { kakaoName } = useLoaderData<typeof loader>();
   const { state, update, hydrated } = useProfile();
+
+  // 카카오 이름 자동 채움 — 사용자가 아직 입력하지 않았을 때만 1회.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (hydrated && !prefilled.current && kakaoName && !state.name) {
+      prefilled.current = true;
+      update({ name: kakaoName });
+    }
+  }, [hydrated, kakaoName, state.name, update]);
 
   const needsCampus = schoolRequiresCampus(state.school);
 
