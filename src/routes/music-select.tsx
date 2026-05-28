@@ -81,9 +81,6 @@ export async function action({ request }: ActionFunctionArgs) {
   if (songs === null) {
     return json({ error: "잘못된 요청 형식입니다." }, { status: 400 });
   }
-  if (songs.length === 0) {
-    return json({ error: "최소 1곡 이상 선택해주세요." }, { status: 400 });
-  }
   if (songs.length > MAX_SONGS) {
     return json(
       { error: `최대 ${MAX_SONGS}곡까지 선택할 수 있어요.` },
@@ -91,9 +88,12 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  const result = await replaceUserSongs(ctx.supabase, ctx.user.id, songs);
-  if (!result.ok) {
-    return json({ error: "저장 중 오류가 발생했어요." }, { status: 500 });
+  // 곡은 선택사항 — 0개면 기존 곡을 유지한 채 건너뛰고 진행(매칭은 폴백으로 동작).
+  if (songs.length > 0) {
+    const result = await replaceUserSongs(ctx.supabase, ctx.user.id, songs);
+    if (!result.ok) {
+      return json({ error: "저장 중 오류가 발생했어요." }, { status: 500 });
+    }
   }
 
   // 곡 선택 "성공" — 음악 데이팅의 핵심 기능 완료 지점.
@@ -148,7 +148,7 @@ export default function MusicSelect() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const canSubmit = songs.length > 0 && !submitting;
+  const canSubmit = !submitting;
 
   return (
     <PhoneFrame>
@@ -204,7 +204,7 @@ export default function MusicSelect() {
             marginBottom: "20px",
           }}
         >
-          회원님을 소개할 수 있는 음악을 선택해주세요.
+          회원님을 소개할 음악을 골라보세요. 선택 안 해도 매칭은 가능해요.
         </p>
 
         {songs.length > 0 && (
@@ -320,7 +320,11 @@ export default function MusicSelect() {
           disabled={!canSubmit}
           style={{ maxWidth: "none" }}
         >
-          {submitting ? "저장 중..." : "매칭하러 가기"}
+          {submitting
+            ? "저장 중..."
+            : songs.length === 0
+              ? "건너뛰기"
+              : "매칭하러 가기"}
         </PrimaryButton>
       </Form>
 
