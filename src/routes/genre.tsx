@@ -7,7 +7,7 @@ import {
 } from "@remix-run/node";
 import { useFetcher, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
-import { requireApprovedUser } from "~/lib/auth.server";
+import { requireRegisteredUser } from "~/lib/auth.server";
 import { updateProfile } from "~/lib/repos/profiles.server";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -15,12 +15,12 @@ import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await requireRegisteredUser(request);
   return json({}, { headers: ctx.headers });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await requireRegisteredUser(request);
   const fd = await request.formData();
   const ids = String(fd.get("genres") ?? "")
     .split(",")
@@ -121,7 +121,7 @@ export default function Genre() {
           </h1>
           <button
             type="button"
-            onClick={() => navigate("/music")}
+            onClick={() => navigate("/explore")}
             aria-label="닫기"
             style={{
               fontSize: "24px",

@@ -32,7 +32,7 @@ export type ProfileUpsert = {
   gender: Gender | null;
   school: string;
   campus?: string | null;
-  major: string;
+  major?: string | null;
   club?: string | null;
   genres?: string[] | null;
   region?: string | null;

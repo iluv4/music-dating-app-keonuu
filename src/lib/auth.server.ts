@@ -71,6 +71,25 @@ export async function requireApprovedUser(request: Request) {
 }
 
 /**
+ * 가입 데이터 입력 단계(genre·music-select) 접근 게이트.
+ * - 로그인 안 됨 → /login
+ * - 프로필 없음(아직 기본정보 미입력) → /profile/basic
+ * - 프로필 있으면 통과(승인 여부 무관) — 결제 전이라도 음악 프로필을 먼저 만들게 한다.
+ * 반환값에 is_approved 를 포함해 호출 측에서 다음 목적지를 분기한다.
+ */
+export async function requireRegisteredUser(request: Request) {
+  const ctx = await requireUser(request);
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "user_id",
+    "is_approved",
+  ]);
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
+  return { ...ctx, isApproved: !!profile.is_approved };
+}
+
+/**
  * 채팅방 접근 게이트.
  * - 로그인 필수
  * - 미승인(승인대기) 사용자는 채팅 접근 불가 → /waiting

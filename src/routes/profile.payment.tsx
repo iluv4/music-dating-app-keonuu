@@ -1,168 +1,135 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   json,
   redirect,
   type ActionFunctionArgs,
+  type LoaderFunctionArgs,
 } from "@remix-run/node";
 import {
   Form,
   useActionData,
-  useFetcher,
+  useLoaderData,
   useNavigate,
   useNavigation,
 } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
-import ProgressDots from "~/components/ProgressDots";
 import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
-import { upsertProfile } from "~/lib/repos/profiles.server";
+import { getProfileFields, updateProfile } from "~/lib/repos/profiles.server";
 import { captureServer } from "~/lib/analytics.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
-import { readProfile, type ProfileForm } from "~/lib/profile-state";
-import {
-  isCampus,
-  isMatchCampusPref,
-  schoolRequiresCampus,
-} from "~/lib/campus";
 import { capture } from "~/lib/analytics.client";
-import type { Gender } from "~/lib/db-types";
 
 type ActionData = { error: string };
+
+// 결제(참가비) 단계 — 음악 프로필(장르·곡)을 다 만든 뒤 도달하는 마지막 게이트.
+// 프로필 행은 이미 /profile/basic 에서 생성됐으므로 여기선 입금자명만 갱신한다.
+export async function loader({ request }: LoaderFunctionArgs) {
+  const ctx = await requireUser(request);
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "name",
+    "gender",
+    "bank_holder",
+    "is_approved",
+  ]);
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
+  // 이미 승인된 사용자는 결제 단계가 필요 없음 → 매칭 화면으로.
+  if (profile.is_approved) {
+    throw redirect("/music", { headers: ctx.headers });
+  }
+  return json(
+    {
+      name: profile.name,
+      gender: profile.gender,
+      bankHolder: profile.bank_holder ?? "",
+    },
+    { headers: ctx.headers },
+  );
+}
 
 export async function action({ request }: ActionFunctionArgs) {
   const ctx = await requireUser(request);
   const fd = await request.formData();
 
-  // intent === "skip" → "나중에 입금할게요" (입금자명 없이 통과)
+  // intent === "skip" → "나중에 입금할게요 (먼저 둘러보기)"
   const skip = String(fd.get("intent") ?? "submit") === "skip";
 
-  const name = String(fd.get("name") ?? "").trim();
-  const birthYearStr = String(fd.get("birth_year") ?? "").trim();
-  const gender = String(fd.get("gender") ?? "").trim() || null;
-  const campusRaw = String(fd.get("campus") ?? "").trim();
-  const campus = isCampus(campusRaw) ? campusRaw : "";
-  // 학교는 사용자가 직접 입력(주최교는 기본 제안). 다른 대학도 가입 가능.
-  const school = String(fd.get("school") ?? "").trim().slice(0, 80);
-  const major = String(fd.get("major") ?? "").trim();
-  const club = String(fd.get("club") ?? "").trim();
-  const region = String(fd.get("region") ?? "").trim();
-  const matchPrefRaw = String(fd.get("match_campus_pref") ?? "").trim();
-  const matchCampusPref = isMatchCampusPref(matchPrefRaw) ? matchPrefRaw : "상관없음";
-  const bankHolder = String(fd.get("bank_holder") ?? "").trim();
-
-  // 사진 경로 — 본인 폴더(`${userId}/...`) 안 안전한 경로만 허용. 빈값/이상값이면 미저장.
-  const photoPathRaw = String(fd.get("photo_path") ?? "").trim();
-  const photoPath =
-    photoPathRaw &&
-    photoPathRaw.startsWith(`${ctx.user.id}/`) &&
-    !photoPathRaw.includes("..") &&
-    !photoPathRaw.includes("://")
-      ? photoPathRaw
-      : null;
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "name",
+    "gender",
+    "school",
+    "major",
+  ]);
+  if (!profile) {
+    throw redirect("/profile/basic", { headers: ctx.headers });
+  }
 
   // 여성은 참가비 무료 — 입금자명 없이 통과(성비 불균형 완화).
   // self-declared 성별이라 어뷰징(남→여 위장)은 관리자 수동 승인에서 거른다.
-  const free = gender === "female";
-
-  const birthYear = Number(birthYearStr);
-  // 캠퍼스가 나뉜 대학만 캠퍼스 필수.
-  const campusOk = !schoolRequiresCampus(school) || !!campus;
-  // 스킵·무료(여성)가 아니면 입금자명 필수
+  const free = profile.gender === "female";
+  const bankHolder = String(fd.get("bank_holder") ?? "").trim();
   const bankRequired = !skip && !free;
-  if (!name || !birthYear || !school || !campusOk || !major || (bankRequired && !bankHolder)) {
+
+  if (bankRequired && bankHolder.length < 2) {
     return json<ActionData>(
-      {
-        error: "프로필 정보가 누락됐어요. 이전 단계로 돌아가 다시 진행해주세요.",
-      },
+      { error: "입금자명을 확인해주세요." },
       { status: 400, headers: ctx.headers },
     );
   }
 
-  const result = await upsertProfile(ctx.supabase, {
-    user_id: ctx.user.id,
-    name,
-    birth_year: birthYear,
-    gender: gender as Gender | null,
-    school,
-    campus: campus || null,
-    major,
-    club: club || null,
-    region: region || null,
-    match_campus_pref: matchCampusPref,
-    bank_holder: bankHolder,
-    photo_path: photoPath,
-  });
-
-  if (!result.ok) {
-    return json<ActionData>(
-      { error: "저장 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
-      { status: 500, headers: ctx.headers },
-    );
+  if (bankHolder) {
+    const result = await updateProfile(ctx.supabase, ctx.user.id, {
+      bank_holder: bankHolder,
+    });
+    if (!result.ok) {
+      return json<ActionData>(
+        { error: "저장 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
+        { status: 500, headers: ctx.headers },
+      );
+    }
   }
 
-  // 프로필 완성 "성공" 이벤트 — 가입 후 결제 단계 이탈(가장 큰 누수) 측정용.
-  await captureServer(ctx.user.id, "profile.completed", {
-    skipped: skip,
-    free,
-    has_photo: !!photoPath,
-  });
+  await captureServer(ctx.user.id, "payment.submitted", { skipped: skip, free });
 
   // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
-  // 가입/입금 신청을 팀 채널에 알려 관리자가 입금 내역과 대조해 승인하도록 한다.
   // (Slack Webhook 미설정 시 자동 no-op)
   await notifySlack(
     buildPaymentNotice({
       userId: ctx.user.id,
-      name,
-      school,
-      major,
+      name: profile.name,
+      school: profile.school,
+      major: profile.major ?? "",
       bankHolder,
       skipped: skip,
       free,
     }),
   );
 
-  // 입금 신청자·무료(여성) → 승인 대기 화면. 둘러보기만 원한 사람 → 익명 미리보기(탐색).
+  // 입금 신청자·무료(여성) → 승인 대기 화면. 더 둘러보고 싶은 사람 → 익명 미리보기(탐색).
   return redirect(skip ? "/explore" : "/waiting", { headers: ctx.headers });
 }
 
 export default function ProfilePayment() {
+  const { name, gender, bankHolder: initialBankHolder } =
+    useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
   const submitting = navigation.state === "submitting";
   const formRef = useRef<HTMLFormElement>(null);
-  const tracker = useFetcher();
-
-  const [profile, setProfile] = useState<ProfileForm | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-  const [bankHolder, setBankHolder] = useState("");
-
-  useEffect(() => {
-    const p = readProfile();
-    setProfile(p);
-    setBankHolder(p.bankHolder ?? "");
-    setHydrated(true);
-    // 가입 이탈 추적: 결제 단계 진입 기록(여기서 이탈하면 프로필 행이 안 생김).
-    tracker.submit(
-      { step: "profile_payment" },
-      { method: "post", action: "/profile/track" },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [bankHolder, setBankHolder] = useState(initialBankHolder);
 
   // 여성은 참가비 무료 → 입금자명 없이 바로 완료 가능.
-  const isFemale = profile?.gender === "female";
+  const isFemale = gender === "female";
   const canSubmit =
-    hydrated &&
-    !!profile?.name &&
-    (isFemale || bankHolder.trim().length >= 2) &&
-    !submitting;
+    (isFemale || bankHolder.trim().length >= 2) && !submitting;
 
   return (
     <PhoneFrame>
@@ -170,6 +137,7 @@ export default function ProfilePayment() {
       <SignupStepNav
         onBack={() => navigate(-1)}
         onNext={() => {
+          if (!canSubmit) return;
           capture("payment.submitted");
           formRef.current?.requestSubmit();
         }}
@@ -185,22 +153,6 @@ export default function ProfilePayment() {
           position: "relative",
         }}
       >
-        {/* 이전 step 데이터 hidden 전달 */}
-        <input type="hidden" name="name" value={profile?.name ?? ""} />
-        <input type="hidden" name="birth_year" value={profile?.birthYear ?? ""} />
-        <input type="hidden" name="gender" value={profile?.gender ?? ""} />
-        <input type="hidden" name="school" value={profile?.school ?? ""} />
-        <input type="hidden" name="campus" value={profile?.campus ?? ""} />
-        <input type="hidden" name="major" value={profile?.major ?? ""} />
-        <input type="hidden" name="club" value={profile?.club ?? ""} />
-        <input type="hidden" name="region" value={profile?.region ?? ""} />
-        <input
-          type="hidden"
-          name="match_campus_pref"
-          value={profile?.matchCampusPref ?? "상관없음"}
-        />
-        <input type="hidden" name="photo_path" value={profile?.photoPath ?? ""} />
-
         <img
           src="/images/logo.png"
           alt="pliting"
@@ -209,14 +161,10 @@ export default function ProfilePayment() {
             height: "auto",
             objectFit: "contain",
             marginTop: "20px",
-            marginBottom: "16px",
+            marginBottom: "24px",
             display: "block",
           }}
         />
-
-        <div style={{ marginBottom: "40px" }}>
-          <ProgressDots total={3} current={3} />
-        </div>
 
         {isFemale ? (
           <>
@@ -228,7 +176,7 @@ export default function ProfilePayment() {
                 marginBottom: "12px",
               }}
             >
-              여성은
+              {name}님,
               <br />
               <span style={{ color: COLORS.accent }}>참가비가 무료</span>예요 🎀
             </h1>
@@ -253,9 +201,9 @@ export default function ProfilePayment() {
                 marginBottom: "12px",
               }}
             >
-              입금자명을
+              마지막!
               <br />
-              작성해주세요!
+              <span style={{ color: COLORS.accent }}>입금자명</span>을 적어주세요
             </h1>
             <p
               style={{
@@ -265,7 +213,7 @@ export default function ProfilePayment() {
                 marginBottom: "32px",
               }}
             >
-              아래 계좌로 입금 후 입금자명을 입력해주세요.
+              아래 계좌로 입금 후 입금자명을 입력하면 매칭이 시작돼요.
             </p>
 
             <div
@@ -360,7 +308,7 @@ export default function ProfilePayment() {
               type="submit"
               name="intent"
               value="skip"
-              disabled={!hydrated || !profile?.name || submitting}
+              disabled={submitting}
               style={{
                 ...TYPOGRAPHY.label,
                 color: COLORS.text.helper,
