@@ -46,6 +46,16 @@ export type ProfileUpdate = Partial<
   Omit<ProfileUpsert, "user_id">
 > & { updated_at?: string };
 
+// onboarding_progress --------------------------------------------------------
+// 가입 단계 진입 기록(프로필 행 생성 전 이탈 추적용).
+export type OnboardingProgressRow = {
+  user_id: string;
+  step: string; // "profile_basic" | "profile_payment"
+  step_rank: number;
+  created_at: string;
+  updated_at: string;
+};
+
 // user_songs -----------------------------------------------------------------
 export type UserSongRow = {
   id: string;

@@ -4,7 +4,13 @@ import {
   redirect,
   type ActionFunctionArgs,
 } from "@remix-run/node";
-import { Form, useActionData, useNavigate, useNavigation } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useFetcher,
+  useNavigate,
+  useNavigation,
+} from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -131,6 +137,7 @@ export default function ProfilePayment() {
   const navigate = useNavigate();
   const submitting = navigation.state === "submitting";
   const formRef = useRef<HTMLFormElement>(null);
+  const tracker = useFetcher();
 
   const [profile, setProfile] = useState<ProfileForm | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -141,6 +148,12 @@ export default function ProfilePayment() {
     setProfile(p);
     setBankHolder(p.bankHolder ?? "");
     setHydrated(true);
+    // 가입 이탈 추적: 결제 단계 진입 기록(여기서 이탈하면 프로필 행이 안 생김).
+    tracker.submit(
+      { step: "profile_payment" },
+      { method: "post", action: "/profile/track" },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 여성은 참가비 무료 → 입금자명 없이 바로 완료 가능.

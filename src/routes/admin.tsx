@@ -38,6 +38,14 @@ type PendingMatch = {
   bName: string;
 };
 
+// 가입 도중 이탈한 사람(프로필 미생성). bucket 으로 어디서 멈췄는지 구분.
+type Dropoff = {
+  userId: string;
+  email: string;
+  bucket: "account_only" | "profile_basic" | "profile_payment";
+  at: string; // 마지막 활동/가입 시각 ISO
+};
+
 function assertKey(request: Request, key: string | null) {
   const expected = process.env.ADMIN_KEY;
   // 미설정이면 기능 자체를 숨김(404). 설정됐는데 불일치해도 404.
@@ -103,6 +111,51 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bName: nameMap.get(m.user_b) ?? "(알 수 없음)",
   }));
 
+  // 가입 이탈 현황: 프로필을 끝내지 못한(= profiles 행 없는) 계정을 단계별로 분류.
+  // - account_only : 계정만 생성, 단계 진입 기록 없음(가입폼 직후 이탈 또는 추적 도입 전 가입자)
+  // - profile_basic: 프로필 입력 화면까지 갔으나 결제 단계 전 이탈
+  // - profile_payment: 결제 화면까지 갔으나 입금자명 제출 전 이탈
+  const [allProfilesRes, progressRes, usersRes] = await Promise.all([
+    admin.from("profiles").select("user_id"),
+    admin
+      .from("onboarding_progress")
+      .select("user_id, step, updated_at"),
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+  ]);
+
+  const completed = new Set(
+    ((allProfilesRes.data ?? []) as { user_id: string }[]).map(
+      (r) => r.user_id,
+    ),
+  );
+  const progressMap = new Map<string, { step: string; updated_at: string }>();
+  for (const r of (progressRes.data ?? []) as {
+    user_id: string;
+    step: string;
+    updated_at: string;
+  }[]) {
+    progressMap.set(r.user_id, { step: r.step, updated_at: r.updated_at });
+  }
+
+  const dropoffs: Dropoff[] = [];
+  for (const u of usersRes.data?.users ?? []) {
+    if (completed.has(u.id)) continue; // 프로필 완료자는 제외
+    const prog = progressMap.get(u.id);
+    const bucket: Dropoff["bucket"] = !prog
+      ? "account_only"
+      : prog.step === "profile_payment"
+        ? "profile_payment"
+        : "profile_basic";
+    dropoffs.push({
+      userId: u.id,
+      email: u.email ?? "(이메일 없음)",
+      bucket,
+      at: prog?.updated_at ?? u.last_sign_in_at ?? u.created_at,
+    });
+  }
+  // 최근 활동 순
+  dropoffs.sort((a, b) => (a.at < b.at ? 1 : -1));
+
   // 입구컷: 신청자 사진 썸네일을 운영팀이 입금자명·학생증과 대조할 수 있게 서명 URL 첨부.
   const rawPending = (profilesRes.data ?? []) as unknown as Omit<
     Pending,
@@ -121,7 +174,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }),
   );
 
-  return json({ pending, pendingMatches });
+  return json({ pending, pendingMatches, dropoffs });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -206,6 +259,15 @@ export async function action({ request }: ActionFunctionArgs) {
   return json({ ok: true });
 }
 
+const DROPOFF_META: Record<
+  Dropoff["bucket"],
+  { label: string; color: string; bg: string }
+> = {
+  profile_payment: { label: "결제 단계", color: "#b91c1c", bg: "#fee2e2" },
+  profile_basic: { label: "프로필 단계", color: "#b45309", bg: "#fef3c7" },
+  account_only: { label: "가입만", color: "#6b7280", bg: "#f3f4f6" },
+};
+
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${d
@@ -215,7 +277,7 @@ const fmtDate = (iso: string) => {
 };
 
 export default function Admin() {
-  const { pending, pendingMatches } = useLoaderData<typeof loader>();
+  const { pending, pendingMatches, dropoffs } = useLoaderData<typeof loader>();
   const nav = useNavigation();
   const submitting = nav.state === "submitting";
   const [searchParams] = useSearchParams();
@@ -419,6 +481,72 @@ export default function Admin() {
               </Form>
             </div>
           ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: "18px", margin: "40px 0 4px" }}>가입 이탈 현황</h2>
+      <p style={{ color: "#888", fontSize: "14px", margin: "0 0 16px" }}>
+        프로필을 끝내지 못한 계정. 결제 화면까지 갔다 멈춘 사람일수록 전환 가능성이
+        높아요. 총 <b>{dropoffs.length}</b>명
+      </p>
+
+      {dropoffs.length === 0 ? (
+        <p style={{ color: "#aaa", padding: "24px 0", textAlign: "center" }}>
+          이탈한 가입자가 없어요.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {dropoffs.map((d) => {
+            const meta = DROPOFF_META[d.bucket];
+            return (
+              <div
+                key={d.userId}
+                style={{
+                  border: "1px solid #eee",
+                  background: "white",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {d.email}
+                  </div>
+                  <div
+                    style={{ color: "#bbb", fontSize: "12px", marginTop: "3px" }}
+                  >
+                    {fmtDate(d.at)}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    flexShrink: 0,
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: meta.color,
+                    background: meta.bg,
+                    borderRadius: "6px",
+                    padding: "4px 10px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {meta.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

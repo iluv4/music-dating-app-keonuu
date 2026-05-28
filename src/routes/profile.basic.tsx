@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef } from "react";
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
 import { getUser } from "~/lib/auth.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
@@ -49,6 +49,16 @@ export default function ProfileBasic() {
   const navigate = useNavigate();
   const { kakaoName } = useLoaderData<typeof loader>();
   const { state, update, hydrated } = useProfile();
+  const tracker = useFetcher();
+
+  // 가입 이탈 추적: 이 단계 진입을 서버에 기록(프로필 행 생기기 전 구간).
+  useEffect(() => {
+    tracker.submit(
+      { step: "profile_basic" },
+      { method: "post", action: "/profile/track" },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 카카오 이름 자동 채움 — 사용자가 아직 입력하지 않았을 때만 1회.
   const prefilled = useRef(false);
