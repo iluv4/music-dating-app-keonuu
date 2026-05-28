@@ -26,7 +26,8 @@ begin
   end if;
   r := case p_step
          when 'profile_basic'   then 1
-         when 'profile_payment' then 2
+         when 'profile_photo'   then 2
+         when 'profile_payment' then 3
          else 0
        end;
   if r = 0 then

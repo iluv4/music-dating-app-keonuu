@@ -42,7 +42,7 @@ type PendingMatch = {
 type Dropoff = {
   userId: string;
   email: string;
-  bucket: "account_only" | "profile_basic" | "profile_payment";
+  bucket: "account_only" | "profile_basic" | "profile_photo" | "profile_payment";
   at: string; // 마지막 활동/가입 시각 ISO
 };
 
@@ -145,7 +145,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ? "account_only"
       : prog.step === "profile_payment"
         ? "profile_payment"
-        : "profile_basic";
+        : prog.step === "profile_photo"
+          ? "profile_photo"
+          : "profile_basic";
     dropoffs.push({
       userId: u.id,
       email: u.email ?? "(이메일 없음)",
@@ -264,6 +266,7 @@ const DROPOFF_META: Record<
   { label: string; color: string; bg: string }
 > = {
   profile_payment: { label: "결제 단계", color: "#b91c1c", bg: "#fee2e2" },
+  profile_photo: { label: "사진 단계", color: "#9a3412", bg: "#ffedd5" },
   profile_basic: { label: "프로필 단계", color: "#b45309", bg: "#fef3c7" },
   account_only: { label: "가입만", color: "#6b7280", bg: "#f3f4f6" },
 };

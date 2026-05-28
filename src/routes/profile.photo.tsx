@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useNavigate } from "@remix-run/react";
+import { useFetcher, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -29,7 +29,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function ProfilePhoto() {
   const navigate = useNavigate();
   const { state, update, hydrated } = useProfile();
+  const tracker = useFetcher();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 가입 이탈 추적: 사진 단계 진입 기록.
+  useEffect(() => {
+    tracker.submit(
+      { step: "profile_photo" },
+      { method: "post", action: "/profile/track" },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
