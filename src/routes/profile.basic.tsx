@@ -1,25 +1,26 @@
-import { type CSSProperties, useEffect, useRef } from "react";
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
-import { getUser } from "~/lib/auth.server";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  json,
+  redirect,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
+import { Form, useActionData, useLoaderData, useNavigate, useNavigation, useFetcher } from "@remix-run/react";
+import { getUser, requireUser } from "~/lib/auth.server";
+import { upsertProfile } from "~/lib/repos/profiles.server";
+import { captureServer } from "~/lib/analytics.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import ProgressDots from "~/components/ProgressDots";
 import TextInput from "~/components/TextInput";
 import CampusSelect from "~/components/CampusSelect";
-import DeptSelect from "~/components/DeptSelect";
-import ClubSelect from "~/components/ClubSelect";
-import RegionSelect from "~/components/RegionSelect";
-import MatchCampusPrefSelect from "~/components/MatchCampusPrefSelect";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
-import { useProfile } from "~/lib/profile-state";
-import { schoolRequiresCampus, type Campus } from "~/lib/campus";
+import { DEFAULT_SCHOOL, isCampus, schoolRequiresCampus, type Campus } from "~/lib/campus";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const NEXT = "/profile/photo";
 
 const genderBtnStyle = (selected: boolean): CSSProperties => ({
   flex: 1,
@@ -32,7 +33,6 @@ const genderBtnStyle = (selected: boolean): CSSProperties => ({
 });
 
 // 카카오 로그인 사용자는 기본 동의항목(닉네임/이름)으로 이름을 미리 채운다.
-// scope·동의항목 승인 없이 받을 수 있는 값만 사용 — 성별/나이는 직접 입력.
 export async function loader({ request }: LoaderFunctionArgs) {
   const { user, headers } = await getUser(request);
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -43,15 +43,75 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return json({ kakaoName }, { headers });
 }
 
-// 가입 정보 입력 — 기존 basic(이름/연도/성별) + school(학교/학과/동아리)을 한 화면으로 통합.
-// 학교는 직접 입력(주최교는 기본 제안). 캠퍼스가 나뉜 대학만 캠퍼스를 고른다.
+type ActionData = { error: string };
+
+// 가입 핵심 정보만 입력 — 이름·출생년·성별·학교(+캠퍼스). 전공/동아리/지역/사진은 가입 후로 미룸.
+// 여기서 프로필 행을 즉시 생성해(미승인 상태) 이탈 전에 사용자를 확보하고, 바로 장르 선택으로 넘긴다.
+export async function action({ request }: ActionFunctionArgs) {
+  const ctx = await requireUser(request);
+  const fd = await request.formData();
+
+  const name = String(fd.get("name") ?? "").trim();
+  const birthYear = Number(String(fd.get("birth_year") ?? "").trim());
+  const gender = String(fd.get("gender") ?? "").trim();
+  const school = String(fd.get("school") ?? "").trim().slice(0, 80);
+  const campusRaw = String(fd.get("campus") ?? "").trim();
+  const campus = isCampus(campusRaw) ? campusRaw : "";
+
+  const campusOk = !schoolRequiresCampus(school) || !!campus;
+  if (
+    !name ||
+    !birthYear ||
+    birthYear < 1950 ||
+    birthYear > CURRENT_YEAR ||
+    (gender !== "male" && gender !== "female") ||
+    school.length < 2 ||
+    !campusOk
+  ) {
+    return json<ActionData>(
+      { error: "입력 정보를 확인해주세요." },
+      { status: 400, headers: ctx.headers },
+    );
+  }
+
+  const result = await upsertProfile(ctx.supabase, {
+    user_id: ctx.user.id,
+    name,
+    birth_year: birthYear,
+    gender,
+    school,
+    campus: campus || null,
+    bank_holder: null,
+  });
+
+  if (!result.ok) {
+    return json<ActionData>(
+      { error: "저장 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
+      { status: 500, headers: ctx.headers },
+    );
+  }
+
+  await captureServer(ctx.user.id, "profile.created", { gender });
+
+  return redirect("/genre", { headers: ctx.headers });
+}
+
 export default function ProfileBasic() {
   const navigate = useNavigate();
+  const navigation = useNavigation();
   const { kakaoName } = useLoaderData<typeof loader>();
-  const { state, update, hydrated } = useProfile();
+  const actionData = useActionData<typeof action>();
   const tracker = useFetcher();
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitting = navigation.state === "submitting";
 
-  // 가입 이탈 추적: 이 단계 진입을 서버에 기록(프로필 행 생기기 전 구간).
+  const [name, setName] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "">("");
+  const [school, setSchool] = useState(DEFAULT_SCHOOL.name);
+  const [campus, setCampus] = useState<Campus | "">("");
+
+  // 가입 이탈 추적: 이 단계 진입을 서버에 기록.
   useEffect(() => {
     tracker.submit(
       { step: "profile_basic" },
@@ -61,195 +121,179 @@ export default function ProfileBasic() {
   }, []);
 
   // 카카오 이름 자동 채움 — 사용자가 아직 입력하지 않았을 때만 1회.
-  const prefilled = useRef(false);
   useEffect(() => {
-    if (hydrated && !prefilled.current && kakaoName && !state.name) {
-      prefilled.current = true;
-      update({ name: kakaoName });
-    }
-  }, [hydrated, kakaoName, state.name, update]);
+    if (kakaoName) setName((prev) => prev || kakaoName);
+  }, [kakaoName]);
 
-  const needsCampus = schoolRequiresCampus(state.school);
+  const needsCampus = schoolRequiresCampus(school);
 
-  // 학교를 바꾸면 캠퍼스·학과·동아리는 학교/캠퍼스별이라 초기화한다.
-  const selectSchool = (school: string) => {
-    if (school === state.school) return;
-    update({ school, campus: "", major: "", club: "" });
+  // 학교를 바꾸면 캠퍼스는 학교별이라 초기화한다.
+  const selectSchool = (next: string) => {
+    if (next === school) return;
+    setSchool(next);
+    setCampus("");
   };
 
-  // 캠퍼스를 바꾸면 학과·동아리는 캠퍼스별 목록이라 초기화한다.
-  const selectCampus = (campus: Campus) => {
-    if (campus === state.campus) return;
-    update({ campus, major: "", club: "" });
-  };
-
-  const yearNum = Number(state.birthYear);
+  const yearNum = Number(birthYear);
   const canNext =
-    hydrated &&
-    state.name.trim().length >= 1 &&
-    /^\d{4}$/.test(state.birthYear) &&
+    name.trim().length >= 1 &&
+    /^\d{4}$/.test(birthYear) &&
     yearNum >= 1950 &&
     yearNum <= CURRENT_YEAR &&
-    (state.gender === "male" || state.gender === "female") &&
-    state.school.trim().length >= 2 &&
-    (!needsCampus || state.campus !== "") &&
-    state.major.trim().length >= 2;
+    (gender === "male" || gender === "female") &&
+    school.trim().length >= 2 &&
+    (!needsCampus || campus !== "") &&
+    !submitting;
 
   return (
     <PhoneFrame>
       <StatusBar />
-      <SignupStepNav
-        onBack={() => navigate("/welcome")}
-        onNext={() => canNext && navigate(NEXT)}
-        canNext={canNext}
-      />
-      <div
-        style={{
-          flex: 1,
-          padding: "0 25px",
-          paddingBottom: "120px",
-          position: "relative",
-          overflowY: "auto",
-        }}
-      >
-        <img
-          src="/images/logo.png"
-          alt="pliting"
-          style={{
-            width: "120px",
-            height: "auto",
-            objectFit: "contain",
-            marginTop: "20px",
-            marginBottom: "16px",
-            display: "block",
-          }}
+      <Form ref={formRef} method="post" style={{ display: "contents" }}>
+        <input type="hidden" name="name" value={name} />
+        <input type="hidden" name="birth_year" value={birthYear} />
+        <input type="hidden" name="gender" value={gender} />
+        <input type="hidden" name="school" value={school} />
+        <input type="hidden" name="campus" value={campus} />
+
+        <SignupStepNav
+          onBack={() => navigate("/welcome")}
+          onNext={() => canNext && formRef.current?.requestSubmit()}
+          canNext={canNext}
         />
-
-        <div style={{ marginBottom: "30px" }}>
-          <ProgressDots total={3} current={1} />
-        </div>
-
-        <h1
+        <div
           style={{
-            ...TYPOGRAPHY.headlineMd,
-            color: COLORS.text.primary,
-            margin: 0,
-            marginBottom: "12px",
-            lineHeight: 1.25,
+            flex: 1,
+            padding: "0 25px",
+            paddingBottom: "120px",
+            position: "relative",
+            overflowY: "auto",
           }}
         >
-          <span style={{ color: COLORS.accent }}>프로필 정보</span>를<br />
-          작성해주세요!
-        </h1>
-        <p
-          style={{
-            ...TYPOGRAPHY.body,
-            color: COLORS.text.helper,
-            margin: 0,
-            marginBottom: "32px",
-          }}
-        >
-          음악 취향으로 만나는 대학생 소개팅. 한 번에 입력하면 끝!
-        </p>
+          <img
+            src="/images/logo.png"
+            alt="pliting"
+            style={{
+              width: "120px",
+              height: "auto",
+              objectFit: "contain",
+              marginTop: "20px",
+              marginBottom: "16px",
+              display: "block",
+            }}
+          />
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <TextInput
-            label="이름"
-            type="text"
-            placeholder="홍길동"
-            value={state.name}
-            onChange={(e) => update({ name: e.target.value })}
-          />
-          <TextInput
-            label="태어난 연도"
-            type="text"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="태어난 연도를 입력해주세요 (예: 2002)"
-            value={state.birthYear}
-            onChange={(e) =>
-              update({
-                birthYear: e.target.value.replace(/\D/g, "").slice(0, 4),
-              })
-            }
-          />
-          <div>
-            <div
+          <div style={{ marginBottom: "30px" }}>
+            <ProgressDots total={3} current={1} />
+          </div>
+
+          <h1
+            style={{
+              ...TYPOGRAPHY.headlineMd,
+              color: COLORS.text.primary,
+              margin: 0,
+              marginBottom: "12px",
+              lineHeight: 1.25,
+            }}
+          >
+            <span style={{ color: COLORS.accent }}>기본 정보</span>만<br />
+            입력하면 끝!
+          </h1>
+          <p
+            style={{
+              ...TYPOGRAPHY.body,
+              color: COLORS.text.helper,
+              margin: 0,
+              marginBottom: "32px",
+            }}
+          >
+            나머지 프로필은 가입 후 천천히 채울 수 있어요.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <TextInput
+              label="이름"
+              type="text"
+              placeholder="홍길동"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <TextInput
+              label="태어난 연도"
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="태어난 연도를 입력해주세요 (예: 2002)"
+              value={birthYear}
+              onChange={(e) =>
+                setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+            />
+            <div>
+              <div
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  color: COLORS.text.primary,
+                  marginBottom: "10px",
+                }}
+              >
+                성별
+              </div>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  type="button"
+                  onClick={() => setGender("male")}
+                  style={genderBtnStyle(gender === "male")}
+                >
+                  남성 ♂
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGender("female")}
+                  style={genderBtnStyle(gender === "female")}
+                >
+                  여성 ♀
+                </button>
+              </div>
+            </div>
+            <CampusSelect
+              label="학교"
+              school={school}
+              campus={campus}
+              onSchoolChange={selectSchool}
+              onCampusChange={(c) => setCampus(c)}
+            />
+          </div>
+
+          {actionData?.error && (
+            <p
               style={{
-                ...TYPOGRAPHY.bodyBold,
-                color: COLORS.text.primary,
-                marginBottom: "10px",
+                ...TYPOGRAPHY.caption,
+                color: COLORS.accent,
+                marginTop: "16px",
               }}
             >
-              성별
-            </div>
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => update({ gender: "male" })}
-                style={genderBtnStyle(state.gender === "male")}
-              >
-                남성 ♂
-              </button>
-              <button
-                type="button"
-                onClick={() => update({ gender: "female" })}
-                style={genderBtnStyle(state.gender === "female")}
-              >
-                여성 ♀
-              </button>
-            </div>
-          </div>
-          <CampusSelect
-            label="학교"
-            school={state.school}
-            campus={state.campus}
-            onSchoolChange={selectSchool}
-            onCampusChange={selectCampus}
-          />
-          <DeptSelect
-            label="학과"
-            value={state.major}
-            campus={state.campus}
-            freeText={!needsCampus}
-            onChange={(major) => update({ major })}
-          />
-          <ClubSelect
-            label="동아리"
-            value={state.club}
-            campus={state.campus}
-            onChange={(club) => update({ club })}
-          />
-          <RegionSelect
-            label="거주지역"
-            value={state.region}
-            onChange={(region) => update({ region })}
-          />
-          {needsCampus && (
-            <MatchCampusPrefSelect
-              value={state.matchCampusPref}
-              onChange={(matchCampusPref) => update({ matchCampusPref })}
-            />
+              {actionData.error}
+            </p>
           )}
         </div>
-      </div>
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: "34px",
-          left: "20px",
-          right: "20px",
-        }}
-      >
-        <PrimaryButton
-          disabled={!canNext}
-          onClick={() => navigate(NEXT)}
-          style={{ width: "100%" }}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "34px",
+            left: "20px",
+            right: "20px",
+          }}
         >
-          다음으로
-        </PrimaryButton>
-      </div>
+          <PrimaryButton
+            type="submit"
+            disabled={!canNext}
+            style={{ width: "100%" }}
+          >
+            {submitting ? "저장 중..." : "다음으로"}
+          </PrimaryButton>
+        </div>
+      </Form>
       <HomeIndicator />
     </PhoneFrame>
   );

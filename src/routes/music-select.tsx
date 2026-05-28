@@ -12,7 +12,7 @@ import {
   useNavigate,
   useNavigation,
 } from "@remix-run/react";
-import { requireApprovedUser } from "~/lib/auth.server";
+import { requireRegisteredUser } from "~/lib/auth.server";
 import {
   listUserSongs,
   replaceUserSongs,
@@ -34,7 +34,7 @@ import type { SearchResponse, Song } from "~/lib/song-types";
 
 // SSR: 인증 + 승인 + 기존 user_songs + 추천 차트 prefetch
 export async function loader({ request }: LoaderFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await requireRegisteredUser(request);
 
   // 기존 곡 + 추천 차트 병렬 조회. 차트는 self-fetch(HTTP 왕복) 없이 서버 함수 직접 호출.
   const [existing, recommended] = await Promise.all([
@@ -74,7 +74,7 @@ function parseSongsFromForm(raw: string): Song[] | null {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const ctx = await requireApprovedUser(request);
+  const ctx = await requireRegisteredUser(request);
   const fd = await request.formData();
   const songs = parseSongsFromForm(String(fd.get("songs") ?? "[]"));
 
@@ -96,10 +96,14 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "저장 중 오류가 발생했어요." }, { status: 500 });
   }
 
-  // 곡 선택 "성공" — 음악 데이팅의 핵심 기능 완료 지점(승인자의 60%가 미완).
+  // 곡 선택 "성공" — 음악 데이팅의 핵심 기능 완료 지점.
   await captureServer(ctx.user.id, "songs.selected", { count: songs.length });
 
-  return redirect("/music", { headers: ctx.headers });
+  // 음악 프로필을 다 만든 뒤에야 결제(참가비)를 안내한다 — 가치를 먼저 경험시키고 결제는 후순위.
+  // 이미 승인된 사용자가 곡을 다시 고른 경우엔 바로 매칭 화면으로.
+  return redirect(ctx.isApproved ? "/music" : "/profile/payment", {
+    headers: ctx.headers,
+  });
 }
 
 export default function MusicSelect() {
