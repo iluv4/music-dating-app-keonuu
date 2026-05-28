@@ -12,6 +12,7 @@ import { COLORS, TYPOGRAPHY, RADIUS } from "~/lib/constants";
 import { requireGuest } from "~/lib/auth.server";
 import { createSupabaseServerClient } from "~/lib/supabase.server";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
+import { captureServer } from "~/lib/analytics.server";
 import { TERMS, TERM_BODIES, type TermItem } from "~/lib/terms-content";
 
 const Check = ({ checked, size = 22 }: { checked: boolean; size?: number }) => (
@@ -96,7 +97,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // 1) admin API 로 사용자 생성 (이메일 발송 안 함, 자동 인증)
   //    무료 티어의 이메일 rate limit 회피 + 즉시 사용 가능
-  const { error: createError } = await admin.auth.admin.createUser({
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -123,6 +124,11 @@ export async function action({ request }: ActionFunctionArgs) {
       { error: "가입은 됐지만 로그인에 실패했어요. 다시 로그인해주세요." },
       { status: 500 },
     );
+  }
+
+  // 가입 "성공" 이벤트 — onSubmit 의 signup.submitted(시도)와 분리해 실가입 퍼널 측정.
+  if (created.user?.id) {
+    await captureServer(created.user.id, "signup.success");
   }
 
   return redirect("/profile/basic", { headers });

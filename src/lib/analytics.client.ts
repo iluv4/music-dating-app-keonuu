@@ -6,6 +6,45 @@ import type { PostHog } from "posthog-js";
 
 let client: PostHog | null = null;
 
+const FIRST_TOUCH_KEY = "ph_first_touch";
+
+// 첫 방문의 유입 출처(utm/referrer/landing)를 1회만 저장.
+// 에타처럼 referrer 가 안 넘어오는 앱 유입은 utm 링크로만 출처가 잡히므로,
+// 들어온 순간의 출처를 사람(person)에 박아 둬야 이후 가입/매칭까지 출처별 퍼널이 보인다.
+function readFirstTouch(): Record<string, string> {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const touch: Record<string, string> = {};
+    for (const k of [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+    ]) {
+      const v = params.get(k);
+      if (v) touch[`initial_${k}`] = v.slice(0, 100);
+    }
+    if (document.referrer) touch.initial_referrer = document.referrer.slice(0, 200);
+    touch.initial_landing = window.location.pathname;
+    return touch;
+  } catch {
+    return {};
+  }
+}
+
+function persistFirstTouch(): Record<string, string> {
+  try {
+    const existing = window.localStorage.getItem(FIRST_TOUCH_KEY);
+    if (existing) return JSON.parse(existing) as Record<string, string>;
+    const touch = readFirstTouch();
+    window.localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(touch));
+    return touch;
+  } catch {
+    return {};
+  }
+}
+
 export async function initAnalytics(): Promise<void> {
   if (client || typeof window === "undefined") return;
   const key = window.ENV?.POSTHOG_KEY;
@@ -25,6 +64,10 @@ export async function initAnalytics(): Promise<void> {
     },
   });
   client = posthog;
+
+  // 첫 유입 출처를 세션 이벤트의 super property 로 부착(이번 세션 이벤트에 출처 태깅).
+  const touch = persistFirstTouch();
+  if (Object.keys(touch).length > 0) posthog.register(touch);
 }
 
 export function capture(
@@ -38,5 +81,15 @@ export function identify(
   userId: string,
   props?: Record<string, unknown>,
 ): void {
-  client?.identify(userId, props);
+  if (!client) return;
+  // 첫 유입 출처는 사람당 1회만 박는다($set_once) → 가입·매칭 등 서버 이벤트도
+  // 같은 distinct_id 로 합쳐져 출처별 세그먼트가 가능해진다.
+  let firstTouch: Record<string, string> = {};
+  try {
+    const raw = window.localStorage.getItem(FIRST_TOUCH_KEY);
+    if (raw) firstTouch = JSON.parse(raw) as Record<string, string>;
+  } catch {
+    firstTouch = {};
+  }
+  client.identify(userId, props, firstTouch);
 }

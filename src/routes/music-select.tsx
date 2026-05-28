@@ -17,6 +17,7 @@ import {
   listUserSongs,
   replaceUserSongs,
 } from "~/lib/repos/user-songs.server";
+import { captureServer } from "~/lib/analytics.server";
 import { getChartTop } from "~/lib/melon-chart.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
@@ -94,6 +95,9 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!result.ok) {
     return json({ error: "저장 중 오류가 발생했어요." }, { status: 500 });
   }
+
+  // 곡 선택 "성공" — 음악 데이팅의 핵심 기능 완료 지점(승인자의 60%가 미완).
+  await captureServer(ctx.user.id, "songs.selected", { count: songs.length });
 
   return redirect("/music", { headers: ctx.headers });
 }

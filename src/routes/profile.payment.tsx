@@ -15,6 +15,7 @@ import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 import { requireUser } from "~/lib/auth.server";
 import { upsertProfile } from "~/lib/repos/profiles.server";
+import { captureServer } from "~/lib/analytics.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { readProfile, type ProfileForm } from "~/lib/profile-state";
 import {
@@ -81,6 +82,9 @@ export async function action({ request }: ActionFunctionArgs) {
       { status: 500, headers: ctx.headers },
     );
   }
+
+  // 프로필 완성 "성공" 이벤트 — 가입 후 결제 단계 이탈(가장 큰 누수) 측정용.
+  await captureServer(ctx.user.id, "profile.completed", { skipped: skip });
 
   // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
   // 가입/입금 신청을 팀 채널에 알려 관리자가 입금 내역과 대조해 승인하도록 한다.
