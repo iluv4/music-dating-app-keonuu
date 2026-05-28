@@ -12,6 +12,7 @@ export type ProfileForm = {
   region: string;
   matchCampusPref: MatchCampusPref;
   bankHolder: string;
+  photoPath: string;
 };
 
 const EMPTY: ProfileForm = {
@@ -26,6 +27,7 @@ const EMPTY: ProfileForm = {
   region: "",
   matchCampusPref: "상관없음",
   bankHolder: "",
+  photoPath: "",
 };
 
 const KEY = "profile-draft";

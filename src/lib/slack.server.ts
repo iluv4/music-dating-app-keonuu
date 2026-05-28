@@ -34,15 +34,18 @@ export function buildPaymentNotice(params: {
   major: string;
   bankHolder: string;
   skipped: boolean;
+  free?: boolean;
 }): string {
-  const { userId, name, school, major, bankHolder, skipped } = params;
+  const { userId, name, school, major, bankHolder, skipped, free } = params;
   const lines = [
     "💸 *새 가입/입금 신청*",
     `• 이름: ${name}`,
     `• 학교/학과: ${school} ${major}`.trim(),
-    skipped
-      ? "• 입금: ⏭️ 나중에 입금(둘러보기)"
-      : `• 입금자명: ${bankHolder || "-"}`,
+    free
+      ? "• 입금: 🎀 여성 무료 가입(입금 불필요) — 프로필 확인 후 승인"
+      : skipped
+        ? "• 입금: ⏭️ 나중에 입금(둘러보기)"
+        : `• 입금자명: ${bankHolder || "-"}`,
   ];
 
   const adminKey = process.env.ADMIN_KEY;

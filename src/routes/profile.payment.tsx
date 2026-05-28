@@ -49,11 +49,26 @@ export async function action({ request }: ActionFunctionArgs) {
   const matchCampusPref = isMatchCampusPref(matchPrefRaw) ? matchPrefRaw : "상관없음";
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
 
+  // 사진 경로 — 본인 폴더(`${userId}/...`) 안 안전한 경로만 허용. 빈값/이상값이면 미저장.
+  const photoPathRaw = String(fd.get("photo_path") ?? "").trim();
+  const photoPath =
+    photoPathRaw &&
+    photoPathRaw.startsWith(`${ctx.user.id}/`) &&
+    !photoPathRaw.includes("..") &&
+    !photoPathRaw.includes("://")
+      ? photoPathRaw
+      : null;
+
+  // 여성은 참가비 무료 — 입금자명 없이 통과(성비 불균형 완화).
+  // self-declared 성별이라 어뷰징(남→여 위장)은 관리자 수동 승인에서 거른다.
+  const free = gender === "female";
+
   const birthYear = Number(birthYearStr);
   // 캠퍼스가 나뉜 대학만 캠퍼스 필수.
   const campusOk = !schoolRequiresCampus(school) || !!campus;
-  // 스킵이 아니면 입금자명 필수
-  if (!name || !birthYear || !school || !campusOk || !major || (!skip && !bankHolder)) {
+  // 스킵·무료(여성)가 아니면 입금자명 필수
+  const bankRequired = !skip && !free;
+  if (!name || !birthYear || !school || !campusOk || !major || (bankRequired && !bankHolder)) {
     return json<ActionData>(
       {
         error: "프로필 정보가 누락됐어요. 이전 단계로 돌아가 다시 진행해주세요.",
@@ -74,6 +89,7 @@ export async function action({ request }: ActionFunctionArgs) {
     region: region || null,
     match_campus_pref: matchCampusPref,
     bank_holder: bankHolder,
+    photo_path: photoPath,
   });
 
   if (!result.ok) {
@@ -84,7 +100,11 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // 프로필 완성 "성공" 이벤트 — 가입 후 결제 단계 이탈(가장 큰 누수) 측정용.
-  await captureServer(ctx.user.id, "profile.completed", { skipped: skip });
+  await captureServer(ctx.user.id, "profile.completed", {
+    skipped: skip,
+    free,
+    has_photo: !!photoPath,
+  });
 
   // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
   // 가입/입금 신청을 팀 채널에 알려 관리자가 입금 내역과 대조해 승인하도록 한다.
@@ -97,10 +117,11 @@ export async function action({ request }: ActionFunctionArgs) {
       major,
       bankHolder,
       skipped: skip,
+      free,
     }),
   );
 
-  // 입금 신청자 → 승인 대기 화면. 둘러보기만 원한 사람 → 익명 미리보기(탐색).
+  // 입금 신청자·무료(여성) → 승인 대기 화면. 둘러보기만 원한 사람 → 익명 미리보기(탐색).
   return redirect(skip ? "/explore" : "/waiting", { headers: ctx.headers });
 }
 
@@ -122,8 +143,13 @@ export default function ProfilePayment() {
     setHydrated(true);
   }, []);
 
+  // 여성은 참가비 무료 → 입금자명 없이 바로 완료 가능.
+  const isFemale = profile?.gender === "female";
   const canSubmit =
-    hydrated && !!profile?.name && bankHolder.trim().length >= 2 && !submitting;
+    hydrated &&
+    !!profile?.name &&
+    (isFemale || bankHolder.trim().length >= 2) &&
+    !submitting;
 
   return (
     <PhoneFrame>
@@ -160,6 +186,7 @@ export default function ProfilePayment() {
           name="match_campus_pref"
           value={profile?.matchCampusPref ?? "상관없음"}
         />
+        <input type="hidden" name="photo_path" value={profile?.photoPath ?? ""} />
 
         <img
           src="/images/logo.png"
@@ -175,80 +202,109 @@ export default function ProfilePayment() {
         />
 
         <div style={{ marginBottom: "40px" }}>
-          <ProgressDots total={2} current={2} />
+          <ProgressDots total={3} current={3} />
         </div>
 
-        <h1
-          style={{
-            ...TYPOGRAPHY.headlineMd,
-            color: COLORS.text.primary,
-            margin: 0,
-            marginBottom: "12px",
-          }}
-        >
-          입금자명을
-          <br />
-          작성해주세요!
-        </h1>
-        <p
-          style={{
-            ...TYPOGRAPHY.body,
-            color: COLORS.text.helper,
-            margin: 0,
-            marginBottom: "32px",
-          }}
-        >
-          아래 계좌로 입금 후 입금자명을 입력해주세요.
-        </p>
+        {isFemale ? (
+          <>
+            <h1
+              style={{
+                ...TYPOGRAPHY.headlineMd,
+                color: COLORS.text.primary,
+                margin: 0,
+                marginBottom: "12px",
+              }}
+            >
+              여성은
+              <br />
+              <span style={{ color: COLORS.accent }}>참가비가 무료</span>예요 🎀
+            </h1>
+            <p
+              style={{
+                ...TYPOGRAPHY.body,
+                color: COLORS.text.helper,
+                margin: 0,
+                marginBottom: "32px",
+              }}
+            >
+              입금 없이 바로 가입할 수 있어요. 프로필 확인 후 승인해드릴게요!
+            </p>
+          </>
+        ) : (
+          <>
+            <h1
+              style={{
+                ...TYPOGRAPHY.headlineMd,
+                color: COLORS.text.primary,
+                margin: 0,
+                marginBottom: "12px",
+              }}
+            >
+              입금자명을
+              <br />
+              작성해주세요!
+            </h1>
+            <p
+              style={{
+                ...TYPOGRAPHY.body,
+                color: COLORS.text.helper,
+                margin: 0,
+                marginBottom: "32px",
+              }}
+            >
+              아래 계좌로 입금 후 입금자명을 입력해주세요.
+            </p>
 
-        <div
-          style={{
-            background: COLORS.cardBg,
-            border: "none",
-            borderRadius: "12px",
-            padding: "20px",
-            marginBottom: "32px",
-          }}
-        >
-          <p
-            style={{
-              ...TYPOGRAPHY.caption,
-              color: COLORS.text.secondary,
-              margin: 0,
-              marginBottom: "8px",
-            }}
-          >
-            입금 계좌
-          </p>
-          <p
-            style={{
-              ...TYPOGRAPHY.bodyBold,
-              color: COLORS.text.primary,
-              margin: 0,
-              marginBottom: "4px",
-            }}
-          >
-            멋쟁이사자처럼 1002-5666-5941
-          </p>
-          <p
-            style={{
-              ...TYPOGRAPHY.label,
-              color: COLORS.text.helper,
-              margin: 0,
-            }}
-          >
-            참가비 1,000원
-          </p>
-        </div>
+            <div
+              style={{
+                background: COLORS.cardBg,
+                border: "none",
+                borderRadius: "12px",
+                padding: "20px",
+                marginBottom: "32px",
+              }}
+            >
+              <p
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  color: COLORS.text.secondary,
+                  margin: 0,
+                  marginBottom: "8px",
+                }}
+              >
+                입금 계좌
+              </p>
+              <p
+                style={{
+                  ...TYPOGRAPHY.bodyBold,
+                  color: COLORS.text.primary,
+                  margin: 0,
+                  marginBottom: "4px",
+                }}
+              >
+                멋쟁이사자처럼 1002-5666-5941
+              </p>
+              <p
+                style={{
+                  ...TYPOGRAPHY.label,
+                  color: COLORS.text.helper,
+                  margin: 0,
+                }}
+              >
+                참가비 1,000원
+              </p>
+            </div>
 
-        <TextInput
-          label="입금자명"
-          name="bank_holder"
-          type="text"
-          placeholder="홍길동"
-          value={bankHolder}
-          onChange={(e) => setBankHolder(e.target.value)}
-        />
+            <TextInput
+              label="입금자명"
+              name="bank_holder"
+              type="text"
+              placeholder="홍길동"
+              value={bankHolder}
+              onChange={(e) => setBankHolder(e.target.value)}
+            />
+          </>
+        )}
 
         {actionData?.error && (
           <p
@@ -280,26 +336,32 @@ export default function ProfilePayment() {
             disabled={!canSubmit}
             style={{ width: "100%" }}
           >
-            {submitting ? "저장 중..." : "입금 완료했어요"}
+            {submitting
+              ? "저장 중..."
+              : isFemale
+                ? "무료로 가입 완료"
+                : "입금 완료했어요"}
           </PrimaryButton>
-          <button
-            type="submit"
-            name="intent"
-            value="skip"
-            disabled={!hydrated || !profile?.name || submitting}
-            style={{
-              ...TYPOGRAPHY.label,
-              color: COLORS.text.helper,
-              textDecoration: "underline",
-              textUnderlineOffset: "3px",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px",
-            }}
-          >
-            나중에 입금할게요 (먼저 둘러보기)
-          </button>
+          {!isFemale && (
+            <button
+              type="submit"
+              name="intent"
+              value="skip"
+              disabled={!hydrated || !profile?.name || submitting}
+              style={{
+                ...TYPOGRAPHY.label,
+                color: COLORS.text.helper,
+                textDecoration: "underline",
+                textUnderlineOffset: "3px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px",
+              }}
+            >
+              나중에 입금할게요 (먼저 둘러보기)
+            </button>
+          )}
         </div>
       </Form>
       <HomeIndicator />

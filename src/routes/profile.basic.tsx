@@ -19,7 +19,7 @@ import { useProfile } from "~/lib/profile-state";
 import { schoolRequiresCampus, type Campus } from "~/lib/campus";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const NEXT = "/profile/payment";
+const NEXT = "/profile/photo";
 
 const genderBtnStyle = (selected: boolean): CSSProperties => ({
   flex: 1,
@@ -116,7 +116,7 @@ export default function ProfileBasic() {
         />
 
         <div style={{ marginBottom: "30px" }}>
-          <ProgressDots total={2} current={1} />
+          <ProgressDots total={3} current={1} />
         </div>
 
         <h1
