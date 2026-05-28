@@ -26,14 +26,13 @@ export async function action({ request }: ActionFunctionArgs) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  // 알려진 장르만, 최대 MAX_GENRES 개
+  // 알려진 장르만, 최대 MAX_GENRES 개. 장르는 선택사항 — 0개면 건너뛰고 진행.
   const valid = ids
     .filter((id) => GENRES.some((g) => g.id === id))
     .slice(0, MAX_GENRES);
-  if (valid.length === 0) {
-    return json({ error: "장르를 한 개 이상 선택해주세요." }, { status: 400 });
+  if (valid.length > 0) {
+    await updateProfile(ctx.supabase, ctx.user.id, { genres: valid });
   }
-  await updateProfile(ctx.supabase, ctx.user.id, { genres: valid });
   return redirect("/music-select", { headers: ctx.headers });
 }
 
@@ -146,8 +145,8 @@ export default function Genre() {
             marginBottom: "24px",
           }}
         >
-          같은 장르를 선택한 상대를 찾아드려요. 최대 {MAX_GENRES}개 ({selected.size}/
-          {MAX_GENRES})
+          같은 장르를 선택한 상대를 먼저 찾아드려요. 선택 안 해도 매칭은 가능해요.
+          최대 {MAX_GENRES}개 ({selected.size}/{MAX_GENRES})
         </p>
 
         {/* 장르 그리드 — 2열 큰 원형, 라벨은 원 위에 (디자인 정합) */}
@@ -269,7 +268,7 @@ export default function Genre() {
         }}
       >
         <PrimaryButton
-          disabled={selected.size === 0 || submitting}
+          disabled={submitting}
           onClick={() =>
             fetcher.submit(
               { genres: [...selected].join(",") },
@@ -278,7 +277,11 @@ export default function Genre() {
           }
           style={{ maxWidth: "none" }}
         >
-          {submitting ? "저장 중…" : "다음으로"}
+          {submitting
+            ? "저장 중…"
+            : selected.size === 0
+              ? "건너뛰기"
+              : "다음으로"}
         </PrimaryButton>
       </div>
       <HomeIndicator />
