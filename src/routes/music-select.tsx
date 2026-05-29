@@ -13,6 +13,7 @@ import {
   useNavigation,
 } from "@remix-run/react";
 import { requireRegisteredUser } from "~/lib/auth.server";
+import { getProfileFields } from "~/lib/repos/profiles.server";
 import {
   listUserSongs,
   replaceUserSongs,
@@ -100,8 +101,18 @@ export async function action({ request }: ActionFunctionArgs) {
   await captureServer(ctx.user.id, "songs.selected", { count: songs.length });
 
   // 음악 프로필을 다 만든 뒤에야 결제(참가비)를 안내한다 — 가치를 먼저 경험시키고 결제는 후순위.
-  // 이미 승인된 사용자가 곡을 다시 고른 경우엔 바로 매칭 화면으로.
-  return redirect(ctx.isApproved ? "/music" : "/profile/payment", {
+  // - 승인됨 → 바로 매칭 화면
+  // - 미승인이지만 이미 입금자명 제출(결제 완료) → 승인 대기 화면으로 복귀
+  //   (대기 중 곡 고르기 진입한 경우 결제 폼이 다시 뜨지 않게)
+  // - 그 외(결제 전) → 결제 안내
+  if (ctx.isApproved) {
+    return redirect("/music", { headers: ctx.headers });
+  }
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "bank_holder",
+  ]);
+  const alreadyPaid = !!profile?.bank_holder;
+  return redirect(alreadyPaid ? "/waiting" : "/profile/payment", {
     headers: ctx.headers,
   });
 }
