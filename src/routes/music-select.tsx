@@ -19,6 +19,8 @@ import {
 } from "~/lib/repos/user-songs.server";
 import { captureServer } from "~/lib/analytics.server";
 import { getChartTop } from "~/lib/melon-chart.server";
+import { getProfileFields } from "~/lib/repos/profiles.server";
+import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import StatusBar from "~/components/StatusBar";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
@@ -99,11 +101,40 @@ export async function action({ request }: ActionFunctionArgs) {
   // 곡 선택 "성공" — 음악 데이팅의 핵심 기능 완료 지점.
   await captureServer(ctx.user.id, "songs.selected", { count: songs.length });
 
-  // 음악 프로필을 다 만든 뒤에야 결제(참가비)를 안내한다 — 가치를 먼저 경험시키고 결제는 후순위.
   // 이미 승인된 사용자가 곡을 다시 고른 경우엔 바로 매칭 화면으로.
-  return redirect(ctx.isApproved ? "/music" : "/profile/payment", {
-    headers: ctx.headers,
-  });
+  if (ctx.isApproved) {
+    return redirect("/music", { headers: ctx.headers });
+  }
+
+  // 여성은 참가비 무료 — 결제 페이지를 거치지 않고 바로 가입 완료(승인 대기)로 보낸다.
+  // (self-declared 성별 어뷰징은 관리자 수동 승인에서 거른다.)
+  const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
+    "name",
+    "gender",
+    "school",
+    "major",
+  ]);
+  if (profile?.gender === "female") {
+    await captureServer(ctx.user.id, "payment.submitted", {
+      skipped: false,
+      free: true,
+    });
+    await notifySlack(
+      buildPaymentNotice({
+        userId: ctx.user.id,
+        name: profile.name,
+        school: profile.school,
+        major: profile.major ?? "",
+        bankHolder: "",
+        skipped: false,
+        free: true,
+      }),
+    );
+    return redirect("/waiting", { headers: ctx.headers });
+  }
+
+  // 남성은 음악 프로필을 다 만든 뒤에야 결제(참가비)를 안내한다 — 가치를 먼저 경험시키고 결제는 후순위.
+  return redirect("/profile/payment", { headers: ctx.headers });
 }
 
 export default function MusicSelect() {
