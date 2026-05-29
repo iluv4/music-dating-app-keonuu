@@ -246,7 +246,7 @@ export default function ProfileEdit() {
     setPhotoError(null);
   };
 
-  const [name, setName] = useState(profile.name);
+  const [name, setName] = useState(profile.name ?? "");
   const [birthYear, setBirthYear] = useState(String(profile.birth_year ?? ""));
   const [gender, setGender] = useState<"male" | "female">(
     profile.gender ?? "male",
@@ -255,7 +255,7 @@ export default function ProfileEdit() {
   const [campus, setCampus] = useState<Campus | "">(
     isCampus(profile.campus) ? profile.campus : "",
   );
-  const [major, setMajor] = useState(profile.major);
+  const [major, setMajor] = useState(profile.major ?? "");
   const needsCampus = schoolRequiresCampus(school);
   const [region, setRegion] = useState(profile.region ?? "");
   const [matchCampusPref, setMatchCampusPref] = useState<MatchCampusPref>(
