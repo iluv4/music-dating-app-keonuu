@@ -22,11 +22,13 @@ export async function listMessages(
   matchId: string,
   limit = 50,
 ): Promise<MessageRow[]> {
+  // 최신 limit개를 가져온다(내림차순 + limit). 오름차순 limit 으로 가져오면
+  // 메시지가 limit 을 넘는 순간 "가장 오래된 limit개"만 잡혀 최근(방금 보낸) 메시지가 잘린다.
   const { data, error } = await supabase
     .from("messages")
     .select(SELECT_COLS)
     .eq("match_id", matchId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(limit)
     .returns<MessageRow[]>();
 
@@ -34,7 +36,8 @@ export async function listMessages(
     console.error("[messages.list]", error);
     return [];
   }
-  return data ?? [];
+  // 화면 표시용으로 시간 오름차순 복원
+  return (data ?? []).reverse();
 }
 
 export async function sendMessage(
