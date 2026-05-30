@@ -232,20 +232,46 @@ export default function MyPage() {
 
         {/* 내 음악 — 실제 선택 곡 */}
         <div style={{ margin: "30px 25px 20px" }}>
-          <p
+          <div
             style={{
-              ...TYPOGRAPHY.caption,
-              color: COLORS.text.helper,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               margin: "0 2px 8px",
-              fontWeight: 600,
             }}
           >
-            내 음악 {mySongs.length > 0 ? `(${mySongs.length}곡)` : ""}
-          </p>
+            <p
+              style={{
+                ...TYPOGRAPHY.caption,
+                color: COLORS.text.helper,
+                margin: 0,
+                fontWeight: 600,
+              }}
+            >
+              내 음악 {mySongs.length > 0 ? `(${mySongs.length}곡)` : ""}
+            </p>
+            {!guest && mySongs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate("/genre")}
+                style={{
+                  ...TYPOGRAPHY.caption,
+                  color: COLORS.accent,
+                  fontWeight: 600,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px 2px",
+                }}
+              >
+                변경 ›
+              </button>
+            )}
+          </div>
           {mySongs.length === 0 ? (
             <button
               type="button"
-              onClick={() => navigate("/music-select")}
+              onClick={() => navigate("/genre")}
               style={{
                 width: "100%",
                 padding: "16px 14px",

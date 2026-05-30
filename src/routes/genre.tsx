@@ -5,10 +5,10 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "@remix-run/node";
-import { useFetcher, useNavigate } from "@remix-run/react";
+import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import { requireRegisteredUser } from "~/lib/auth.server";
-import { updateProfile } from "~/lib/repos/profiles.server";
+import { getProfileFields, updateProfile } from "~/lib/repos/profiles.server";
 import HomeIndicator from "~/components/HomeIndicator";
 import PhoneFrame from "~/components/PhoneFrame";
 import { PrimaryButton } from "~/components/Button";
@@ -16,7 +16,9 @@ import { COLORS, TYPOGRAPHY } from "~/lib/constants";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireRegisteredUser(request);
-  return json({}, { headers: ctx.headers });
+  // 기존에 고른 장르를 불러와 재진입 시 미리 선택해둔다(변경 시 덮어쓰기 방지).
+  const row = await getProfileFields(ctx.supabase, ctx.user.id, ["genres"]);
+  return json({ existingGenres: row?.genres ?? [] }, { headers: ctx.headers });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -56,9 +58,15 @@ const MAX_GENRES = 3;
 
 export default function Genre() {
   const navigate = useNavigate();
+  const { existingGenres } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<{ error?: string }>();
   const submitting = fetcher.state !== "idle";
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(
+    () =>
+      new Set(
+        (existingGenres ?? []).filter((id) => GENRES.some((g) => g.id === id)),
+      ),
+  );
   const [toast, setToast] = useState<string | null>(null);
   // 앨범커버 이미지가 없는(로드 실패한) 장르는 기존 LP판 모양으로 대체
   const [imgFailed, setImgFailed] = useState<Set<string>>(new Set());
