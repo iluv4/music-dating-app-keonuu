@@ -10,6 +10,12 @@ function ensureConfigured(): boolean {
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   if (!pub || !priv) {
+    // 키 누락 시 원인을 로그로 명확히 — 잠금화면 푸시가 조용히 안 가던 문제 진단용.
+    console.error(
+      "[push.config] VAPID 키 누락 — 발송 비활성화:",
+      `pub=${pub ? "set" : "MISSING"}`,
+      `priv=${priv ? "set" : "MISSING"}`,
+    );
     configured = false;
     return false;
   }
@@ -35,9 +41,17 @@ export async function sendPushToUser(
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
     .eq("user_id", userId);
-  if (error || !data || data.length === 0) return;
+  if (error) {
+    console.error("[push.send] 구독 조회 실패:", error.message);
+    return;
+  }
+  if (!data || data.length === 0) {
+    console.warn("[push.send] 수신자 구독 없음:", userId);
+    return;
+  }
 
   const body = JSON.stringify(payload);
+  let sent = 0;
   await Promise.all(
     (data as Array<{ id: string; endpoint: string; p256dh: string; auth: string }>).map(
       async (s) => {
@@ -46,6 +60,7 @@ export async function sendPushToUser(
             { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
             body,
           );
+          sent++;
         } catch (err) {
           const code = (err as { statusCode?: number })?.statusCode;
           // 만료/무효 구독은 정리
@@ -58,6 +73,7 @@ export async function sendPushToUser(
       },
     ),
   );
+  console.log(`[push.send] ${userId} → ${sent}/${data.length} 기기 발송 성공`);
 }
 
 // 응답을 막지 않고 푸시 발송 — 메시지 전송 액션이 푸시 왕복(외부 push 서버)을
