@@ -54,7 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
   ]);
 
   if (!profile) return redirect("/profile/basic", { headers });
-  if (!profile.is_approved) return redirect("/waiting", { headers });
+  if (!profile.is_approved) return redirect("/profile/payment", { headers });
   const dest = await postApprovalDestination(supabase, user.id);
   return redirect(dest, { headers });
 }

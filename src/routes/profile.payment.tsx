@@ -19,8 +19,8 @@ import TextInput from "~/components/TextInput";
 import SignupStepNav from "~/components/SignupStepNav";
 import { PrimaryButton } from "~/components/Button";
 import { COLORS, TYPOGRAPHY } from "~/lib/constants";
-import { requireUser } from "~/lib/auth.server";
-import { getProfileFields, updateProfile } from "~/lib/repos/profiles.server";
+import { postApprovalDestination, requireUser } from "~/lib/auth.server";
+import { getProfileFields } from "~/lib/repos/profiles.server";
 import { captureServer } from "~/lib/analytics.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
 import { capture } from "~/lib/analytics.client";
@@ -72,7 +72,6 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // 여성은 참가비 무료 — 입금자명 없이 통과(성비 불균형 완화).
-  // self-declared 성별이라 어뷰징(남→여 위장)은 관리자 수동 승인에서 거른다.
   const free = profile.gender === "female";
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
   const bankRequired = !skip && !free;
@@ -84,13 +83,16 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  if (bankHolder) {
-    const result = await updateProfile(ctx.supabase, ctx.user.id, {
-      bank_holder: bankHolder,
+  // 결제 완료 → 즉시 자동 승인 (관리자 승인 제거).
+  // complete_payment RPC 가 입금자명 저장 + is_approved 를 한 번에 처리한다.
+  if (!skip) {
+    const { error } = await ctx.supabase.rpc("complete_payment", {
+      p_bank_holder: bankHolder || null,
     });
-    if (!result.ok) {
+    if (error) {
+      console.error("[payment.complete_payment]", error);
       return json<ActionData>(
-        { error: "저장 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
+        { error: "처리 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
         { status: 500, headers: ctx.headers },
       );
     }
@@ -98,8 +100,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   await captureServer(ctx.user.id, "payment.submitted", { skipped: skip, free });
 
-  // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
-  // (Slack Webhook 미설정 시 자동 no-op)
+  // 입금 내역 기록용 Slack 알림 (Webhook 미설정 시 자동 no-op).
   await notifySlack(
     buildPaymentNotice({
       userId: ctx.user.id,
@@ -112,8 +113,12 @@ export async function action({ request }: ActionFunctionArgs) {
     }),
   );
 
-  // 입금 신청자·무료(여성) → 승인 대기 화면. 더 둘러보고 싶은 사람 → 익명 미리보기(탐색).
-  return redirect(skip ? "/explore" : "/waiting", { headers: ctx.headers });
+  // 결제 완료 → 바로 매칭 화면. 더 둘러보고 싶은 사람(나중에 입금) → 익명 미리보기(탐색).
+  if (skip) {
+    return redirect("/explore", { headers: ctx.headers });
+  }
+  const dest = await postApprovalDestination(ctx.supabase, ctx.user.id);
+  return redirect(dest, { headers: ctx.headers });
 }
 
 export default function ProfilePayment() {
@@ -188,7 +193,7 @@ export default function ProfilePayment() {
                 marginBottom: "32px",
               }}
             >
-              입금 없이 바로 가입할 수 있어요. 프로필 확인 후 승인해드릴게요!
+              입금 없이 바로 가입하고 매칭을 시작할 수 있어요!
             </p>
           </>
         ) : (
