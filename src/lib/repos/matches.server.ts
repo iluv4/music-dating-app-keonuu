@@ -113,7 +113,7 @@ export async function listUserMatches(
     fetchLastMessages(supabase, matchIds),
   ]);
 
-  return matches.map((m) => {
+  const result = matches.map((m) => {
     const partnerId = m.user_a === userId ? m.user_b : m.user_a;
     const partner = partnerMap.get(partnerId);
     const last = lastMsgMap.get(m.id);
@@ -141,6 +141,15 @@ export async function listUserMatches(
         : null,
     };
   });
+
+  // 카톡처럼 최근 대화가 위로 — 마지막 메시지 시각(없으면 매칭 시각) 기준 내림차순.
+  result.sort((a, b) => {
+    const ta = a.lastMessage?.createdAt ?? a.matchedAt;
+    const tb = b.lastMessage?.createdAt ?? b.matchedAt;
+    return tb < ta ? -1 : tb > ta ? 1 : 0;
+  });
+
+  return result;
 }
 
 /**
