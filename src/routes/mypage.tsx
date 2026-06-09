@@ -92,9 +92,20 @@ export default function MyPage() {
   const navigate = useNavigate();
   const mySongs: Song[] = songs ?? [];
 
+  // person 트레잇 — PII 정책상 email/이름은 제외(traits_only).
+  // 세그먼트·퍼널 분석용 분류 트레잇만 전송.
   useEffect(() => {
-    if (!data.guest) identify(data.userId, { gender: profile?.gender ?? null });
-  }, [data, profile?.gender]);
+    if (data.guest) return;
+    identify(data.userId, {
+      gender: profile?.gender ?? null,
+      birth_year: profile?.birth_year ?? null,
+      school: profile?.school ?? null,
+      campus: profile?.campus ?? null,
+      region: profile?.region ?? null,
+      is_approved: profile?.is_approved ?? null,
+      has_photo: Boolean(photoUrl),
+    });
+  }, [data, profile, photoUrl]);
 
   const rows: Row[] = [
     { label: "이메일", value: email || "-" },
