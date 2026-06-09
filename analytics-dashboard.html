@@ -96,6 +96,18 @@
     <canvas id="artist"></canvas>
   </div>
 
+  <div class="card">
+    <h3>🎯 취향 유사도 ↔ 대화 활성</h3>
+    <p class="sub">공유 장르 0→2개일 때 평균 메시지 7배 — 음악 기반 매칭 가설 검증</p>
+    <canvas id="taste"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>매칭의 운명 (89건)</h3>
+    <p class="sub">상호 대화로 가는 매칭은 13%뿐 · 응답률 18%</p>
+    <canvas id="depth"></canvas>
+  </div>
+
   <div class="card full">
     <h3>유저별 메시지 발신량 (상위 발신자)</h3>
     <p class="sub">소수 헤비유저가 대화 대부분을 견인 · 발신자 18명 / 상위 7명이 전체 메시지의 83% · 중앙값 11건</p>
@@ -106,10 +118,12 @@
 
 <div class="insight">
   <b>핵심 진단</b><br>
-  ① <b>사진 등록률 6.7%</b> — 데이팅 앱 치명적, 온보딩상 photo 단계 도달 1명 → 플로우/버그 점검 최우선.<br>
-  ② <b>리텐션 붕괴</b> — 59명 중 7일내 활성 7명, 88% 휴면. 신규 유입·복귀 동력 모두 정지.<br>
-  ③ <b>매칭→대화 전환 41%</b> & 소수 헤비유저 의존 — 아이스브레이커/첫 메시지 유도 필요.<br>
-  ④ <b>알림 읽음률 40~48%</b> — 푸시가 복귀로 이어지지 않음. 카피·타이밍 재설계.
+  ① <b>음악 매칭 가설 검증됨 🎯</b> — 공유 장르 0→2개일 때 평균 메시지 7배(1.0→7.2). 취향 가중치를 키우면 대화 전환↑.<br>
+  ② <b>유령 매칭이 병목</b> — 89건 중 상호 대화는 13%(12건)뿐, 응답률 18%. 매칭 직후 자동 아이스브레이커 필요.<br>
+  ③ <b>사진 등록률 6.7%</b> — 데이팅 앱 치명적, 온보딩상 photo 단계 도달 1명 → 플로우/버그 점검.<br>
+  ④ <b>리텐션 붕괴</b> — 59명 중 7일내 활성 7명, 88% 휴면. 알림 읽음률 40~48%로 복귀 유도 약함.<br>
+  ⑤ <b>여성 수 부족이 핵심</b> — 참여 여성은 남성만큼 활발(활성률 44%>38%). 성비 개선이 곧 전체 활성도.<br>
+  ⚠️ <b>버그 의심</b> — 여-여 동성 매칭 2건 존재(남-남 0건). matches 생성 성별 필터 점검.
 </div>
 </div>
 
@@ -154,6 +168,17 @@ new Chart(genre,{type:'bar',data:{labels:['pop','indie','hiphop','ballad','rock'
 new Chart(artist,{type:'bar',data:{labels:['AKMU','LUCY','I.O.I','CORTIS','나얼','로이킴','M.C the MAX','이찬혁'],
   datasets:[{data:[4,3,3,3,2,2,2,2],backgroundColor:'#ff8a86',borderRadius:6}]},
   options:{indexAxis:'y',...noLeg}});
+
+new Chart(taste,{data:{labels:['공유 0개','공유 1개','공유 2개+'],datasets:[
+  {type:'bar',label:'평균 메시지',data:[1.0,3.2,7.2],backgroundColor:CORAL,borderRadius:6,yAxisID:'y'},
+  {type:'line',label:'대화 시작률(%)',data:[62,80,83],borderColor:BLUE,backgroundColor:BLUE,tension:.3,yAxisID:'y1'}
+]},options:{plugins:{legend:{position:'top'}},scales:{
+  y:{position:'left',title:{display:true,text:'평균 메시지'}},
+  y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:'시작률 %'}}}}});
+
+new Chart(depth,{type:'doughnut',data:{labels:['죽음(0건)','편방향','상호 대화','깊은 대화(20+)'],
+  datasets:[{data:[22,55,12,3],backgroundColor:[GRAY,'#ffb3b0',CORAL,'#b91c1c']}]},
+  options:{plugins:{legend:{position:'bottom'}}}});
 
 new Chart(senders,{type:'bar',data:{labels:['#1','#2','#3','#4','#5','#6','#7','#8','#9','#10','#11','#12','#13','#14','#15','#16','#17','#18'],
   datasets:[{data:[46,39,38,35,29,29,24,15,12,10,3,2,2,1,1,1,1,1],backgroundColor:(c)=>c.dataIndex<7?CORAL:GRAY,borderRadius:5}]},
