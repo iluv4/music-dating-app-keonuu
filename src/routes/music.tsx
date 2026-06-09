@@ -30,6 +30,7 @@ import { listUserMatches, getMatchWithPartner } from "~/lib/repos/matches.server
 import { countUnreadNotifications } from "~/lib/repos/notifications.server";
 import { sendPushToUser } from "~/lib/push.server";
 import { capture, identify } from "~/lib/analytics.client";
+import { captureServer } from "~/lib/analytics.server";
 import {
   syncPushIfGranted,
   enablePush,
@@ -89,6 +90,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const matchId = data as string | null;
   if (matchId) {
+    // PRIMARY 가치 액션. redirect 직전이라 클라(posthog-js)로는 못 잡혀
+    // 서버에서 직접 캡처. distinct_id 는 클라 identify 와 동일한 auth user id.
+    await captureServer(ctx.user.id, "match.created");
     // 매칭된 상대에게 푸시 (본인은 채팅으로 이동하므로 상대만)
     try {
       const m = await getMatchWithPartner(ctx.supabase, matchId, ctx.user.id);
@@ -105,7 +109,8 @@ export async function action({ request }: ActionFunctionArgs) {
     return redirect(`/chat/${matchId}`, { headers: ctx.headers });
   }
 
-  // 후보 없음
+  // 후보 없음 — 매칭 풀 부족 진단(후보 없음률) 용 신호.
+  await captureServer(ctx.user.id, "match.search_no_result");
   return json({ error: null as string | null }, { headers: ctx.headers });
 }
 
