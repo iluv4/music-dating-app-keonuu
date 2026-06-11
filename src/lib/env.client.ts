@@ -6,12 +6,16 @@ type ClientEnv = {
   POSTHOG_KEY?: string;
   POSTHOG_HOST?: string;
   AMPLITUDE_API_KEY?: string;
+  GA_MEASUREMENT_ID?: string;
   VAPID_PUBLIC_KEY?: string;
 };
 
 declare global {
   interface Window {
     ENV: ClientEnv;
+    // Google Analytics(gtag.js) — GA_MEASUREMENT_ID 설정 시 root.tsx 가 주입.
+    dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 

@@ -7,6 +7,7 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
+  useLocation,
 } from "@remix-run/react";
 
 import "./styles/globals.css";
@@ -80,6 +81,8 @@ export async function loader() {
       POSTHOG_KEY: process.env.POSTHOG_KEY || POSTHOG_KEY_DEFAULT,
       POSTHOG_HOST: process.env.POSTHOG_HOST || POSTHOG_HOST_DEFAULT,
       AMPLITUDE_API_KEY: process.env.AMPLITUDE_API_KEY || AMPLITUDE_KEY_DEFAULT,
+      // Google Analytics(GA4) 측정 ID(G-XXXXXXX). 미설정 시 GA 비활성.
+      GA_MEASUREMENT_ID: process.env.GA_MEASUREMENT_ID,
       VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     },
   });
@@ -92,23 +95,53 @@ export type RootLoaderData = {
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
     AMPLITUDE_API_KEY?: string;
+    GA_MEASUREMENT_ID?: string;
     VAPID_PUBLIC_KEY?: string;
   };
 };
 
 export default function App() {
   const { env } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  const gaId = env.GA_MEASUREMENT_ID;
 
   // window.ENV 세팅 직후 PostHog 초기화 (키 없으면 no-op)
   useEffect(() => {
     void initAnalytics();
   }, []);
 
+  // GA4 SPA 페이지뷰: Remix 라우트 전환은 풀 페이지 로드가 아니라 자동 집계가 안 됨.
+  // → location 변경 시(최초 마운트 포함) page_view 를 수동 전송. gtag 없으면 no-op.
+  useEffect(() => {
+    if (!gaId || typeof window === "undefined" || typeof window.gtag !== "function") {
+      return;
+    }
+    window.gtag("event", "page_view", {
+      page_path: location.pathname + location.search,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+  }, [gaId, location.pathname, location.search]);
+
   return (
     <html lang="ko">
       <head>
         <Meta />
         <Links />
+        {gaId ? (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            />
+            <script
+              // gtag 초기화. send_page_view:false → 위 useEffect 가 페이지뷰를 전담해 중복 집계 방지.
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config','${gaId}',{send_page_view:false});`,
+              }}
+            />
+          </>
+        ) : null}
       </head>
       <body>
         <GlobalLoadingBar />
