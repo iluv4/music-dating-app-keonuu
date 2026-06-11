@@ -114,9 +114,16 @@ export async function action({ request }: ActionFunctionArgs) {
     "bank_holder",
   ]);
 
-  // 여성은 참가비 무료 — 결제 페이지를 거치지 않고 바로 가입 완료(승인 대기)로 보낸다.
-  // (self-declared 성별 어뷰징은 관리자 수동 승인에서 거른다.)
+  // 여성은 참가비 무료 — 결제 페이지를 거치지 않고 즉시 자동 승인(가입 완료) 후 매칭 화면으로.
   if (profile?.gender === "female") {
+    const { error } = await ctx.supabase.rpc("complete_payment", {
+      p_bank_holder: null,
+    });
+    if (error) {
+      console.error("[music-select.complete_payment]", error);
+      // 자동 승인 실패 시 결제 페이지 폴백(거기서 재시도 가능)
+      return redirect("/profile/payment", { headers: ctx.headers });
+    }
     await captureServer(ctx.user.id, "payment.submitted", {
       skipped: false,
       free: true,
@@ -132,15 +139,12 @@ export async function action({ request }: ActionFunctionArgs) {
         free: true,
       }),
     );
-    return redirect("/waiting", { headers: ctx.headers });
+    return redirect("/music", { headers: ctx.headers });
   }
 
   // 남성은 음악 프로필을 다 만든 뒤에야 결제(참가비)를 안내한다 — 가치를 먼저 경험시키고 결제는 후순위.
-  // 미승인인데 이미 입금자명 제출(결제 완료) → 결제 폼 대신 승인 대기 화면으로 복귀.
-  const alreadyPaid = !!profile?.bank_holder;
-  return redirect(alreadyPaid ? "/waiting" : "/profile/payment", {
-    headers: ctx.headers,
-  });
+  // (결제 제출 = 즉시 자동 승인이므로 미승인 남성은 항상 결제 페이지로.)
+  return redirect("/profile/payment", { headers: ctx.headers });
 }
 
 export default function MusicSelect() {

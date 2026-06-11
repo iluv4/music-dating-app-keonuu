@@ -385,7 +385,7 @@ export default function Explore() {
             zIndex: 10,
           }}
         >
-          <Link to="/waiting" style={{ display: "block", width: "100%" }}>
+          <Link to="/profile/payment" style={{ display: "block", width: "100%" }}>
             <PrimaryButton style={{ width: "100%", maxWidth: "none" }}>
               입금하고 매칭 시작하기
             </PrimaryButton>
