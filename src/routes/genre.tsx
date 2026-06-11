@@ -5,7 +5,7 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "@remix-run/node";
-import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import StatusBar from "~/components/StatusBar";
 import { requireRegisteredUser } from "~/lib/auth.server";
 import { getProfileFields, updateProfile } from "~/lib/repos/profiles.server";
@@ -57,7 +57,6 @@ const GENRES: Genre[] = [
 const MAX_GENRES = 3;
 
 export default function Genre() {
-  const navigate = useNavigate();
   const { existingGenres } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<{ error?: string }>();
   const submitting = fetcher.state !== "idle";
@@ -127,22 +126,6 @@ export default function Genre() {
             <br />
             좋아하세요?
           </h1>
-          <button
-            type="button"
-            onClick={() => navigate("/explore")}
-            aria-label="닫기"
-            style={{
-              fontSize: "24px",
-              color: COLORS.text.secondary,
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              minWidth: "44px",
-              minHeight: "44px",
-            }}
-          >
-            ✕
-          </button>
         </div>
 
         <p

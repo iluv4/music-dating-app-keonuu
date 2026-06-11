@@ -58,9 +58,6 @@ export async function action({ request }: ActionFunctionArgs) {
   const ctx = await requireUser(request);
   const fd = await request.formData();
 
-  // intent === "skip" → "나중에 입금할게요 (먼저 둘러보기)"
-  const skip = String(fd.get("intent") ?? "submit") === "skip";
-
   const profile = await getProfileFields(ctx.supabase, ctx.user.id, [
     "name",
     "gender",
@@ -73,11 +70,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // 여성은 참가비 무료 — 입금자명 없이 통과(성비 불균형 완화).
   // self-declared 성별이라 어뷰징(남→여 위장)은 관리자 수동 승인에서 거른다.
+  // 남성은 입금자명 입력이 필수 — 결제가 매칭으로 가는 게이트다(스킵 없음).
   const free = profile.gender === "female";
   const bankHolder = String(fd.get("bank_holder") ?? "").trim();
-  const bankRequired = !skip && !free;
 
-  if (bankRequired && bankHolder.length < 2) {
+  if (!free && bankHolder.length < 2) {
     return json<ActionData>(
       { error: "입금자명을 확인해주세요." },
       { status: 400, headers: ctx.headers },
@@ -96,7 +93,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
-  await captureServer(ctx.user.id, "payment.submitted", { skipped: skip, free });
+  await captureServer(ctx.user.id, "payment.submitted", { free });
 
   // 자동 승인 없음 — 우리 계좌로 실제 입금한 사람만 관리자(/admin)가 수동 승인한다.
   // (Slack Webhook 미설정 시 자동 no-op)
@@ -107,13 +104,13 @@ export async function action({ request }: ActionFunctionArgs) {
       school: profile.school,
       major: profile.major ?? "",
       bankHolder,
-      skipped: skip,
+      skipped: false,
       free,
     }),
   );
 
-  // 입금 신청자·무료(여성) → 승인 대기 화면. 더 둘러보고 싶은 사람 → 익명 미리보기(탐색).
-  return redirect(skip ? "/explore" : "/waiting", { headers: ctx.headers });
+  // 입금 신청자·무료(여성) 모두 관리자 승인 대기 화면으로.
+  return redirect("/waiting", { headers: ctx.headers });
 }
 
 export default function ProfilePayment() {
@@ -303,26 +300,6 @@ export default function ProfilePayment() {
                 ? "무료로 가입 완료"
                 : "입금 완료했어요"}
           </PrimaryButton>
-          {!isFemale && (
-            <button
-              type="submit"
-              name="intent"
-              value="skip"
-              disabled={submitting}
-              style={{
-                ...TYPOGRAPHY.label,
-                color: COLORS.text.helper,
-                textDecoration: "underline",
-                textUnderlineOffset: "3px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px",
-              }}
-            >
-              나중에 입금할게요 (먼저 둘러보기)
-            </button>
-          )}
         </div>
       </Form>
       <HomeIndicator />
