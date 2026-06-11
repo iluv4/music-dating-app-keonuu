@@ -67,6 +67,8 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 // env 가 우선이고, 미설정 시 이 기본값으로 폴백해 별도 env 없이도 트래킹/리플레이 동작.
 const POSTHOG_KEY_DEFAULT = "phc_tJJ9JhT6UCDvB4PzmLeGqLPqY8rZb7DU2MiX6LtSDkgY";
 const POSTHOG_HOST_DEFAULT = "https://us.i.posthog.com";
+// Amplitude 브라우저 키 — PostHog 와 같은 공개값 정책(브라우저 전송용). env 우선, 미설정 시 폴백.
+const AMPLITUDE_KEY_DEFAULT = "28e9d25bf96f1b7abd44383f43700511";
 
 // 브라우저 Supabase 클라이언트(Realtime) + PostHog 용 공개 키 노출
 export async function loader() {
@@ -77,6 +79,7 @@ export async function loader() {
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
       POSTHOG_KEY: process.env.POSTHOG_KEY || POSTHOG_KEY_DEFAULT,
       POSTHOG_HOST: process.env.POSTHOG_HOST || POSTHOG_HOST_DEFAULT,
+      AMPLITUDE_API_KEY: process.env.AMPLITUDE_API_KEY || AMPLITUDE_KEY_DEFAULT,
       VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     },
   });
@@ -88,6 +91,7 @@ export type RootLoaderData = {
     SUPABASE_ANON_KEY: string;
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
+    AMPLITUDE_API_KEY?: string;
     VAPID_PUBLIC_KEY?: string;
   };
 };
