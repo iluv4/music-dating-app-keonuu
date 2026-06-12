@@ -81,6 +81,8 @@ export async function loader() {
       POSTHOG_KEY: process.env.POSTHOG_KEY || POSTHOG_KEY_DEFAULT,
       POSTHOG_HOST: process.env.POSTHOG_HOST || POSTHOG_HOST_DEFAULT,
       AMPLITUDE_API_KEY: process.env.AMPLITUDE_API_KEY || AMPLITUDE_KEY_DEFAULT,
+      // Amplitude 프로젝트가 EU 존이면 "EU" (기본 US).
+      AMPLITUDE_SERVER_ZONE: process.env.AMPLITUDE_SERVER_ZONE,
       // Google Analytics(GA4) 측정 ID(G-XXXXXXX). 미설정 시 GA 비활성.
       GA_MEASUREMENT_ID: process.env.GA_MEASUREMENT_ID,
       VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
@@ -95,6 +97,7 @@ export type RootLoaderData = {
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
     AMPLITUDE_API_KEY?: string;
+    AMPLITUDE_SERVER_ZONE?: string;
     GA_MEASUREMENT_ID?: string;
     VAPID_PUBLIC_KEY?: string;
   };

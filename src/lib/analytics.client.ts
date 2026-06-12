@@ -54,8 +54,16 @@ const flagListeners = new Set<() => void>();
 
 export async function initAnalytics(): Promise<void> {
   if (typeof window === "undefined") return;
-  // 한쪽 키가 없어도 다른 쪽은 동작하도록 독립 초기화.
-  await Promise.all([initPostHog(), initAmplitude()]);
+  // 한쪽 키가 없어도/실패해도 다른 쪽은 동작하도록 독립 초기화.
+  // 실패는 콘솔에 라벨 달아 노출 — "연동 안 됨" 디버깅 시 DevTools 만 봐도 원인이 보이게.
+  await Promise.all([
+    initPostHog().catch((err) =>
+      console.error("[analytics] posthog init failed", err),
+    ),
+    initAmplitude().catch((err) =>
+      console.error("[analytics] amplitude init failed", err),
+    ),
+  ]);
 }
 
 async function initPostHog(): Promise<void> {
@@ -98,6 +106,8 @@ async function initAmplitude(): Promise<void> {
   // Autocapture(페이지뷰·클릭·폼·세션·utm 어트리뷰션 자동 수집) + Session Replay 전 세션 녹화.
   // Session Replay 는 기본으로 모든 input 값을 마스킹 → PostHog 설정과 동일한 프라이버시 수준.
   await mod.initAll(key, {
+    // Amplitude 프로젝트가 EU 존이면 env AMPLITUDE_SERVER_ZONE=EU 필요 (기본 US).
+    serverZone: window.ENV?.AMPLITUDE_SERVER_ZONE === "EU" ? "EU" : "US",
     analytics: { autocapture: true },
     sessionReplay: { sampleRate: 1 },
   });

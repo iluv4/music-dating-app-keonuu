@@ -6,6 +6,7 @@ type ClientEnv = {
   POSTHOG_KEY?: string;
   POSTHOG_HOST?: string;
   AMPLITUDE_API_KEY?: string;
+  AMPLITUDE_SERVER_ZONE?: string;
   GA_MEASUREMENT_ID?: string;
   VAPID_PUBLIC_KEY?: string;
 };
