@@ -21,7 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const profile = await getProfileFields(supabase, user.id, ["user_id", "is_approved"]);
   if (!profile) return redirect("/profile/basic", { headers });
-  if (!profile.is_approved) return redirect("/profile/payment", { headers });
+  if (!profile.is_approved) return redirect("/waiting", { headers });
 
   const dest = await postApprovalDestination(supabase, user.id);
   return redirect(dest, { headers });

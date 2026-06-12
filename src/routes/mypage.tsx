@@ -230,7 +230,7 @@ export default function MyPage() {
                   background: profile?.is_approved ? "#2c8a4f" : COLORS.accent,
                 }}
               />
-              {profile?.is_approved ? "매칭 이용 중" : "결제 후 매칭 시작"}
+              {profile?.is_approved ? "승인 완료" : "관리자 승인 대기 중"}
             </div>
           </div>
           <SmallButton
