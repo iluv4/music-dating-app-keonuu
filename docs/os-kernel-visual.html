@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>커널이 뭐임? — 그림으로 끝내기</title>
+<style>
+  :root {
+    --coral: #ff625d;
+    --coral-50: #ffeeed;
+    --ink: #1f2430;
+    --gray: #6b7280;
+    --line: #e5e7eb;
+    --ok: #16a34a;
+    --bad: #dc2626;
+    --blue: #2563eb;
+    --amber: #d97706;
+    --kernel: #1f2430;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: var(--ink); background: #fafafa; margin: 0; padding: 32px 16px 80px; line-height: 1.65;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--gray); margin-bottom: 36px; font-size: 14px; }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 28px; margin-bottom: 28px; }
+  h2 { font-size: 19px; margin: 0 0 14px; }
+  h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--coral); color: #fff; font-size: 14px; margin-right: 8px; vertical-align: -3px; }
+  .caption { font-size: 13.5px; color: var(--gray); margin-top: 14px; }
+  .caption b { color: var(--ink); }
+  code { background: var(--coral-50); color: var(--coral); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+
+  .box { border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 13px; background: #fff; text-align: center; }
+  .box small { display: block; color: var(--gray); font-size: 11.5px; font-weight: 400; }
+  .arrow { color: var(--gray); font-size: 18px; padding: 0 8px; flex: none; text-align: center; }
+
+  /* ---------- 0. 한 문장 정의 ---------- */
+  .bigdef { background: var(--kernel); color: #fff; border-radius: 14px; padding: 22px 26px; font-size: 17px; line-height: 1.7; }
+  .bigdef b { color: #ffb3b0; }
+
+  /* ---------- 1. 부팅 ---------- */
+  .boot { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .boot .box { min-width: 120px; margin: 4px 0; }
+  .boot .k { background: var(--kernel); color: #fff; border-color: var(--kernel); font-weight: 700; }
+  .boot .k small { color: #c2c8d4; }
+
+  /* ---------- 2. 샌드위치(중재자) ---------- */
+  .sandwich { display: flex; flex-direction: column; gap: 6px; max-width: 620px; margin: 0 auto; }
+  .sw-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .sw-app { border: 1.5px solid var(--coral); color: var(--coral); font-weight: 700; border-radius: 8px; text-align: center; font-size: 12.5px; padding: 8px 4px; background: #fff; }
+  .sw-app small { color: var(--gray); font-weight: 400; display:block; font-size: 11px; }
+  .sw-kernel { background: var(--kernel); color: #fff; border-radius: 10px; text-align: center; padding: 14px; font-weight: 700; font-size: 14px; }
+  .sw-kernel small { display: block; color: #c2c8d4; font-weight: 400; font-size: 11.5px; margin-top: 2px; }
+  .sw-hw { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .sw-hw .box { background: #eef0f4; font-size: 12px; }
+  .sw-gap { text-align: center; font-size: 12px; color: var(--gray); padding: 2px 0; }
+  .sw-gap b { color: var(--coral); }
+
+  /* ---------- 3. 시스템 콜 여정 ---------- */
+  .journey { counter-reset: jstep; max-width: 640px; margin: 0 auto; }
+  .jstep { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 4px; }
+  .jstep::before {
+    counter-increment: jstep; content: counter(jstep);
+    flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--coral);
+    color:#fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .jstep .jt { font-size: 13.5px; }
+  .jstep .jt small { display: block; color: var(--gray); font-size: 12px; }
+  .jline { border-left: 2px dashed var(--line); margin-left: 11px; height: 12px; }
+  .jzone { font-size: 11px; font-weight: 700; letter-spacing: .05em; border-radius: 999px; padding: 2px 10px; display: inline-block; margin: 6px 0; }
+  .jzone.user { background: var(--coral-50); color: var(--coral); }
+  .jzone.kern { background: var(--kernel); color: #fff; }
+
+  /* ---------- 4. 모드 ---------- */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 700px) { .modes { grid-template-columns: 1fr; } }
+  .mode { border-radius: 12px; padding: 18px; font-size: 13px; }
+  .mode.user { background: var(--coral-50); border: 1.5px solid #ffc9c7; }
+  .mode.kern { background: var(--kernel); color: #e8eaf0; }
+  .mode h3 { margin: 0 0 8px; font-size: 14.5px; }
+  .mode.user h3 { color: var(--coral); }
+  .mode ul { margin: 0; padding-left: 18px; }
+  .mode li { margin-bottom: 4px; }
+  .gatebar { text-align: center; margin: 14px 0 0; font-size: 13px; color: var(--gray); }
+  .gatebar b { color: var(--ink); }
+
+  /* ---------- 5. 4대 역할 ---------- */
+  .jobs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .jobs { grid-template-columns: 1fr; } }
+  .job { border: 1.5px solid var(--line); border-radius: 12px; padding: 16px; font-size: 13px; }
+  .job h3 { margin: 0 0 6px; font-size: 14.5px; }
+  .job .emoji { font-size: 20px; margin-right: 6px; }
+  .job .app-link { margin-top: 8px; background: var(--coral-50); border-radius: 8px; padding: 7px 10px; font-size: 12.5px; color: var(--ink); }
+  .job .app-link b { color: var(--coral); }
+
+  /* ---------- 6. 집 비유 ---------- */
+  .houses { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 700px) { .houses { grid-template-columns: 1fr; } }
+  .stack { display: flex; flex-direction: column; gap: 5px; }
+  .stack h3 { font-size: 14px; margin: 0 0 6px; text-align: center; }
+  .layer { border-radius: 8px; text-align: center; font-size: 12.5px; padding: 8px 6px; border: 1.5px solid var(--line); background: #fff; }
+  .layer small { display:block; color: var(--gray); font-size: 11px; }
+  .layer.hw { background: #eef0f4; }
+  .layer.kernel { background: var(--kernel); color: #fff; border-color: var(--kernel); }
+  .layer.kernel small { color: #c2c8d4; }
+  .layer.app { border-color: var(--coral); color: var(--coral); font-weight: 700; }
+  .layer.dup { background: #fffbeb; border-color: var(--amber); }
+  .layer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .stack .note { font-size: 11.5px; color: var(--gray); text-align: center; margin-top: 6px; }
+
+  /* ---------- 7. namespace / cgroups ---------- */
+  .iso { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 700px) { .iso { grid-template-columns: 1fr; } }
+  .iso-card { border: 1.5px solid var(--line); border-radius: 12px; padding: 16px; font-size: 13px; }
+  .iso-card h3 { margin: 0 0 10px; font-size: 14.5px; }
+  .chat { display: flex; flex-direction: column; gap: 6px; }
+  .bubble { max-width: 88%; border-radius: 12px; padding: 7px 12px; font-size: 12.5px; }
+  .bubble.q { align-self: flex-start; background: var(--coral-50); color: var(--ink); border-bottom-left-radius: 3px; }
+  .bubble.a { align-self: flex-end; background: var(--kernel); color: #fff; border-bottom-right-radius: 3px; }
+  .bubble.a s { color: #8b93a3; }
+  .meter { margin-top: 4px; }
+  .meter .bar { height: 16px; border-radius: 999px; background: #eef0f4; overflow: hidden; margin: 6px 0 2px; position: relative; }
+  .meter .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffb3b0, var(--coral)); }
+  .meter .limit { position: absolute; right: 10%; top: -3px; bottom: -3px; width: 3px; background: var(--bad); border-radius: 2px; }
+  .meter .lbl { font-size: 11.5px; color: var(--gray); display: flex; justify-content: space-between; }
+  .kill { margin-top: 10px; background: #fef2f2; border: 1.5px solid #fecaca; color: var(--bad); border-radius: 8px; padding: 7px 10px; font-size: 12.5px; font-weight: 700; text-align: center; }
+
+  .qa { background: var(--coral-50); border: none; }
+  .qa h2 { color: var(--coral); }
+  .qa li { margin-bottom: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>커널이 뭐임? 🧠</h1>
+  <div class="sub">한 문장 정의 → 부팅 → 중재자 구조 → 시스템 콜 → 유저/커널 모드 → 4대 역할 → 그래서 컨테이너란 — 전부 그림으로</div>
+
+  <!-- ============ 0. 정의 ============ -->
+  <section>
+    <h2><span class="num">0</span>한 문장 정의</h2>
+    <div class="bigdef">
+      커널은 <b>컴퓨터를 켜면 가장 먼저 메모리에 올라가서, 꺼질 때까지 상주하는 프로그램 하나</b>다.<br>
+      하는 일은 단 하나 — <b>하드웨어(CPU·메모리·디스크·네트워크)를 독점 관리하면서, 모든 앱의 "부탁"을 받아 대신 처리해 주는 것.</b>
+    </div>
+    <p class="caption">
+      "운영체제(OS)"라고 부르는 것의 <b>본체</b>가 커널이에요. 바탕화면, 터미널, 설정 앱 같은 건 커널 위에 얹힌 부가 프로그램이고,
+      리눅스·윈도우·macOS의 진짜 차이는 커널의 차이입니다. Railway 서버라면 = <b>리눅스 커널</b>.
+    </p>
+  </section>
+
+  <!-- ============ 1. 부팅 ============ -->
+  <section>
+    <h2><span class="num">1</span>컴퓨터를 켜면 무슨 일이 생기나</h2>
+    <div class="boot">
+      <div class="box">🔌 전원 ON<small>CPU가 깨어남</small></div>
+      <div class="arrow">→</div>
+      <div class="box">펌웨어(BIOS/UEFI)<small>하드웨어 점검</small></div>
+      <div class="arrow">→</div>
+      <div class="box">부트로더<small>디스크에서 커널을 찾음</small></div>
+      <div class="arrow">→</div>
+      <div class="box k">커널을 메모리에 적재 ★<small>이제부터 모든 것의 관리자</small></div>
+      <div class="arrow">→</div>
+      <div class="box">첫 프로세스(init) 실행<small>→ 그 위에 모든 앱<br>(node, nginx, …)</small></div>
+    </div>
+    <p class="caption">
+      커널이 올라온 <b>이후의</b> 모든 프로그램은 커널이 만들어 주는 "프로세스"라는 그릇 안에서 실행됩니다.
+      즉 여러분의 Node 앱은 태어날 때부터 죽을 때까지 커널의 관리 아래 있어요.
+    </p>
+  </section>
+
+  <!-- ============ 2. 샌드위치 ============ -->
+  <section>
+    <h2><span class="num">2</span>구조 — 앱과 하드웨어 사이의 중재자</h2>
+    <div class="sandwich">
+      <div class="sw-row">
+        <div class="sw-app">내 Node 앱<small>Remix 서버</small></div>
+        <div class="sw-app">브라우저</div>
+        <div class="sw-app">터미널</div>
+        <div class="sw-app">…모든 앱</div>
+      </div>
+      <div class="sw-gap">⬇ 직접 만질 수 <b>없음</b> — 반드시 "부탁(시스템 콜)"으로 ⬇</div>
+      <div class="sw-kernel">커널 (Kernel)<small>프로세스 스케줄링 · 메모리 관리 · 파일시스템 · 네트워크/드라이버</small></div>
+      <div class="sw-gap">⬇ 커널만 직접 제어 ⬇</div>
+      <div class="sw-hw">
+        <div class="box">CPU</div>
+        <div class="box">메모리(RAM)</div>
+        <div class="box">디스크</div>
+        <div class="box">네트워크 카드</div>
+      </div>
+    </div>
+    <p class="caption">
+      <b>왜 직접 못 만지게 하나?</b> 아무 앱이나 메모리·디스크를 직접 건드리면, 버그 하나 = 남의 데이터 파괴 = 시스템 전체 다운.
+      그래서 하드웨어 접근 권한을 커널이 <b>독점</b>하고, 앱은 창구에 줄 서서 부탁만 합니다. 은행 금고(하드웨어)를 손님(앱)이 직접 못 열고 창구 직원(커널)만 여는 것과 같아요.
+    </p>
+  </section>
+
+  <!-- ============ 3. 시스템 콜 여정 ============ -->
+  <section>
+    <h2><span class="num">3</span>시스템 콜 — 내 앱이 Supabase에 쿼리 한 번 보낼 때</h2>
+    <div class="journey">
+      <span class="jzone user">유저 공간 — 내 코드의 세계</span>
+      <div class="jstep"><div class="jt"><b>내 코드:</b> <code>supabase.from("matches").select()</code><small>repos/matches.server.ts</small></div></div>
+      <div class="jline"></div>
+      <div class="jstep"><div class="jt"><b>라이브러리 → Node 런타임:</b> fetch → "이 바이트들을 저 서버로 보내줘"</div></div>
+      <div class="jline"></div>
+      <span class="jzone kern">⚡ 시스템 콜 — 커널 공간으로 진입 (모드 전환)</span>
+      <div class="jstep"><div class="jt"><b>커널:</b> 소켓 열고, 패킷 만들고, <b>네트워크 카드에 직접 명령</b><small>앱은 여기까지 못 들어옴 — 커널만 가능한 영역</small></div></div>
+      <div class="jline"></div>
+      <div class="jstep"><div class="jt"><b>커널:</b> "보내놨어. 응답 오면 알려줄게" → 즉시 리턴 (논블로킹)<small>Node 이벤트 루프는 그동안 다른 유저 요청 처리 — 2번 토픽의 비밀이 이것</small></div></div>
+      <div class="jline"></div>
+      <div class="jstep"><div class="jt"><b>응답 도착:</b> 네트워크 카드가 커널을 깨움(인터럽트) → 커널이 Node에 전달 → 콜백 실행<small>매칭 데이터가 내 코드로 돌아옴 🎉</small></div></div>
+    </div>
+    <p class="caption">
+      <code>fetch</code> 한 줄 뒤에는 항상 이 여정이 있습니다. 파일 읽기, 메모리 할당, 콘솔 출력(<code>console.log</code>도!) 전부 마찬가지 —
+      <b>앱이 바깥세상과 닿는 모든 순간에 시스템 콜이 있다</b>고 기억하면 됩니다.
+    </p>
+  </section>
+
+  <!-- ============ 4. 모드 ============ -->
+  <section>
+    <h2><span class="num">4</span>유저 모드 vs 커널 모드 — 권한의 벽</h2>
+    <div class="modes">
+      <div class="mode user">
+        <h3>🙋 유저 모드 — 앱이 도는 곳</h3>
+        <ul>
+          <li>자기 메모리 안에서 계산만 가능</li>
+          <li>하드웨어 접근 ❌, 남의 메모리 접근 ❌</li>
+          <li>금지된 짓 시도 → CPU가 막고 커널이 그 앱만 종료<br>("앱 하나 죽어도 시스템은 산다"의 비밀)</li>
+        </ul>
+      </div>
+      <div class="mode kern">
+        <h3>👑 커널 모드 — 커널이 도는 곳</h3>
+        <ul>
+          <li>모든 메모리·모든 하드웨어에 접근 가능</li>
+          <li>CPU의 특권 명령 사용 가능</li>
+          <li>여기서의 버그 = 시스템 전체 다운 (블루스크린/커널 패닉)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="gatebar">두 모드 사이의 유일한 합법적 문 = <b>시스템 콜</b> · CPU가 하드웨어 수준에서 이 벽을 강제합니다</div>
+    <p class="caption">
+      이 벽이 있어서 모드 전환(유저↔커널)에는 비용이 듭니다. "시스템 콜은 함수 호출보다 비싸다",
+      "컨텍스트 스위칭이 비싸다"는 면접 단골 멘트의 뿌리가 여기예요.
+    </p>
+  </section>
+
+  <!-- ============ 5. 4대 역할 ============ -->
+  <section>
+    <h2><span class="num">5</span>커널이 하는 일 4가지 — 전부 내 앱과 연결됨</h2>
+    <div class="jobs">
+      <div class="job">
+        <h3><span class="emoji">⏱️</span>프로세스 관리 (스케줄링)</h3>
+        CPU 코어는 몇 개 없는데 프로세스는 수백 개 → 커널이 수 ms씩 번갈아 태움(컨텍스트 스위칭). 동시에 도는 것처럼 보이는 착시의 정체.
+        <div class="app-link"><b>내 앱:</b> Railway 서버에서 내 node 프로세스가 CPU를 받는 시간을 커널이 배분한다.</div>
+      </div>
+      <div class="job">
+        <h3><span class="emoji">🧠</span>메모리 관리 (가상 메모리)</h3>
+        프로세스마다 "메모리 전체가 네 것"인 가상 주소 공간을 주고, 실제 RAM 매핑은 커널이 몰래 관리. 그래서 프로세스끼리 메모리가 격리됨.
+        <div class="app-link"><b>내 앱:</b> 멜론 캐시 Map이 인스턴스 간 공유 안 되는 이유. 한도 초과 시 OOM Killer도 커널의 일.</div>
+      </div>
+      <div class="job">
+        <h3><span class="emoji">📁</span>파일시스템</h3>
+        디스크는 사실 거대한 바이트 덩어리. "폴더·파일·권한"이라는 개념을 만들어 주는 게 커널.
+        <div class="app-link"><b>내 앱:</b> 빌드 결과물 읽기, <code>song-fallback.json</code> 로드가 전부 커널의 read 시스템 콜.</div>
+      </div>
+      <div class="job">
+        <h3><span class="emoji">🌐</span>네트워크 / 드라이버</h3>
+        TCP/IP 처리, 패킷 송수신, 각종 장치 제어. 앱은 "소켓"이라는 추상화만 보면 됨.
+        <div class="app-link"><b>내 앱:</b> Supabase 쿼리·멜론 API·푸시 발송 — 모든 통신이 커널의 네트워크 스택을 지나간다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. VM vs 컨테이너 다시 ============ -->
+  <section>
+    <h2><span class="num">6</span>그래서 다시 — VM vs 컨테이너 = "중재자를 몇 명 두나"</h2>
+    <div class="houses">
+      <div class="stack">
+        <h3>🏠 VM = 단독주택 단지</h3>
+        <div class="layer-row">
+          <div class="layer app">앱 A</div>
+          <div class="layer app">앱 B</div>
+        </div>
+        <div class="layer-row">
+          <div class="layer dup">커널 A<small>중재자 따로</small></div>
+          <div class="layer dup">커널 B<small>중재자 따로</small></div>
+        </div>
+        <div class="layer">하이퍼바이저<small>가짜 컴퓨터를 만들어 주는 층</small></div>
+        <div class="layer kernel">호스트 커널</div>
+        <div class="layer hw">하드웨어</div>
+        <div class="note">집집마다 수도·전기·기초공사 전부 따로.<br>격리 강함 / 무겁고 부팅 느림 (OS 통째 부팅)</div>
+      </div>
+      <div class="stack">
+        <h3>🏢 컨테이너 = 아파트 (Railway 방식)</h3>
+        <div class="layer-row">
+          <div class="layer app">내 Node 앱<small>그냥 프로세스</small></div>
+          <div class="layer app">남의 앱<small>그냥 프로세스</small></div>
+        </div>
+        <div class="layer-row">
+          <div class="layer">namespace<small>시야 차단 (벽)</small></div>
+          <div class="layer">cgroups<small>사용량 한도 (차단기)</small></div>
+        </div>
+        <div class="layer kernel">호스트 커널 — 중재자 한 명, 모두 공유 ★</div>
+        <div class="layer hw">하드웨어</div>
+        <div class="note">건물 설비는 공유, 호수별 벽 + 세대별 차단기.<br>가볍고 시작 빠름 (프로세스 시작 = 수 초)</div>
+      </div>
+    </div>
+    <p class="caption">
+      VM은 손님마다 <b>커널(중재자)을 통째로 복제</b>해 주는 방식, 컨테이너는 <b>중재자 한 명이 손님을 속이고(namespace) 제한하는(cgroups)</b> 방식.
+      커널이 뭔지 알면 이 문장이 곧바로 읽힙니다. push 후 Railway 배포가 금방 뜨는 이유 = OS 부팅이 없고 프로세스 시작뿐이라서.
+    </p>
+  </section>
+
+  <!-- ============ 7. namespace / cgroups ============ -->
+  <section>
+    <h2><span class="num">7</span>속이기(namespace) · 제한하기(cgroups) — 커널의 두 가지 기술</h2>
+    <div class="iso">
+      <div class="iso-card">
+        <h3>🕶️ namespace — 커널이 좁은 세상을 보여줌</h3>
+        <div class="chat">
+          <div class="bubble q">내 Node 앱: "프로세스 목록 줘 (ps)"</div>
+          <div class="bubble a">커널: "<s>다른 손님 앱 200개</s>… 네 프로세스뿐이야 😇"</div>
+          <div class="bubble q">내 Node 앱: "루트 디렉터리(/) 보여줘"</div>
+          <div class="bubble a">커널: "여기가 / 야" <s>(실제론 호스트의 한 폴더)</s></div>
+          <div class="bubble q">내 Node 앱: "옆에 누구 있어?"</div>
+          <div class="bubble a">커널: "아무도 없어. 너 혼자야 😇"</div>
+        </div>
+        <p class="caption" style="margin-top:10px">벽을 세우는 게 아니라 <b>눈을 가리는</b> 격리. 앱은 옆집의 존재를 알 방법 자체가 없다.</p>
+        <p class="caption"><b>원리:</b> 커널은 모든 프로세스에 "소속 namespace 꼬리표"를 붙여두고, 그 프로세스의 <b>모든 시스템 콜에 꼬리표 기준으로 대답</b>한다.
+        종류별로 따로 있음 — <b>PID</b>(프로세스 목록: 내 앱은 안에서 PID 1, 호스트에선 PID 48213), <b>mount</b>(파일시스템: 내 빌드 폴더가 / 로 보임),
+        <b>network</b>(내 컨테이너만의 가상 랜카드·IP·<u>자기만의 localhost</u>), user/UTS/IPC 등.
+        Docker도 Railway도 결국 커널의 <code>clone()/unshare()</code> 시스템 콜에 "새 namespace 만들어줘" 플래그를 넣어 호출할 뿐이다.</p>
+      </div>
+      <div class="iso-card">
+        <h3>🔌 cgroups — 커널이 장부 들고 한도 강제</h3>
+        <div class="meter">
+          <div class="lbl"><span>내 컨테이너 메모리</span><span><b style="color:var(--bad)">한도 512MB</b></span></div>
+          <div class="bar"><div class="fill" style="width:55%"></div><div class="limit"></div></div>
+          <div class="lbl"><span>평소: 280MB — 정상 ✅</span></div>
+        </div>
+        <div class="meter">
+          <div class="lbl"><span>멜론 캐시 Map이 무한히 쌓이면…</span></div>
+          <div class="bar"><div class="fill" style="width:90%"></div><div class="limit"></div></div>
+        </div>
+        <div class="kill">💀 한도 도달 → 커널의 OOM Killer가 내 프로세스만 종료 → Railway 재시작</div>
+        <p class="caption" style="margin-top:10px">옆집(다른 손님)은 멀쩡한 이유: 한도가 <b>컨테이너(프로세스 묶음) 단위</b>로 걸려 있어서.</p>
+        <p class="caption"><b>원리:</b> cgroup은 <code>/sys/fs/cgroup/…</code> 아래 폴더로 존재하고, <code>memory.max</code> 같은 파일에 숫자를 쓰면 한도가 걸린다.
+        이후 커널은 그 그룹 소속 프로세스가 메모리 1쪽(page)을 받을 때마다 장부에 기록.
+        <b>자원별로 한도의 결과가 다름</b> — <b>CPU 초과 = 죽이지 않고 천천히(throttle)</b>: 시간은 다음 차례에 또 주면 되니까. 앱은 "느려짐"으로 느낀다.
+        <b>메모리 초과 = 회수 시도 후 OOM Kill</b>: 이미 점유한 공간은 빌려줄 수 없으니까. 앱은 "갑자기 죽음"으로 느낀다.
+        Railway에서 응답이 전반적으로 느려지면 CPU 스로틀, 갑자기 재시작됐으면 OOM을 의심하는 근거가 이것.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8. Railway vs Docker ============ -->
+  <section>
+    <h2><span class="num">8</span>그럼 Railway랑 Docker는 뭐가 다른데?</h2>
+    <p class="caption" style="margin-top:0">
+      비교 대상이 아니라 <b>층이 다른</b> 존재입니다. Docker는 컨테이너를 만들고 돌리는 <b>도구(기술)</b>,
+      Railway는 그 컨테이너 기술을 <b>대신 운영해 주는 서비스(PaaS)</b>예요. 음식으로 치면 Docker = 밀키트/조리도구, Railway = 풀서비스 식당.
+    </p>
+    <div class="houses">
+      <div class="stack">
+        <h3>🐳 Docker — 내가 직접 다루는 도구</h3>
+        <div class="layer app">내가 하는 일</div>
+        <div class="layer">Dockerfile 작성 → <code>docker build</code><small>이미지(앱+의존성 스냅샷) 만들기</small></div>
+        <div class="layer"><code>docker run</code><small>이미지를 컨테이너(프로세스)로 실행</small></div>
+        <div class="layer dup">서버 준비·확장·재시작·로그·도메인·HTTPS<small>전부 내 몫 😅</small></div>
+        <div class="layer kernel">리눅스 커널 (namespace + cgroups)</div>
+        <div class="note">컨테이너를 "어디서, 어떻게 돌릴지"까지 내가 책임</div>
+      </div>
+      <div class="stack">
+        <h3>🚂 Railway — 그걸 다 해주는 서비스</h3>
+        <div class="layer app">내가 하는 일: <code>git push origin main</code> 끝</div>
+        <div class="layer">Railway가 코드 보고 이미지 자동 빌드<small>railway.json의 build/start 명령 사용 (Dockerfile 없어도 됨)</small></div>
+        <div class="layer">자기 서버에서 컨테이너로 실행<small>크래시 시 재시작, 로그, 도메인, HTTPS, env 주입까지</small></div>
+        <div class="layer kernel">리눅스 커널 (namespace + cgroups) — 똑같음 ★</div>
+        <div class="note">맨 밑 기술은 동일 — 운영을 누가 하느냐만 다름</div>
+      </div>
+    </div>
+    <p class="caption">
+      이 레포에 Dockerfile이 없는 이유: Railway가 <code>railway.json</code>의 <code>npm run build</code> / <code>npm run start</code>를 보고
+      이미지를 <b>알아서</b> 만들어 주기 때문(빌더가 Dockerfile 역할을 대신). Dockerfile을 직접 두면 Railway는 그걸 우선 사용합니다.
+      비슷한 층의 비교는 Docker ↔ Podman(도구끼리), Railway ↔ Heroku·Render·Fly.io(서비스끼리), 그리고 그 중간에 "컨테이너 수백 개를 지휘"하는 Kubernetes가 있어요 — Railway 같은 PaaS는 사실상 쿠버네티스급 운영을 대신 해주고 돈을 받는 비즈니스입니다.
+    </p>
+  </section>
+
+  <!-- ============ 9. 면접 ============ -->
+  <section class="qa">
+    <h2>🎤 면접 한 줄 정리</h2>
+    <ul>
+      <li><b>커널이란?</b> "부팅 때 메모리에 상주해 하드웨어를 독점 관리하는 OS의 핵심으로, 앱은 시스템 콜로만 자원에 접근합니다. 프로세스 스케줄링·가상 메모리·파일시스템·네트워크가 핵심 역할입니다."</li>
+      <li><b>유저/커널 모드는 왜?</b> "앱의 버그가 시스템 전체를 못 망가뜨리게 CPU 수준에서 권한을 나눈 것이고, 그래서 시스템 콜·컨텍스트 스위칭에 모드 전환 비용이 듭니다."</li>
+      <li><b>시스템 콜이란?</b> "유저 모드에서 커널 모드로 들어가는 유일한 합법적 통로입니다. 제 앱의 모든 DB 쿼리·API 호출·로그 출력이 결국 시스템 콜입니다."</li>
+      <li><b>VM vs 컨테이너?</b> "커널을 손님마다 복제하느냐(VM), 하나를 공유하며 namespace로 시야를·cgroups로 자원을 격리하느냐(컨테이너)의 차이입니다. 제 앱이 도는 Railway 컨테이너가 후자입니다."</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
