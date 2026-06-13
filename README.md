@@ -1,7 +1,13 @@
-# 멋사 1조 — 음악 매칭 앱 (Music Dating App)
+# 뮤직매치 — 음악 매칭 앱 (Music Dating App)
 
-대학생 대상 음악 취향 기반 1:1 매칭 + 채팅 모바일 웹앱.
-사용자가 곡과 장르를 고르면 관리자가 수동 매칭하고, 매칭된 두 사람이 채팅.
+> 음악 취향 기반 1:1 매칭 + 채팅 모바일 웹앱(PWA) · 대학생 대상
+> **Remix v2 · Supabase · Railway** 풀스택 · 멋쟁이사자처럼 1조 팀 프로젝트
+
+🔗 **라이브 데모:** https://music-dating-app-keonuu.up.railway.app
+📄 **포트폴리오 케이스 스터디:** [docs/PORTFOLIO.md](docs/PORTFOLIO.md) · 웹 페이지 `<도메인>/portfolio`
+
+같은 노래를 고른 사람과 매칭되어 대화를 시작하는 소개팅 앱.
+사용자가 곡·장르를 고르면 매칭되고, 매칭된 두 사람이 실시간으로 채팅한다.
 
 ## 빠른 시작
 
