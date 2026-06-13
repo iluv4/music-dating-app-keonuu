@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>메모리 — 멜론 캐시와 OOM Killer (슬라이드)</title>
+<style>
+  :root {
+    --coral: #ff625d;
+    --coral-50: #ffeeed;
+    --ink: #1f2430;
+    --gray: #6b7280;
+    --line: #e5e7eb;
+    --ok: #16a34a;
+    --bad: #dc2626;
+    --amber: #d97706;
+    --blue: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: var(--ink); background: #f3f4f6; margin: 0; line-height: 1.6; overflow: hidden;
+  }
+  .deck { height: 100%; display: flex; flex-direction: column; }
+  .stage { flex: 1; position: relative; overflow: hidden; }
+  .slide {
+    position: absolute; inset: 0; padding: 28px 20px 16px; overflow-y: auto;
+    display: none; opacity: 0; transform: translateX(40px); transition: opacity .25s, transform .25s;
+  }
+  .slide.active { display: block; opacity: 1; transform: translateX(0); }
+  .slide-inner { max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 28px; min-height: calc(100% - 8px); }
+
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--coral); margin-bottom: 6px; }
+  h1 { font-size: 23px; margin: 0 0 16px; }
+  .caption { font-size: 13.5px; color: var(--gray); margin-top: 14px; }
+  .caption b { color: var(--ink); }
+  code { background: var(--coral-50); color: var(--coral); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+
+  .nav { flex: none; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px; background: #fff; border-top: 1px solid var(--line); }
+  .nav button { border: none; background: var(--coral); color: #fff; font-size: 15px; font-weight: 700; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; }
+  .nav button:disabled { background: #d7dae0; cursor: default; }
+  .counter { font-size: 13px; color: var(--gray); min-width: 64px; text-align: center; }
+  .progress { position: absolute; top: 0; left: 0; height: 4px; background: var(--coral); transition: width .25s; z-index: 5; }
+  .hint { position: fixed; top: 12px; right: 16px; font-size: 11px; color: var(--gray); z-index: 5; }
+
+  /* 코드 블록 */
+  pre.code { background: #1e2430; color: #e8eaf0; border-radius: 12px; padding: 16px 18px; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.7; overflow-x: auto; margin: 0; }
+  pre.code .cm { color: #8b93a3; }
+  pre.code .kw { color: #ff9b97; }
+  pre.code .fn { color: #ffd479; }
+  pre.code .hl { background: rgba(255,98,93,.22); border-radius: 4px; padding: 1px 2px; }
+  pre.code .ok { color: #86efac; }
+  pre.code .bad { color: #fca5a5; }
+  .annot { font-size: 12.5px; color: var(--gray); margin-top: 10px; }
+  .annot b { color: var(--coral); }
+
+  /* 스택 vs 힙 */
+  .sh { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 640px) { .sh { grid-template-columns: 1fr; } }
+  .sh-card { border-radius: 12px; padding: 16px; font-size: 13px; }
+  .sh-card.stack { background: #eef2ff; border: 1.5px solid #c7d2fe; }
+  .sh-card.heap { background: var(--coral-50); border: 1.5px solid #ffc9c7; }
+  .sh-card h3 { margin: 0 0 8px; font-size: 14.5px; }
+  .sh-card.stack h3 { color: var(--blue); }
+  .sh-card.heap h3 { color: var(--coral); }
+  .sh-card ul { margin: 6px 0 0; padding-left: 18px; }
+  .sh-card li { margin-bottom: 5px; }
+
+  /* 메모리 계층 피라미드 */
+  .pyr { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 560px; margin: 0 auto; }
+  .pyr .lvl { border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; text-align: center; padding: 9px 6px; display:flex; justify-content:space-between; padding-left:16px; padding-right:16px; }
+  .pyr .lvl .lt { opacity:.85; font-weight:400; font-size:12px; }
+  .pyr .l1 { width: 50%; background: var(--coral); }
+  .pyr .l2 { width: 68%; background: #ff8a86; }
+  .pyr .l3 { width: 84%; background: #f6a9a6; }
+  .pyr .l4 { width: 100%; background: #c9ced8; color: var(--ink); }
+  .pyr-side { font-size: 12px; color: var(--gray); text-align: center; margin-top: 10px; }
+  .pyr-side b { color: var(--ink); }
+
+  /* 지역성 베팅 */
+  .bet { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+  @media (max-width: 640px) { .bet { grid-template-columns: 1fr; } }
+  .bet .box { border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+  .bet .box b { color: var(--coral); }
+
+  /* 누수 타임라인 */
+  .leak { position: relative; padding-left: 20px; border-left: 2px solid var(--line); max-width: 640px; margin: 0 auto; }
+  .leak .ev { position: relative; margin-bottom: 16px; font-size: 13.5px; }
+  .leak .ev::before { content: ""; position: absolute; left: -27px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid var(--blue); }
+  .leak .ev.warn::before { border-color: var(--amber); }
+  .leak .ev.kill::before { border-color: var(--bad); }
+  .leak .ev.re::before { border-color: var(--ok); }
+  .leak .ev small { display: block; color: var(--gray); font-size: 12px; margin-top: 2px; }
+  .leak .ev b { color: var(--ink); }
+
+  /* 톱니파 그래프 */
+  .saw { max-width: 560px; margin: 8px auto 0; }
+  .saw svg { width: 100%; height: auto; display: block; }
+
+  /* oom_score 막대 */
+  .oom-rank { max-width: 560px; margin: 0 auto; }
+  .oom-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12.5px; }
+  .oom-row .nm { width: 130px; flex: none; }
+  .oom-row .bar { flex: 1; height: 22px; border-radius: 6px; background: #eef0f4; overflow: hidden; }
+  .oom-row .fill { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: #fff; font-size: 11px; font-weight: 700; }
+  .oom-row .sc { width: 40px; flex: none; text-align: right; color: var(--gray); }
+  .victim { margin-top: 10px; background: #fef2f2; border: 1.5px solid #fecaca; color: var(--bad); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; font-weight: 700; text-align: center; }
+
+  /* LRU 비교 */
+  .algos { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  @media (max-width: 640px) { .algos { grid-template-columns: 1fr; } }
+  .algo { border: 1.5px solid var(--line); border-radius: 10px; padding: 13px; font-size: 12.5px; }
+  .algo h3 { margin: 0 0 6px; font-size: 14px; }
+  .algo.best { border-color: var(--ok); background: #f0fdf4; }
+  .algo .tagok { color: var(--ok); font-weight: 700; font-size: 11px; }
+
+  .map-demo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 10px 0; }
+  .mslot { border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; background: #fff; }
+  .mslot.old { border-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+  .mslot.new { border-color: var(--ok); color: var(--ok); font-weight: 700; }
+
+  .qa-list { padding-left: 18px; margin: 0; }
+  .qa-list li { margin-bottom: 12px; font-size: 14px; }
+  .qa-list b { color: var(--coral); }
+
+  .title-slide { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-height: 70vh; }
+  .title-slide h1 { font-size: 32px; margin-bottom: 8px; }
+  .title-slide .sub { color: var(--gray); font-size: 15px; }
+  .title-slide .start { margin-top: 24px; font-size: 13px; color: var(--coral); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="progress" id="progress"></div>
+  <div class="hint">← → 키 / 스와이프 / 버튼</div>
+  <div class="stage" id="stage">
+
+    <!-- 1 타이틀 -->
+    <div class="slide active"><div class="slide-inner title-slide">
+      <h1>메모리 — 멜론 캐시와 OOM Killer 🧠💾</h1>
+      <div class="sub"><code>melona-cache.server.ts</code> 30줄로 배우는 메모리 관리</div>
+      <div class="start">→ 키 또는 스와이프로 시작</div>
+    </div></div>
+
+    <!-- 2 실제 코드 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">01 · 문제의 코드</div>
+      <h1>이 30줄 안에 메모리 토픽이 통째로 있다</h1>
+<pre class="code"><span class="kw">const</span> store = <span class="kw">new</span> <span class="fn">Map</span>();   <span class="hl">// ← 힙에 사는 무한 성장 캐시</span>
+
+<span class="kw">function</span> <span class="fn">getCache</span>(key) {
+  <span class="kw">const</span> entry = store.<span class="fn">get</span>(key);
+  <span class="kw">if</span> (!entry) <span class="kw">return</span> <span class="bad">null</span>;
+  <span class="kw">if</span> (<span class="fn">Date.now</span>() &gt; entry.expiresAt) {
+    store.<span class="fn">delete</span>(key);   <span class="hl">// 만료 삭제 = "읽을 때만" 일어남</span>
+    <span class="kw">return</span> <span class="bad">null</span>;
+  }
+  <span class="kw">return</span> entry.data;
+}
+
+<span class="kw">function</span> <span class="fn">setCache</span>(key, data, ttl) {
+  store.<span class="fn">set</span>(key, { data, expiresAt: <span class="fn">Date.now</span>()+ttl });
+  <span class="hl">// ← 상한도 없고, 청소부도 없다</span>
+}</pre>
+      <p class="annot"><b>주목 3가지:</b> ① <code>store</code>는 모듈 스코프 = 힙에 영구 거주 · ② 만료 삭제는 그 키를 <b>다시 읽을 때만</b> 실행 · ③ 키 개수 상한이 없음. 이 셋이 합쳐지면 사고가 난다.</p>
+    </div></div>
+
+    <!-- 3 스택 vs 힙 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">02 · 어디에 사나</div>
+      <h1>"프로세스 힙 메모리"라는 말의 뜻</h1>
+      <div class="sh">
+        <div class="sh-card stack">
+          <h3>📚 스택 (Stack)</h3>
+          <ul>
+            <li>함수 호출 때 생기고 <b>끝나면 자동 소멸</b></li>
+            <li>지역 변수, 함수 인자</li>
+            <li>수명 짧음 · 자동 관리 · 안전</li>
+          </ul>
+        </div>
+        <div class="sh-card heap">
+          <h3>🗄️ 힙 (Heap)</h3>
+          <ul>
+            <li>"오래 들고 있을게" 하고 잡는 공간</li>
+            <li><code>new Map()</code>, 객체, 배열</li>
+            <li>내가 <code>delete</code> 안 하면 <b>영원히 잔류</b></li>
+          </ul>
+        </div>
+      </div>
+      <p class="caption"><code>store</code>는 모듈 최상단 <code>const</code> = 함수가 끝나도 안 사라지는 <b>힙</b>에 산다. 그래서 캐시로 쓸 수 있고, <b>동시에 그래서 위험</b>하다. 스택이면 알아서 청소되지만 힙은 직접 비워야 한다.</p>
+    </div></div>
+
+    <!-- 4 메모리 계층 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">03 · 왜 캐시를 두나</div>
+      <h1>메모리 계층 — 빠른 건 작고, 느린 건 크다</h1>
+      <div class="pyr">
+        <div class="lvl l1">CPU 캐시 <span class="lt">나노초(ns)</span></div>
+        <div class="lvl l2">메모리 캐시 (Map) <span class="lt">µs ✅ 우리 코드</span></div>
+        <div class="lvl l3">DB / 디스크 <span class="lt">밀리초(ms)</span></div>
+        <div class="lvl l4">멜론 API (네트워크) <span class="lt">수백 ms</span></div>
+      </div>
+      <p class="pyr-side">느린 저장소(멜론 API) 앞에 빠른 저장소(Map)를 <b>작게</b> 둬서 자주 쓰는 것만 올린다.<br>CPU 캐시가 RAM 앞에 있는 것과 <b>완전히 같은 아이디어의 다른 층</b>이다.</p>
+    </div></div>
+
+    <!-- 5 지역성 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">04 · 캐시가 통하는 이유</div>
+      <h1>캐시 = 마법이 아니라 행동 패턴에 대한 베팅</h1>
+      <div class="bet">
+        <div class="box"><b>⏱️ 시간 지역성</b><br>방금 쓴 걸 곧 또 쓴다.<br>"인기 차트를 한 명이 보면 5분 안에 다른 사람도 같은 차트를 본다" → <code>CACHE_TTL.chart = 5분</code>의 근거.</div>
+        <div class="box"><b>📍 공간 지역성</b><br>방금 쓴 것 근처를 곧 쓴다.<br>CPU 캐시가 한 바이트가 아니라 한 블록을 통째로 읽어오는 이유.</div>
+      </div>
+      <p class="caption">베팅이 <b>맞으면</b>(같은 차트 재조회) µs에 끝나고, <b>틀리면</b>(전부 다른 검색어) 캐시는 메모리만 먹는 짐이 된다. → 바로 다음 슬라이드의 사고로 이어진다.</p>
+    </div></div>
+
+    <!-- 6 누수 타임라인 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">05 · 사고 시나리오</div>
+      <h1>eviction 없는 캐시가 죽는 과정</h1>
+      <div class="leak">
+        <div class="ev"><b>검색어 캐시가 쌓인다</b><small>"BTS 신곡" 검색 → set. 그 유저는 다시 검색 안 함 → 아무도 그 키를 다시 읽지 않음 → 만료돼도 영원히 잔류 (만료 삭제는 "읽을 때만")</small></div>
+        <div class="ev warn"><b>힙 사용량이 단조 증가</b><small>차트는 키가 몇 개뿐이라 OK. 하지만 검색어는 유저 입력만큼 무한히 다양 → Map 키 개수가 줄어들 길 없이 계속 증가 = 메모리 누수</small></div>
+        <div class="ev kill"><b>cgroups 한도 도달 → OOM Killer</b><small>Railway가 건 memory.max(예: 512MB)에 부딪힘 → 커널이 회수 시도 실패 → 가장 메모리 많이 먹는 프로세스(=우리 Node)에 SIGKILL. try/catch로 못 잡음, 로그도 안 남고 즉사</small></div>
+        <div class="ev re"><b>Railway 재시작 → 캐시 증발</b><small>컨테이너의 힙은 컨테이너와 함께 사라짐 → 빈 Map으로 재시작 → 또 차오름 → 또 죽음 (톱니파)</small></div>
+      </div>
+    </div></div>
+
+    <!-- 7 톱니파 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">06 · 증상</div>
+      <h1>메모리 그래프가 톱니파(sawtooth)가 된다</h1>
+      <div class="saw">
+        <svg viewBox="0 0 560 220">
+          <line x1="40" y1="180" x2="540" y2="180" stroke="#d7dae0" stroke-width="2"/>
+          <line x1="40" y1="20" x2="40" y2="180" stroke="#d7dae0" stroke-width="2"/>
+          <line x1="40" y1="50" x2="540" y2="50" stroke="#fecaca" stroke-width="2" stroke-dasharray="6 5"/>
+          <text x="546" y="54" font-size="11" fill="#dc2626">한도 512MB</text>
+          <text x="6" y="184" font-size="11" fill="#6b7280">0</text>
+          <text x="2" y="115" font-size="11" fill="#6b7280">메모리</text>
+          <!-- sawtooth -->
+          <polyline points="40,175 180,50 180,150 320,50 320,150 460,50 460,150 540,95" fill="none" stroke="#ff625d" stroke-width="3"/>
+          <!-- kill markers -->
+          <circle cx="180" cy="50" r="5" fill="#dc2626"/><text x="150" y="40" font-size="11" fill="#dc2626">💀 kill</text>
+          <circle cx="320" cy="50" r="5" fill="#dc2626"/><text x="290" y="40" font-size="11" fill="#dc2626">💀 kill</text>
+          <circle cx="460" cy="50" r="5" fill="#dc2626"/><text x="430" y="40" font-size="11" fill="#dc2626">💀 kill</text>
+          <text x="250" y="205" font-size="12" fill="#6b7280">시간 →</text>
+        </svg>
+      </div>
+      <p class="caption">올라가다 한도에서 OOM Kill → 재시작으로 뚝 떨어짐 → 다시 상승. 이 <b>톱니 모양 + 주기적 재시작</b>이 메모리 누수의 시그니처. Railway 메트릭에서 이게 보이면 캐시·누수를 의심한다.</p>
+    </div></div>
+
+    <!-- 8 OOM score -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">07 · 누구를 죽이나</div>
+      <h1>OOM Killer는 oom_score로 희생자를 고른다</h1>
+      <div class="oom-rank">
+        <div class="oom-row"><div class="nm">node (우리 앱)</div><div class="bar"><div class="fill" style="width:92%; background:var(--bad)">먹는 메모리 최대</div></div><div class="sc">920</div></div>
+        <div class="oom-row"><div class="nm">build 캐시</div><div class="bar"><div class="fill" style="width:35%; background:#f6a9a6">·</div></div><div class="sc">350</div></div>
+        <div class="oom-row"><div class="nm">기타 데몬</div><div class="bar"><div class="fill" style="width:12%; background:#c9ced8">·</div></div><div class="sc">120</div></div>
+      </div>
+      <div class="victim">💀 점수 1위 = 메모리를 가장 많이 먹는 우리 Node 프로세스가 1순위 희생</div>
+      <p class="caption"><code>oom_score</code>(0~1000)는 대략 "이 프로세스가 메모리를 얼마나 먹나"에 비례. 캐시를 무한히 키운 바로 그 프로세스가 <b>자기 손으로 자길 죽이는</b> 셈. OOM Kill은 JS 예외가 아니라 커널의 SIGKILL이라 <code>try/catch</code>로 못 잡고 유언도 못 남긴다.</p>
+    </div></div>
+
+    <!-- 9 가상 주소 공간 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">08 · 왜 공유가 안 되나</div>
+      <h1>각 프로세스는 자기만의 가상 주소 공간을 가진다</h1>
+      <div class="sh">
+        <div class="sh-card heap">
+          <h3>인스턴스 A의 Node</h3>
+          <p style="margin:4px 0">힙 안의 <code>store</code> Map<br><small style="color:var(--gray)">"BTS 신곡", "차트" …</small></p>
+        </div>
+        <div class="sh-card heap">
+          <h3>인스턴스 B의 Node</h3>
+          <p style="margin:4px 0">힙 안의 <code>store</code> Map<br><small style="color:var(--gray)">(완전히 별개, 텅 빔)</small></p>
+        </div>
+      </div>
+      <p class="caption">Railway에서 인스턴스를 2개로 늘리면? 두 프로세스의 힙은 <b>커널이 격리</b>한 별개 주소 공간이라 캐시가 <b>공유되지 않는다</b>. A에 캐시된 검색어를 B는 모름 → 히트율 반토막. 진짜 공유하려면 프로세스 밖의 <b>Redis</b> 같은 외부 저장소가 필요하다. "프로세스 간 메모리는 왜 안 나눠지나"가 가상 메모리의 출발점.</p>
+    </div></div>
+
+    <!-- 10 해법 LRU -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">09 · 해법</div>
+      <h1>상한 + LRU = OS 페이지 교체와 같은 문제</h1>
+      <div class="algos">
+        <div class="algo"><h3>FIFO</h3>먼저 들어온 것부터 버림. 단순하지만 "오래됐어도 자주 쓰는 것"을 버리는 실수.</div>
+        <div class="algo best"><h3>LRU <span class="tagok">★ 기본값</span></h3>가장 <b>오래 안 쓰인 것</b>을 버림. "최근에 안 썼으면 앞으로도 안 쓴다" = 시간 지역성 베팅.</div>
+        <div class="algo"><h3>LFU</h3>가장 <b>적게 쓰인 것</b>을 버림. 빈도 기반. 구현 복잡.</div>
+      </div>
+      <p class="caption" style="margin-top:14px"><b>핵심:</b> RAM이 꽉 차면 OS도 "어느 페이지를 디스크로 내쫓을까?"라는 똑같은 질문을 한다 = <b>페이지 교체 알고리즘</b>. "캐시 eviction 정책 아세요?"와 "페이지 교체 알고리즘 아세요?"는 사실상 같은 질문이고, 규모와 층만 다르다.</p>
+    </div></div>
+
+    <!-- 11 Map으로 LRU 구현 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">10 · 어떻게 고치나</div>
+      <h1>Map의 "삽입 순서 기억" 성질로 LRU 구현</h1>
+      <div class="map-demo">
+        <div class="mslot old">A (가장 오래됨)</div>
+        <div class="mslot">B</div>
+        <div class="mslot">C</div>
+        <div class="mslot new">→ D 삽입</div>
+      </div>
+      <p class="caption" style="text-align:center; margin-top:0">상한 초과 → 맨 앞(가장 오래된 A) 제거 · <code>get</code> 할 때마다 그 키를 지웠다 다시 넣어 맨 뒤로 보냄</p>
+<pre class="code" style="margin-top:14px"><span class="cm">// 라이브러리 한 줄이면 끝</span>
+<span class="kw">import</span> { LRUCache } <span class="kw">from</span> <span class="ok">"lru-cache"</span>;
+<span class="kw">const</span> store = <span class="kw">new</span> <span class="fn">LRUCache</span>({
+  max: <span class="ok">1000</span>,        <span class="cm">// 키 개수 상한 → OOM 원천 차단</span>
+  ttl: <span class="ok">5</span> * <span class="ok">60</span> * <span class="ok">1000</span> <span class="cm">// 만료도 자동 관리</span>
+});</pre>
+      <p class="caption"><code>max: 1000</code> 한 줄이 무한 성장을 막는다. 1001번째가 들어오면 가장 오래 안 쓰인 1개가 자동 퇴출 → 메모리가 상한 안에서 평형을 이룬다.</p>
+    </div></div>
+
+    <!-- 12 면접 -->
+    <div class="slide"><div class="slide-inner">
+      <div class="kicker">11 · 마무리</div>
+      <h1>🎤 면접 한 줄 정리</h1>
+      <ul class="qa-list">
+        <li><b>스택 vs 힙?</b> "스택은 함수와 함께 자동 소멸하는 단기 메모리, 힙은 직접 해제해야 하는 장기 메모리입니다. 제 캐시 Map은 힙에 있어 비우지 않으면 누수가 납니다."</li>
+        <li><b>캐시가 통하는 원리?</b> "시간 지역성 — 방금 쓴 걸 곧 또 쓴다는 베팅입니다. 느린 멜론 API 앞에 빠른 메모리 캐시를 두는 건 CPU 캐시가 RAM 앞에 있는 것과 같은 계층 구조입니다."</li>
+        <li><b>OOM Killer란?</b> "메모리 한도 초과 시 커널이 oom_score 기준으로 프로세스를 SIGKILL 하는 것입니다. 제 캐시에 상한이 없으면 누수 → OOM → 재시작 톱니파가 됩니다."</li>
+        <li><b>해결책?</b> "키 개수 상한 + LRU 퇴출입니다. 이건 OS의 페이지 교체 알고리즘과 같은 문제이고, lru-cache의 max 옵션 한 줄로 원천 차단됩니다."</li>
+        <li><b>스케일아웃 시 캐시?</b> "프로세스 힙은 격리돼 인스턴스 간 공유가 안 됩니다. 공유하려면 Redis 같은 외부 저장소가 필요합니다."</li>
+      </ul>
+    </div></div>
+
+  </div>
+
+  <div class="nav">
+    <button id="prev" aria-label="이전">←</button>
+    <div class="counter" id="counter">1 / 12</div>
+    <button id="next" aria-label="다음">→</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var slides = document.querySelectorAll(".slide");
+  var prev = document.getElementById("prev");
+  var next = document.getElementById("next");
+  var counter = document.getElementById("counter");
+  var progress = document.getElementById("progress");
+  var i = 0;
+  function show(n) {
+    if (n < 0 || n >= slides.length) return;
+    slides[i].classList.remove("active");
+    i = n;
+    slides[i].classList.add("active");
+    slides[i].scrollTop = 0;
+    counter.textContent = (i + 1) + " / " + slides.length;
+    progress.style.width = ((i + 1) / slides.length * 100) + "%";
+    prev.disabled = i === 0;
+    next.disabled = i === slides.length - 1;
+    location.hash = i + 1;
+  }
+  prev.addEventListener("click", function () { show(i - 1); });
+  next.addEventListener("click", function () { show(i + 1); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(i + 1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(i - 1); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+  });
+  var x0 = null, y0 = null;
+  document.addEventListener("touchstart", function (e) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener("touchend", function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) show(dx < 0 ? i + 1 : i - 1);
+    x0 = y0 = null;
+  }, { passive: true });
+  var h = parseInt(location.hash.slice(1), 10);
+  if (h >= 1 && h <= slides.length) show(h - 1); else show(0);
+})();
+</script>
+</body>
+</html>
