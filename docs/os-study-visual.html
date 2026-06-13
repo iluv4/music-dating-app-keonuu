@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OS 스터디 — 내 앱으로 배우는 운영체제</title>
+<style>
+  :root {
+    --coral: #ff625d;
+    --coral-50: #ffeeed;
+    --ink: #1f2430;
+    --gray: #6b7280;
+    --line: #e5e7eb;
+    --ok: #16a34a;
+    --bad: #dc2626;
+    --blue: #2563eb;
+    --amber: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: var(--ink); background: #fafafa; margin: 0; padding: 32px 16px 80px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--gray); margin-bottom: 40px; font-size: 14px; }
+  section {
+    background: #fff; border: 1px solid var(--line); border-radius: 16px;
+    padding: 28px; margin-bottom: 28px;
+  }
+  h2 { font-size: 19px; margin: 0 0 2px; }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--coral);
+    color: #fff; font-size: 14px; margin-right: 8px; vertical-align: -3px;
+  }
+  .file { font-size: 12.5px; color: var(--gray); font-family: ui-monospace, Consolas, monospace; margin-bottom: 18px; }
+  .file code { background: var(--coral-50); color: var(--coral); padding: 1px 6px; border-radius: 5px; }
+  .caption { font-size: 13.5px; color: var(--gray); margin-top: 14px; }
+  .caption b { color: var(--ink); }
+
+  /* ---------- 공통 박스 ---------- */
+  .box {
+    border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 12px;
+    font-size: 13px; background: #fff; text-align: center;
+  }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    padding: 2px 8px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .tag.bad { background: #fee2e2; color: var(--bad); }
+  .tag.ok  { background: #dcfce7; color: var(--ok); }
+
+  /* ---------- 1. race / lock 타임라인 ---------- */
+  .race-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .race-grid { grid-template-columns: 1fr; } }
+  .timeline { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: #fcfcfd; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .lane-title { font-size: 12px; font-weight: 700; text-align: center; color: var(--gray); margin-bottom: 6px; }
+  .step { border-radius: 8px; padding: 6px 8px; font-size: 12px; text-align: center; margin-bottom: 8px; border: 1.5px solid var(--line); background:#fff; }
+  .step.read { border-color: var(--blue); color: var(--blue); }
+  .step.write { border-color: var(--coral); color: var(--coral); }
+  .step.wait { border-color: var(--amber); color: var(--amber); background: #fffbeb; }
+  .step.boom { border-color: var(--bad); color: var(--bad); background: #fef2f2; font-weight: 700; }
+  .step.safe { border-color: var(--ok); color: var(--ok); background: #f0fdf4; font-weight: 700; }
+  .step.ghost { opacity: 0; pointer-events: none; }
+  .t-axis { font-size: 10px; color: #b6bcc6; text-align: right; margin-top: 2px; }
+
+  /* ---------- 2. 이벤트 루프 ---------- */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; justify-content: center; }
+  .flow .box { min-width: 110px; }
+  .arrow { color: var(--gray); font-size: 18px; padding: 0 8px; flex: none; }
+  .loopbox { border: 2px solid var(--coral); background: var(--coral-50); border-radius: 12px; padding: 14px 18px; text-align:center; font-weight: 700; font-size: 13.5px; min-width: 150px; }
+  .loopbox small { display:block; font-weight: 400; color: var(--gray); font-size: 11.5px; margin-top: 2px; }
+  .stack-note { display:flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+  .stack-note .box { flex: 1; min-width: 200px; text-align: left; font-size: 12.5px; }
+  .stack-note .box b { font-size: 13px; }
+
+  /* ---------- 3. 메모리 계층 / OOM ---------- */
+  .mem-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; align-items: start; }
+  @media (max-width: 700px) { .mem-grid { grid-template-columns: 1fr; } }
+  .pyr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .pyr .lvl { border-radius: 8px; color: #fff; font-size: 12px; font-weight: 600; text-align: center; padding: 7px 6px; }
+  .pyr .l1 { width: 45%; background: var(--coral); }
+  .pyr .l2 { width: 65%; background: #ff8a86; }
+  .pyr .l3 { width: 85%; background: #f6a9a6; }
+  .pyr .l4 { width: 100%; background: #c9ced8; color: var(--ink); }
+  .pyr-side { font-size: 11px; color: var(--gray); text-align: center; margin-top: 4px; }
+  .oom { position: relative; padding-left: 18px; border-left: 2px solid var(--line); }
+  .oom .ev { position: relative; margin-bottom: 14px; font-size: 13px; }
+  .oom .ev::before {
+    content: ""; position: absolute; left: -24.5px; top: 5px; width: 11px; height: 11px;
+    border-radius: 50%; background: #fff; border: 3px solid var(--blue);
+  }
+  .oom .ev.warn::before { border-color: var(--amber); }
+  .oom .ev.kill::before { border-color: var(--bad); }
+  .oom .ev.re::before { border-color: var(--ok); }
+  .oom .ev small { display: block; color: var(--gray); font-size: 12px; }
+
+  /* ---------- 4. 컨테이너 vs VM ---------- */
+  .stacks { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 700px) { .stacks { grid-template-columns: 1fr; } }
+  .stack { display: flex; flex-direction: column; gap: 5px; }
+  .stack h3 { font-size: 14px; margin: 0 0 6px; text-align: center; }
+  .layer { border-radius: 8px; text-align: center; font-size: 12.5px; padding: 8px 6px; border: 1.5px solid var(--line); background: #fff; }
+  .layer.hw { background: #eef0f4; }
+  .layer.kernel { background: var(--ink); color: #fff; }
+  .layer.app { border-color: var(--coral); color: var(--coral); font-weight: 700; }
+  .layer.dup { background: #fffbeb; border-color: var(--amber); }
+  .layer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+
+  /* ---------- 5. 인터럽트 ---------- */
+  .sw-flow { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; }
+  .zzz { font-size: 11px; color: var(--gray); display: block; }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  @media (max-width: 700px) { .vs { grid-template-columns: 1fr; } }
+  .vs .box { text-align: left; font-size: 12.5px; }
+
+  .qa { background: var(--coral-50); border: none; }
+  .qa h2 { color: var(--coral); }
+  .qa li { margin-bottom: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>내 앱으로 배우는 운영체제 🎵</h1>
+  <div class="sub">music-dating-app의 실제 코드·인프라에서 끌어낸 OS 핵심 개념 5가지 — 2026.06</div>
+
+  <!-- ================= 1. 동기화 ================= -->
+  <section>
+    <h2><span class="num">1</span>동기화 — 매칭 더블서밋과 임계 구역</h2>
+    <div class="file">📄 <code>supabase/migration_match_concurrency.sql</code> · <code>loadtest/match-concurrency.js</code></div>
+
+    <div class="race-grid">
+      <div class="timeline">
+        <span class="tag bad">락 없음 — Race Condition</span>
+        <div class="lanes">
+          <div>
+            <div class="lane-title">탭 A</div>
+            <div class="step read">① 매칭 있나? → 없음</div>
+            <div class="step ghost">·</div>
+            <div class="step write">③ INSERT 매칭 #1</div>
+          </div>
+          <div>
+            <div class="lane-title">탭 B</div>
+            <div class="step ghost">·</div>
+            <div class="step read">② 매칭 있나? → 없음</div>
+            <div class="step write">④ INSERT 매칭 #2</div>
+          </div>
+        </div>
+        <div class="step boom">💥 같은 유저에게 중복 매칭 2개</div>
+        <div class="t-axis">시간 ↓</div>
+      </div>
+
+      <div class="timeline">
+        <span class="tag ok">advisory lock = 뮤텍스</span>
+        <div class="lanes">
+          <div>
+            <div class="lane-title">탭 A</div>
+            <div class="step wait">🔒 lock 획득</div>
+            <div class="step read">매칭 있나? → 없음</div>
+            <div class="step write">INSERT 매칭 #1</div>
+            <div class="step wait">🔓 커밋 → 자동 해제</div>
+          </div>
+          <div>
+            <div class="lane-title">탭 B</div>
+            <div class="step wait">⏳ lock 대기 (blocked)</div>
+            <div class="step ghost">·</div>
+            <div class="step ghost">·</div>
+            <div class="step read">매칭 있나? → <b>있음!</b></div>
+          </div>
+        </div>
+        <div class="step safe">✅ 기존 매칭 반환 — 중복 0건</div>
+        <div class="t-axis">시간 ↓</div>
+      </div>
+    </div>
+
+    <p class="caption">
+      <b>check-then-act</b>(확인 후 행동) 사이에 다른 실행 흐름이 끼어드는 것이 경쟁 상태.
+      <code>pg_advisory_xact_lock(hashtext('match_creation'))</code>은 임계 구역에 한 번에 하나만 들어가게 하는 <b>뮤텍스(상호 배제)</b>이고,
+      <code>_xact_</code>(트랜잭션 락)이라 프로세스가 죽어도 락이 고아로 남지 않는다.
+      전역 락 하나 = <b>거친 입도(coarse-grained)</b> → 안전하지만 직렬화 병목.
+      유저별 락으로 쪼개면 빨라지지만, 두 락을 잡는 순서가 엇갈리면 <b>순환 대기 → 데드락</b>. 해법은 락 정렬(작은 id부터 잡기).
+      유니크 인덱스는 락이 뚫려도 막아주는 최후 방어선, k6 부하 테스트는 타이밍 의존적인 race를 강제로 재현하는 도구.
+    </p>
+  </section>
+
+  <!-- ================= 2. 이벤트 루프 ================= -->
+  <section>
+    <h2><span class="num">2</span>프로세스/스레드 — 싱글 스레드 Node가 동시 요청을 받는 법</h2>
+    <div class="file">📄 Remix 서버 (Railway 컨테이너의 Node 프로세스 1개) · <code>melon-chart.server.ts</code> · Supabase 쿼리</div>
+
+    <div class="flow">
+      <div class="box">유저 요청<br><small style="color:var(--gray)">매칭·채팅·차트 ×100</small></div>
+      <div class="arrow">→</div>
+      <div class="loopbox">이벤트 루프<small>JS 싱글 스레드 — 절대 안 멈춰야 함</small></div>
+      <div class="arrow">→</div>
+      <div class="box">시스템 콜<br><small style="color:var(--gray)">OS에 I/O 위임 (epoll)</small></div>
+      <div class="arrow">→</div>
+      <div class="box">Supabase / 멜론 API<br><small style="color:var(--gray)">네트워크 I/O 수십~수백 ms</small></div>
+    </div>
+    <div class="flow" style="margin-top:6px">
+      <div class="arrow" style="transform:rotate(180deg)">→</div>
+      <div class="box" style="border-color:var(--ok); color:var(--ok)">응답 도착 → 콜백 큐 → 이벤트 루프가 이어서 처리</div>
+    </div>
+
+    <div class="stack-note">
+      <div class="box"><b>✅ I/O 작업 (논블로킹)</b><br>기다리는 동안 루프는 다음 요청 처리.<br>그래서 스레드 1개로 동시 접속 수천을 버틴다.</div>
+      <div class="box"><b>⚠️ CPU 작업 (블로킹)</b><br>거대 JSON 파싱·이미지 리사이즈를 서버에서 동기로 돌리면 <b>전 유저가 같이 멈춤</b>.<br>→ 이 앱이 이미지 처리를 <code>image.client.ts</code>(브라우저)로 보낸 이유. 서버에서 꼭 해야 하면 worker_threads(스레드)/클러스터(프로세스).</div>
+    </div>
+
+    <p class="caption">
+      <b>프로세스</b> = 독립된 주소 공간을 가진 실행 단위, <b>스레드</b> = 프로세스 안에서 메모리를 공유하는 실행 흐름.
+      Node는 "스레드를 늘리는" 대신 "기다림을 OS에 떠넘기는" 이벤트 기반 모델을 택했다 — 컨텍스트 스위칭 비용과 동기화 버그를 피하는 트레이드오프.
+    </p>
+  </section>
+
+  <!-- ================= 3. 메모리 ================= -->
+  <section>
+    <h2><span class="num">3</span>메모리 — 멜론 캐시와 OOM Killer</h2>
+    <div class="file">📄 <code>src/lib/melona-cache.server.ts</code> — <code>const store = new Map()</code> (프로세스 힙 메모리)</div>
+
+    <div class="mem-grid">
+      <div>
+        <div class="pyr">
+          <div class="lvl l1">CPU 캐시 — ns</div>
+          <div class="lvl l2">메모리 캐시 (Map) — µs ✅</div>
+          <div class="lvl l3">DB / 디스크 — ms</div>
+          <div class="lvl l4">멜론 API (네트워크) — 수백 ms</div>
+        </div>
+        <div class="pyr-side">↑ 빠르고 작다 · 아래로 갈수록 느리고 크다<br>캐시가 통하는 이유 = <b>시간 지역성</b>(같은 차트를 5분 안에 또 본다)</div>
+      </div>
+
+      <div>
+        <span class="tag bad">잠재 시나리오 — eviction 없는 캐시의 최후</span>
+        <div class="oom" style="margin-top:8px">
+          <div class="ev">검색어 캐시가 Map에 쌓임<small>만료 키는 "읽을 때만" 삭제 → 안 읽히면 영원히 잔류</small></div>
+          <div class="ev warn">힙 사용량이 계속 증가<small>각 프로세스는 자기만의 가상 주소 공간을 가짐</small></div>
+          <div class="ev kill">cgroups 메모리 한도 도달 → <b>OOM Killer가 Node 프로세스 강제 종료</b><small>커널이 점수(oom_score) 매겨 희생자 선택</small></div>
+          <div class="ev re">Railway가 컨테이너 재시작 → 캐시 전부 증발<small>해법: 키 개수 상한 + LRU(가장 오래 안 쓴 것 제거) = 페이지 교체 알고리즘과 동일한 아이디어</small></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">
+      인스턴스를 2개로 늘리면? 프로세스 메모리는 <b>격리</b>되므로 캐시가 공유되지 않는다 →
+      공유하려면 IPC 또는 외부 저장소(Redis). "프로세스 간 메모리 공유가 왜 안 되는가"가 가상 메모리의 출발점.
+    </p>
+  </section>
+
+  <!-- ================= 4. 컨테이너 ================= -->
+  <section>
+    <h2><span class="num">4</span>가상화 — Railway 컨테이너 vs VM</h2>
+    <div class="file">📄 <code>railway.json</code> → push 하면 main이 컨테이너로 빌드·배포</div>
+
+    <div class="stacks">
+      <div class="stack">
+        <h3>가상머신 (VM)</h3>
+        <div class="layer-row">
+          <div class="layer app">앱 A</div>
+          <div class="layer app">앱 B</div>
+        </div>
+        <div class="layer-row">
+          <div class="layer dup">게스트 OS 커널 A</div>
+          <div class="layer dup">게스트 OS 커널 B</div>
+        </div>
+        <div class="layer">하이퍼바이저</div>
+        <div class="layer kernel">호스트 커널</div>
+        <div class="layer hw">하드웨어</div>
+        <div class="pyr-side">OS를 통째로 복제 — 무겁고 부팅 느림, 격리는 강함</div>
+      </div>
+
+      <div class="stack">
+        <h3>컨테이너 (Railway가 쓰는 방식)</h3>
+        <div class="layer-row">
+          <div class="layer app">내 Node 앱</div>
+          <div class="layer app">남의 앱</div>
+        </div>
+        <div class="layer-row">
+          <div class="layer">namespace<br><small>프로세스·네트워크·FS 격리</small></div>
+          <div class="layer">cgroups<br><small>CPU·메모리 한도</small></div>
+        </div>
+        <div class="layer kernel">호스트 커널 — 모두가 공유 ★</div>
+        <div class="layer hw">하드웨어</div>
+        <div class="pyr-side">커널 공유 — 가볍고 빠름. 컨테이너 = "잘 격리된 프로세스"</div>
+      </div>
+    </div>
+
+    <p class="caption">
+      면접 단골 "컨테이너 vs VM": 핵심은 <b>커널을 공유하느냐</b>.
+      3번의 OOM Killer가 작동하는 것도 컨테이너가 결국 호스트 커널 위의 프로세스이기 때문이다.
+    </p>
+  </section>
+
+  <!-- ================= 5. 인터럽트 ================= -->
+  <section>
+    <h2><span class="num">5</span>인터럽트 — 푸시 알림과 서비스 워커</h2>
+    <div class="file">📄 <code>public/sw.js</code> · <code>src/lib/push.server.ts</code></div>
+
+    <div class="sw-flow">
+      <div class="box">서버<br><small style="color:var(--gray)">push.server.ts 발송</small></div>
+      <div class="arrow">→</div>
+      <div class="box">브라우저 푸시 서비스</div>
+      <div class="arrow">→ ⚡ push 이벤트</div>
+      <div class="box" style="border-color:var(--coral); color:var(--coral)"><b>sw.js 깨어남</b><span class="zzz">평소엔 💤 (탭 닫혀 있어도)</span></div>
+      <div class="arrow">→</div>
+      <div class="box">"새 메시지 💌" 알림 표시</div>
+    </div>
+
+    <div class="vs">
+      <div class="box"><b>❌ 폴링(polling)</b><br>"메시지 왔나?" 를 1초마다 서버에 질의.<br>CPU·배터리·네트워크 낭비, 그래도 최대 1초 지연.</div>
+      <div class="box" style="border-color:var(--ok)"><b>✅ 인터럽트(interrupt)</b><br>잠들어 있다가 이벤트가 오면 <b>깨워서</b> 핸들러 실행.<br>CPU가 키보드를 폴링하지 않고 인터럽트로 입력을 받는 것과 같은 모델.</div>
+    </div>
+
+    <p class="caption">
+      OS에서 인터럽트 발생 → 하던 일 저장(컨텍스트 저장) → <b>인터럽트 핸들러</b> 실행 → 복귀.
+      서비스 워커는 페이지와 분리된 실행 컨텍스트라, 앱이 안 떠 있어도 이벤트 기반으로 깨어난다.
+    </p>
+  </section>
+
+  <!-- ================= 면접 한 줄 ================= -->
+  <section class="qa">
+    <h2>🎤 면접에서 이렇게 말하기</h2>
+    <ul>
+      <li><b>동시성:</b> "매칭 더블서밋으로 중복 매칭이 가능해서, advisory lock으로 임계 구역을 보호하고 유니크 인덱스를 최후 방어선으로 둔 뒤, k6로 경쟁을 재현해 5xx 0건·중복 0건을 검증했습니다."</li>
+      <li><b>이벤트 루프:</b> "Node는 싱글 스레드지만 I/O를 OS에 위임하므로 동시 요청을 처리합니다. 그래서 CPU 작업인 이미지 처리는 클라이언트로 보냈습니다."</li>
+      <li><b>메모리:</b> "인메모리 캐시는 프로세스 단위라 스케일아웃하면 공유가 안 되고, eviction이 없으면 컨테이너 메모리 한도에서 OOM Kill 됩니다. LRU 상한이 페이지 교체와 같은 아이디어입니다."</li>
+      <li><b>컨테이너:</b> "Railway 컨테이너는 VM과 달리 호스트 커널을 공유하고 namespace + cgroups로 격리된 프로세스입니다."</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
