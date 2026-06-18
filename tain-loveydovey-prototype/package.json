@@ -1,0 +1,20 @@
+{
+  "name": "loveydovey-harness-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "러비더비 스타일 AI 캐릭터 챗 프로토타입 — 하네스 엔지니어링 학습용",
+  "scripts": {
+    "lesson": "tsx src/lesson.ts",
+    "chat": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
