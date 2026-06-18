@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>하네스 엔지니어링 · Claude Code 가이드</title>
+<style>
+  :root{
+    --bg:#1f2430; --panel:#262b38; --panel2:#2d3342;
+    --ink:#e8eaf0; --muted:#7f8aa3;
+    --coral:#ff625d; --coral50:#ffeeed;
+    --kw:#ff9b97; --st:#9ece6a; --fn:#7aa2f7; --hl:#ffd479;
+    --line:#3a4152;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#11141c; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .deck{width:100%; height:100%; position:relative}
+  .slide{
+    position:absolute; inset:0; opacity:0; pointer-events:none;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:6vh 8vw; transition:opacity .35s ease, transform .35s ease;
+    transform:translateY(14px);
+  }
+  .slide.active{opacity:1; pointer-events:auto; transform:none}
+  .kicker{color:var(--coral); font-weight:700; letter-spacing:.18em; font-size:.8rem; text-transform:uppercase; margin-bottom:14px}
+  h1{font-size:3rem; line-height:1.12; margin-bottom:18px}
+  h2{font-size:2.1rem; line-height:1.18; margin-bottom:22px}
+  h2 .num{color:var(--coral)}
+  .lead{color:var(--muted); font-size:1.15rem; max-width:60ch; line-height:1.6}
+  ul{list-style:none; display:flex; flex-direction:column; gap:14px; margin-top:8px}
+  li{position:relative; padding-left:30px; font-size:1.12rem; line-height:1.5; max-width:72ch}
+  li::before{content:""; position:absolute; left:0; top:.55em; width:9px; height:9px; border-radius:3px; background:var(--coral)}
+  li b{color:#fff}
+  .grid{display:grid; gap:18px; margin-top:8px}
+  .grid.cols2{grid-template-columns:1fr 1fr}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px 24px}
+  .card h3{font-size:1.15rem; margin-bottom:12px; color:#fff; display:flex; align-items:center; gap:10px}
+  .card h3 .dot{width:10px;height:10px;border-radius:50%;background:var(--coral)}
+  .card p, .card li{font-size:1rem; color:var(--muted); line-height:1.55}
+  .card ul{gap:8px; margin-top:4px}
+  .card li{padding-left:22px}
+  .card li::before{width:6px;height:6px;top:.55em}
+  pre{background:var(--bg); color:var(--ink); border-radius:10px; padding:18px 20px; font-size:.95rem; overflow-x:auto; line-height:1.6; border:1px solid var(--line); font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; margin-top:6px}
+  pre .cm{color:var(--muted)}
+  pre .kw{color:var(--kw)}
+  pre .st{color:var(--st)}
+  pre .fn{color:var(--fn)}
+  pre .hl{color:var(--hl); font-weight:700}
+  table{width:100%; border-collapse:collapse; margin-top:12px; font-size:1.02rem}
+  th,td{text-align:left; padding:12px 14px; border-bottom:1px solid var(--line)}
+  th{color:var(--coral); font-weight:700; font-size:.95rem}
+  td:first-child{color:#fff; font-weight:600}
+  td .swatch{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:8px;border:1px solid #0004}
+  .pill{display:inline-block; background:var(--coral50); color:#b5302c; font-weight:700; font-size:.85rem; padding:3px 12px; border-radius:999px; margin-bottom:18px}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start}
+  .two h3{color:var(--coral); font-size:1.3rem; margin-bottom:14px}
+  .progress{position:fixed; top:0; left:0; height:3px; background:var(--coral); transition:width .35s ease; z-index:10}
+  .nav{position:fixed; bottom:22px; right:30px; display:flex; align-items:center; gap:14px; color:var(--muted); font-size:.9rem; z-index:10}
+  .nav button{background:var(--panel); border:1px solid var(--line); color:var(--ink); width:38px;height:38px;border-radius:10px; cursor:pointer; font-size:1.1rem; transition:.15s}
+  .nav button:hover{background:var(--panel2); border-color:var(--coral)}
+  .count{font-variant-numeric:tabular-nums}
+  .hint{position:fixed; bottom:26px; left:30px; color:#4a5266; font-size:.82rem; z-index:10}
+  .center{text-align:center; align-items:center}
+  .center .lead{margin:0 auto}
+  .badge-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:26px; justify-content:center}
+  .badge{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:.95rem; color:var(--muted)}
+  .badge b{color:var(--coral)}
+  @media(max-width:760px){
+    h1{font-size:2rem} h2{font-size:1.5rem} .slide{padding:5vh 6vw}
+    .grid.cols2,.two{grid-template-columns:1fr}
+    li,.lead{font-size:1rem}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 표지 -->
+  <section class="slide active center">
+    <div class="kicker">Claude Code · Harness Engineering</div>
+    <h1>하네스 엔지니어링<br>&amp; Claude Code 환경 가이드</h1>
+    <p class="lead">코드블록 스타일링부터 하네스 설정 4종, 그리고 Web vs Desktop 실행 환경까지 한 번에.</p>
+    <div class="badge-row">
+      <div class="badge"><b>01</b> 코드블록 CSS</div>
+      <div class="badge"><b>02</b> 하네스 4종</div>
+      <div class="badge"><b>03</b> Web vs Desktop</div>
+    </div>
+  </section>
+
+  <!-- 2 CSS 설명 -->
+  <section class="slide">
+    <div class="kicker">01 · 보여주신 코드</div>
+    <h2>코드블록 다크 테마 스타일시트</h2>
+    <p class="lead">HTML <code>&lt;pre&gt;</code> 블록을 다크 테마로 꾸미는 CSS. 직접 만든 경량 구문 강조(syntax highlight) 팔레트입니다.</p>
+    <table>
+      <tr><th>클래스</th><th>색상</th><th>용도</th></tr>
+      <tr><td>.cm</td><td><span class="swatch" style="background:#7f8aa3"></span>#7f8aa3</td><td>comment (주석)</td></tr>
+      <tr><td>.kw</td><td><span class="swatch" style="background:#ff9b97"></span>#ff9b97</td><td>keyword (const, if…)</td></tr>
+      <tr><td>.st</td><td><span class="swatch" style="background:#9ece6a"></span>#9ece6a</td><td>string (문자열)</td></tr>
+      <tr><td>.fn</td><td><span class="swatch" style="background:#7aa2f7"></span>#7aa2f7</td><td>function (함수명)</td></tr>
+      <tr><td>.hl</td><td><span class="swatch" style="background:#ffd479"></span>#ffd479</td><td>highlight (강조 + bold)</td></tr>
+    </table>
+  </section>
+
+  <!-- 3 CSS 예시 -->
+  <section class="slide">
+    <div class="kicker">01 · 동작 예시</div>
+    <h2>마크업 → 렌더 결과</h2>
+    <p class="lead">Prism/highlight.js 없이 <code>&lt;span class="…"&gt;</code>를 손수 붙여 색을 입히는 방식.</p>
+<pre><span class="cm">// 입력 마크업</span>
+&lt;pre&gt;<span class="kw">const</span> <span class="fn">greet</span> = <span class="st">"hi"</span>;&lt;/pre&gt;
+
+<span class="cm">// 렌더 결과 ↓ (이 줄이 강조)</span>
+<span class="hl">const greet = "hi";</span></pre>
+    <ul>
+      <li>Tokyo Night 계열 팔레트 — <b>배경 #1f2430</b>, 글자 #e8eaf0</li>
+      <li><b>주의:</b> .kw 코랄톤은 브랜드색 <span style="color:var(--coral)">#ff625d</span>와 비슷하나 다른 값 → husky <code>lint:colors</code>엔 안 걸림(폐기색 #ff0558만 차단)</li>
+    </ul>
+  </section>
+
+  <!-- 4 하네스 인트로 -->
+  <section class="slide center">
+    <div class="kicker">02 · Harness Engineering</div>
+    <h2>하네스 = Claude를 둘러싼 실행·설정 레이어</h2>
+    <p class="lead">코드가 아니라 <b style="color:#fff">"Claude가 어떻게 동작하느냐"</b>를 엔지니어링하는 영역. 네 가지로 나뉩니다.</p>
+    <div class="badge-row">
+      <div class="badge"><b>①</b> SessionStart 훅</div>
+      <div class="badge"><b>②</b> settings.json</div>
+      <div class="badge"><b>③</b> 권한 줄이기</div>
+      <div class="badge"><b>④</b> CI·배포</div>
+    </div>
+  </section>
+
+  <!-- 5 ①② -->
+  <section class="slide">
+    <div class="kicker">02 · 하네스 4종 (1/2)</div>
+    <h2><span class="num">①·②</span> 세션 준비와 핵심 설정</h2>
+    <div class="grid cols2">
+      <div class="card">
+        <h3><span class="dot"></span>① SessionStart 훅</h3>
+        <p>세션 시작 시 자동 실행. 컨테이너는 매번 새로 클론되므로 의존성 설치·환경 준비를 자동화.</p>
+<pre><span class="st">"SessionStart"</span>: [{ <span class="st">"hooks"</span>:[
+  { <span class="st">"type"</span>:<span class="st">"command"</span>,
+    <span class="st">"command"</span>:<span class="st">"npm install"</span> }
+]}]</pre>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>② settings.json</h3>
+        <ul>
+          <li><b>permissions</b> — allow / deny / ask</li>
+          <li><b>env</b> — 환경변수</li>
+          <li><b>hooks</b> — "X 할 때마다 Y" 자동화</li>
+        </ul>
+        <p style="margin-top:10px">위치: <code>.claude/settings.json</code>(공유) vs <code>settings.local.json</code>(개인)</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 ③④ -->
+  <section class="slide">
+    <div class="kicker">02 · 하네스 4종 (2/2)</div>
+    <h2><span class="num">③·④</span> 마찰 줄이기와 배포 파이프라인</h2>
+    <div class="grid cols2">
+      <div class="card">
+        <h3><span class="dot"></span>③ 권한 프롬프트 줄이기</h3>
+        <p>과거 세션을 스캔해 자주 쓴 읽기전용 명령(git status, ls, type-check…)을 allowlist에 자동 추가.</p>
+        <ul>
+          <li>"이 명령 실행해도 될까요?" 확인 감소</li>
+          <li>스킬: <b>fewer-permission-prompts</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>④ CI · 배포 워크플로</h3>
+        <ul>
+          <li><b>husky</b> pre-commit → lint:colors 차단</li>
+          <li><b>Railway</b> main 푸시 시 자동 prod 배포</li>
+          <li><b>type-check + build</b> 통과 확인</li>
+        </ul>
+      </div>
+    </div>
+    <ul style="margin-top:20px">
+      <li>①②③ 은 모두 <b>.claude/settings.json</b>을 만지는 일 · ④ 는 <b>husky·Railway</b> 등 레포 설정</li>
+    </ul>
+  </section>
+
+  <!-- 7 Web vs Desktop 인트로 -->
+  <section class="slide center">
+    <div class="kicker">03 · 실행 환경</div>
+    <h2>Claude Code — Web vs Desktop</h2>
+    <p class="lead">핵심 차이는 단 하나: <b style="color:#fff">"코드가 어디서 실행되느냐"</b></p>
+    <div class="badge-row">
+      <div class="badge"><b>Web</b> 클라우드 원격 컨테이너</div>
+      <div class="badge"><b>Desktop</b> 내 컴퓨터(로컬)</div>
+    </div>
+  </section>
+
+  <!-- 8 비교표 -->
+  <section class="slide">
+    <div class="kicker">03 · 한눈에 비교</div>
+    <h2>Web vs Desktop / CLI</h2>
+    <table>
+      <tr><th>항목</th><th style="color:var(--fn)">Web (claude.ai/code)</th><th style="color:var(--st)">Desktop / CLI</th></tr>
+      <tr><td>실행 위치</td><td>클라우드 원격 컨테이너</td><td>내 컴퓨터(로컬)</td></tr>
+      <tr><td>환경 수명</td><td>휘발성 — 세션 후 회수</td><td>영속 — 내 디스크</td></tr>
+      <tr><td>레포</td><td>세션마다 새로 clone</td><td>로컬에 이미 존재</td></tr>
+      <tr><td>로컬 파일·시크릿</td><td>없음 (env 주입)</td><td>직접 접근</td></tr>
+      <tr><td>네트워크</td><td>정책으로 제한</td><td>내 머신 그대로</td></tr>
+      <tr><td>접근성</td><td>브라우저·모바일 어디서나</td><td>그 PC 앞에서</td></tr>
+    </table>
+  </section>
+
+  <!-- 9 프로젝트 선택 -->
+  <section class="slide">
+    <div class="kicker">03 · 이 프로젝트에 맞는 선택</div>
+    <h2>언제 무엇을 쓸까</h2>
+    <div class="two">
+      <div>
+        <h3>🌐 Web 추천</h3>
+        <ul>
+          <li>모바일·외부에서 빠른 수정·배포</li>
+          <li>푸시 → Railway가 main 자동 배포 → <b>클라우드만으로 완결</b></li>
+          <li>위험 작업이 내 머신과 격리</li>
+        </ul>
+      </div>
+      <div>
+        <h3>💻 Desktop 추천</h3>
+        <ul>
+          <li>로컬 dev 서버 띄워 눈으로 확인</li>
+          <li><code>.env</code> 있으면 <code>npm run dev</code> 즉시 시각 검증</li>
+          <li>로컬 파일·DB·툴체인 직접 접근</li>
+        </ul>
+      </div>
+    </div>
+    <ul style="margin-top:22px">
+      <li>둘은 <b>같은 Claude Code</b> — 설정·훅·권한 공유. 차이는 <b>실행 장소와 검증 방식</b>뿐</li>
+    </ul>
+  </section>
+
+  <!-- 10 마무리 -->
+  <section class="slide center">
+    <div class="kicker">정리</div>
+    <h1>요약 한 장</h1>
+    <ul style="text-align:left; max-width:60ch; margin:10px auto 0">
+      <li>보여주신 CSS = <b>코드블록 다크 테마 하이라이터</b></li>
+      <li>하네스 ①②③ = <b>.claude/settings.json</b> / ④ = <b>husky·Railway</b></li>
+      <li>Web = 클라우드 격리 실행, Desktop = 로컬 직접 실행</li>
+      <li>이 프로젝트는 <b>Web + Railway 자동배포</b>로 완결 가능</li>
+    </ul>
+    <p class="lead" style="margin-top:26px">원하시면 ①~④ 중 골라 <b style="color:var(--coral)">실제 설정 파일</b>로 만들어 드립니다.</p>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="이전">‹</button>
+  <span class="count"><span id="cur">1</span> / <span id="total">10</span></span>
+  <button id="next" aria-label="다음">›</button>
+</div>
+<div class="hint">← → 또는 Space 로 이동 · F 전체화면</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const total=slides.length; let i=0;
+  const cur=document.getElementById('cur');
+  const prog=document.getElementById('progress');
+  document.getElementById('total').textContent=total;
+  function show(n){
+    i=Math.max(0,Math.min(total-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    cur.textContent=i+1;
+    prog.style.width=((i+1)/total*100)+'%';
+  }
+  document.getElementById('next').onclick=()=>show(i+1);
+  document.getElementById('prev').onclick=()=>show(i-1);
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();show(i+1);}
+    if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();show(i-1);}
+    if(e.key==='Home')show(0); if(e.key==='End')show(total-1);
+    if(e.key.toLowerCase()==='f'){ if(!document.fullscreenElement)document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+  });
+  let sx=0;
+  document.addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  document.addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-sx; if(Math.abs(d)>50)show(i+(d<0?1:-1));},{passive:true});
+  show(0);
+</script>
+</body>
+</html>
