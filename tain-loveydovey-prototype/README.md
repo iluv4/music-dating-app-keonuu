@@ -17,8 +17,10 @@ npm install
 # Anthropic API 키 필요 (https://console.anthropic.com)
 export ANTHROPIC_API_KEY=sk-ant-...   # 또는  cp .env.example .env  후 입력
 
+npm run dev      # 🌐 웹앱 (캐릭터 홈 · 채팅 · 우리집)  — 키 없이 데모 가능
 npm run lesson   # 🎓 수업 모드: 하네스 내부를 단계별로 시각화하며 설명
-npm run chat     # 💬 자유 대화 모드
+npm run chat     # 💬 터미널 자유 대화
+npm run eval     # 🧪 평가 하네스: 페르소나 유지도 자동 채점
 ```
 
 ---
@@ -87,12 +89,21 @@ src/
 
 ---
 
+## ⚡ 고도화 (v2 — 적용 완료)
+
+실전 하네스 4대 패턴이 들어가 있다:
+
+| 패턴 | 무엇 | 파일 |
+|---|---|---|
+| **프롬프트 캐싱** | 페르소나(STABLE)는 캐시, 호감도/메모리(DYNAMIC)는 뒤로 → 비용↓ | `persona.ts` · `engine.ts` |
+| **가드레일** | 입력 선제 차단 + 짜릿모드를 연인(Lv4)+에서만 여는 상태 게이팅 | `guardrails.ts` |
+| **속마음(병렬 멀티출력)** | 캐릭터 내면 독백을 Haiku로 병렬 생성 (러비더비 시그니처) | `innerthought.ts` |
+| **평가 하네스** | 페르소나 유지도를 LLM-judge로 자동 채점 (`npm run eval`) | `eval.ts` |
+
 ## 🔭 다음 레슨 (로드맵)
 
-- **프롬프트 캐싱** — 안 바뀌는 페르소나는 캐시, 바뀌는 호감도는 뒤로 (비용↓)
-- **안전장치(guardrail)** — 성인/위험 콘텐츠 필터, 짜릿모드 게이팅
-- **평가(eval)** — "캐릭터가 페르소나를 유지하는가"를 자동 채점
-- **웹 UI** — CLI를 Remix/React 화면으로 교체
+- **스트리밍(웹)** — 토큰 단위 실시간 출력 (지금 웹은 한 번에)
 - **영속화** — 상태를 Supabase에 저장 (멀티 세션)
+- **A/B + 지표** — 프롬프트 변경의 eval 점수/리텐션 비교
 
 각각이 PM 면접에서 "이 기능은 어느 지표를 움직이나"로 연결된다.

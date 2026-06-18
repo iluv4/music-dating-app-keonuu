@@ -12,6 +12,7 @@ import {
   scoreToLevel,
   AFFINITY_LABELS,
   CHAT_MODES,
+  canUseMode,
   HAS_KEY,
 } from "../lib/harness.server";
 import { visualFor } from "../lib/presentation";
@@ -47,7 +48,9 @@ export async function loader({ params }: LoaderFunctionArgs) {
     modes: (Object.keys(CHAT_MODES) as ChatMode[]).map((m) => ({
       key: m,
       cost: CHAT_MODES[m].jamCost,
+      locked: !canUseMode(m, level).ok,
     })),
+    lastInnerThought: state.lastInnerThought ?? null,
     unlockedHome: level >= 5,
     hasKey: HAS_KEY,
   };
@@ -150,22 +153,35 @@ export default function Chat() {
             {t.text}
           </Bubble>
         ))}
+
+        {/* 속마음 (His True Thoughts) — 러비더비 시그니처, 병렬 생성 결과 */}
+        {data.lastInnerThought && (
+          <details className="ml-1 max-w-[78%] rounded-2xl rounded-bl-md border border-dashed border-brand-200 bg-brand-50/60 px-3.5 py-2 text-sm text-brand-700">
+            <summary className="cursor-pointer list-none font-medium">
+              💭 {data.character.name}의 속마음 보기
+            </summary>
+            <p className="mt-1.5 italic leading-relaxed">{data.lastInnerThought}</p>
+          </details>
+        )}
       </main>
 
-      {/* 모드 선택 */}
-      <Form method="post" className="flex gap-1.5 px-4 pb-1">
+      {/* 모드 선택 (짜릿모드는 연인 단계에서만 — 가드레일) */}
+      <Form method="post" className="flex flex-wrap gap-1.5 px-4 pb-1">
         <input type="hidden" name="intent" value="mode" />
         {data.modes.map((m) => (
           <button
             key={m.key}
             name="mode"
             value={m.key}
-            className={`pill border text-xs ${
+            disabled={m.locked}
+            title={m.locked ? "관계가 더 깊어지면 열려요" : undefined}
+            className={`pill border text-xs disabled:opacity-40 ${
               data.mode === m.key
                 ? "border-brand bg-brand text-white"
                 : "border-brand-100 bg-white text-sub"
             }`}
           >
+            {m.locked ? "🔒 " : ""}
             {m.key} · {m.cost}💎
           </button>
         ))}

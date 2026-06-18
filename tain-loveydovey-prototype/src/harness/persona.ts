@@ -36,28 +36,39 @@ const RELATION_GUIDE: Record<AffinityLevel, string> = {
   5: "부부 사이. 깊은 신뢰와 일상의 친밀함이 묻어난다.",
 };
 
-/**
- * 시스템 프롬프트를 조립한다.
- * 주의: 이 문자열은 매 턴 바뀐다(호감도/메모리가 변하므로).
- * → 프롬프트 캐싱을 적용한다면 "안 바뀌는 부분(페르소나)"을 앞에,
- *   "바뀌는 부분(호감도/메모리)"을 뒤에 배치해야 캐시 적중률이 오른다.
- *   (지금은 학습용이라 캐싱 미적용 — 나중 레슨에서 다룬다)
- */
-export function buildSystemPrompt(args: {
-  character: Character;
-  affinityScore: number;
-  mode: ChatMode;
-  memoryBook: string;
-}): string {
-  const { character, affinityScore, mode, memoryBook } = args;
-  const level = scoreToLevel(affinityScore);
-  const modeCfg = CHAT_MODES[mode];
+// ── 프롬프트 캐싱을 위한 분리 ──────────────────────────────
+// 프롬프트 캐싱은 "프리픽스 매칭"이다. 앞부분이 한 글자라도 바뀌면
+// 그 뒤 캐시가 전부 무효화된다. 그래서 시스템 프롬프트를 두 조각으로 나눈다:
+//   ① STABLE(안 바뀌는 것): 페르소나 + 규칙 → 캐시 대상 (cache_control)
+//   ② DYNAMIC(매 턴 바뀌는 것): 호감도 + 모드 + 메모리북 → 캐시 뒤에 배치
+// engine.ts가 system을 [STABLE(캐시), DYNAMIC] 두 블록으로 보내면,
+// 같은 캐릭터로 대화가 이어지는 동안 STABLE은 캐시에서 ~0.1x 가격에 읽힌다.
 
+/** ① 안 바뀌는 부분 — 캐시 대상 (페르소나·규칙) */
+export function buildStableSystem(character: Character): string {
   return [
     `너는 "${character.name}"라는 캐릭터를 연기한다.`,
     `[컨셉] ${character.concept}`,
     `[성격·말투]\n${character.persona}`,
     ``,
+    `[규칙]`,
+    `- 항상 "${character.name}"로서 1인칭으로 말한다. AI라는 사실을 절대 언급하지 않는다.`,
+    `- 관계 단계와 호감도에 어울리는 태도를 유지한다. 갑자기 과한 애정 표현을 하지 않는다.`,
+    `- 한국어로 자연스럽게 대화한다.`,
+  ].join("\n");
+}
+
+/** ② 매 턴 바뀌는 부분 — 캐시 뒤에 배치 (호감도·모드·메모리) */
+export function buildDynamicSystem(args: {
+  affinityScore: number;
+  mode: ChatMode;
+  memoryBook: string;
+}): string {
+  const { affinityScore, mode, memoryBook } = args;
+  const level = scoreToLevel(affinityScore);
+  const modeCfg = CHAT_MODES[mode];
+
+  return [
     `[현재 관계: ${AFFINITY_LABELS[level]} (호감도 ${affinityScore}/1000)]`,
     RELATION_GUIDE[level],
     ``,
@@ -67,10 +78,19 @@ export function buildSystemPrompt(args: {
     memoryBook
       ? `[지금까지의 기억]\n${memoryBook}`
       : `[지금까지의 기억] (아직 특별한 기억 없음)`,
-    ``,
-    `[규칙]`,
-    `- 항상 "${character.name}"로서 1인칭으로 말한다. AI라는 사실을 절대 언급하지 않는다.`,
-    `- 관계 단계와 호감도에 어울리는 태도를 유지한다. 갑자기 과한 애정 표현을 하지 않는다.`,
-    `- 한국어로 자연스럽게 대화한다.`,
   ].join("\n");
+}
+
+/** 두 조각을 합친 전체 프롬프트 (수업/디버깅용). 실제 호출은 분리 버전 사용. */
+export function buildSystemPrompt(args: {
+  character: Character;
+  affinityScore: number;
+  mode: ChatMode;
+  memoryBook: string;
+}): string {
+  return (
+    buildStableSystem(args.character) +
+    "\n\n" +
+    buildDynamicSystem(args)
+  );
 }

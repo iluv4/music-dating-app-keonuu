@@ -29,4 +29,15 @@ export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
     maxTokens: 1500,
     jamCost: 5,
   },
+  // 짜릿모드: 성인 전용 · 연인(Lv4) 이상에서만 열린다 (guardrails.ts가 게이팅)
+  // 러비더비의 실제 메커닉 — 가장 비싼 모드이자 안전장치가 필요한 지점.
+  짜릿: {
+    label: "짜릿",
+    styleHint:
+      "연인 사이의 깊고 설레는 분위기로. 선정적 묘사는 피하고 감정의 긴장과 설렘에 집중한다.",
+    maxTokens: 1000,
+    jamCost: 10,
+    minLevel: 4,
+    adult: true,
+  },
 };

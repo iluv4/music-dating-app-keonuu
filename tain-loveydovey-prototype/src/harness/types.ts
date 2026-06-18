@@ -31,7 +31,7 @@ export const AFFINITY_LABELS: Record<AffinityLevel, string> = {
 };
 
 /** 채팅 모드 — 모드마다 출력 길이/스타일/비용(잼)이 다르다 */
-export type ChatMode = "찰떡" | "장문" | "스토리";
+export type ChatMode = "찰떡" | "장문" | "스토리" | "짜릿";
 
 export interface ChatModeConfig {
   label: ChatMode;
@@ -41,6 +41,10 @@ export interface ChatModeConfig {
   maxTokens: number;
   /** 메시지 1건당 소모 잼 (BM 시뮬레이션) */
   jamCost: number;
+  /** 이 모드를 열 수 있는 최소 호감도 단계 (가드레일) */
+  minLevel?: AffinityLevel;
+  /** 성인 전용 모드 여부 (안전장치 대상) */
+  adult?: boolean;
 }
 
 /** 대화 한 턴 */
@@ -64,4 +68,6 @@ export interface SessionState {
   memoryBook: string;
   /** 남은 잼 (재화) */
   jam: number;
+  /** 직전 턴에 생성된 캐릭터 속마음(병렬 출력) — UI '속마음 보기'용 */
+  lastInnerThought?: string;
 }
