@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1180" viewBox="0 0 1480 1180" font-family="'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7f6"/>
+      <stop offset="1" stop-color="#ffeeed"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#ff625d" flood-opacity="0.18"/>
+    </filter>
+    <style>
+      .title  { font-size: 40px; font-weight: 800; fill: #1f1a1a; }
+      .sub    { font-size: 19px; font-weight: 500; fill: #7a6a68; }
+      .cardno { font-size: 15px; font-weight: 800; fill: #ff625d; }
+      .cardtt { font-size: 23px; font-weight: 800; fill: #1f1a1a; }
+      .kw     { font-size: 15.5px; font-weight: 600; fill: #3a2f2e; }
+      .app    { font-size: 14.5px; font-weight: 500; fill: #6b5b59; }
+      .applbl { font-size: 13px; font-weight: 800; fill: #ff625d; letter-spacing: .5px; }
+      .flowtt { font-size: 21px; font-weight: 800; fill: #1f1a1a; }
+      .flowtx { font-size: 14px; font-weight: 700; fill: #ffffff; }
+      .flowsb { font-size: 12px; font-weight: 500; fill: #fff0ef; }
+      .foot   { font-size: 14.5px; font-weight: 500; fill: #7a6a68; }
+    </style>
+  </defs>
+
+  <rect width="1480" height="1180" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <text x="60" y="74" class="title">운영체제 공부 지도 — 우리 앱(Remix · Node · Supabase · Railway)</text>
+  <text x="60" y="108" class="sub">"이 개념이 우리 앱 어디서 쓰이는가"로 묶은 6개 영역 · 브랜드 코랄 #ff625d</text>
+  <line x1="60" y1="128" x2="1420" y2="128" stroke="#ffd2cf" stroke-width="2"/>
+
+  <!-- ===== Row 1 ===== -->
+  <!-- Card 1 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="156" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="60" y="156" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="84" y="196" class="cardno">01</text>
+  <text x="84" y="222" class="cardtt">프로세스 &amp; 스레드</text>
+  <text x="84" y="254" class="kw">· 프로세스 vs 스레드 / PCB / 컨텍스트 스위칭</text>
+  <text x="84" y="278" class="kw">· Node 싱글 스레드 + libuv 워커풀(4)</text>
+  <text x="84" y="302" class="kw">· fork / exec / 환경변수 상속</text>
+  <text x="84" y="326" class="kw">· 시그널 SIGTERM → graceful shutdown</text>
+  <text x="84" y="370" class="applbl">우리 앱</text>
+  <text x="84" y="394" class="app">npm run start = 프로세스 1개. Railway 재배포가</text>
+  <text x="84" y="412" class="app">SIGTERM 보내고 종료 대기.</text>
+
+  <!-- Card 2 -->
+  <g filter="url(#shadow)">
+    <rect x="525" y="156" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="525" y="156" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="549" y="196" class="cardno">02</text>
+  <text x="549" y="222" class="cardtt">CPU 스케줄링 &amp; 이벤트 루프</text>
+  <text x="549" y="254" class="kw">· 블로킹/논블로킹 · 동기/비동기 4분면</text>
+  <text x="549" y="278" class="kw">· I/O 멀티플렉싱 select→poll→epoll</text>
+  <text x="549" y="302" class="kw">· CPU bound vs I/O bound</text>
+  <text x="549" y="326" class="kw">· 라운드로빈 / 우선순위 / 선점</text>
+  <text x="549" y="370" class="applbl">우리 앱</text>
+  <text x="549" y="394" class="app">loader/action의 await. Node 이벤트 루프는</text>
+  <text x="549" y="412" class="app">epoll 위에서 도는 구조 (면접 단골).</text>
+
+  <!-- Card 3 -->
+  <g filter="url(#shadow)">
+    <rect x="990" y="156" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="990" y="156" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="1014" y="196" class="cardno">03</text>
+  <text x="1014" y="222" class="cardtt">동시성 &amp; 동기화</text>
+  <text x="1014" y="254" class="kw">· 경쟁 상태 / 임계 구역 / 상호 배제</text>
+  <text x="1014" y="278" class="kw">· 뮤텍스 · 세마포어 · 모니터</text>
+  <text x="1014" y="302" class="kw">· 데드락 4조건 + 예방/회피</text>
+  <text x="1014" y="326" class="kw">· DB 행 잠금 SELECT … FOR UPDATE</text>
+  <text x="1014" y="370" class="applbl">우리 앱</text>
+  <text x="1014" y="394" class="app">서로 동시에 좋아요 → 매치 1개만. 전형적</text>
+  <text x="1014" y="412" class="app">race condition. Postgres 트랜잭션으로 해결.</text>
+
+  <!-- ===== Row 2 ===== -->
+  <!-- Card 4 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="446" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="60" y="446" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="84" y="486" class="cardno">04</text>
+  <text x="84" y="512" class="cardtt">메모리 관리</text>
+  <text x="84" y="544" class="kw">· 가상 메모리 / 페이지 테이블 / MMU · TLB</text>
+  <text x="84" y="568" class="kw">· 페이징 · 페이지 폴트 · demand paging</text>
+  <text x="84" y="592" class="kw">· 페이지 교체 LRU (캐시 설계 직결)</text>
+  <text x="84" y="616" class="kw">· 힙/스택 · V8 GC · OOM Killer</text>
+  <text x="84" y="660" class="applbl">우리 앱</text>
+  <text x="84" y="684" class="app">Railway 컨테이너 메모리 한도 초과 시 OOM</text>
+  <text x="84" y="702" class="app">kill. 배포가 갑자기 죽는 그 원인.</text>
+
+  <!-- Card 5 -->
+  <g filter="url(#shadow)">
+    <rect x="525" y="446" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="525" y="446" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="549" y="486" class="cardno">05</text>
+  <text x="549" y="512" class="cardtt">네트워킹 (OS 영역)</text>
+  <text x="549" y="544" class="kw">· 소켓 = 파일 디스크립터</text>
+  <text x="549" y="568" class="kw">· listen / accept / 백로그 큐</text>
+  <text x="549" y="592" class="kw">· 유저모드↔커널모드 · 시스템 콜 비용</text>
+  <text x="549" y="616" class="kw">· 포트 바인딩 · 1024 미만 권한</text>
+  <text x="549" y="660" class="applbl">우리 앱</text>
+  <text x="549" y="684" class="app">Railway가 주는 PORT 환경변수에 바인딩.</text>
+  <text x="549" y="702" class="app">read/write가 모드 전환을 일으킴.</text>
+
+  <!-- Card 6 -->
+  <g filter="url(#shadow)">
+    <rect x="990" y="446" width="430" height="262" rx="20" fill="#ffffff"/>
+    <rect x="990" y="446" width="430" height="8" rx="4" fill="#ff625d"/>
+  </g>
+  <text x="1014" y="486" class="cardno">06</text>
+  <text x="1014" y="512" class="cardtt">파일시스템 &amp; 컨테이너</text>
+  <text x="1014" y="544" class="kw">· 파일 디스크립터 · fd 고갈(EMFILE)</text>
+  <text x="1014" y="568" class="kw">· inode · 하드/심볼릭 링크(node_modules)</text>
+  <text x="1014" y="592" class="kw">· 컨테이너 = namespace + cgroup</text>
+  <text x="1014" y="616" class="kw">· 컨테이너 FS는 휘발성</text>
+  <text x="1014" y="660" class="applbl">우리 앱</text>
+  <text x="1014" y="684" class="app">업로드 파일을 Supabase Storage에 두는</text>
+  <text x="1014" y="702" class="app">아키텍처적 근거 = 휘발성 FS.</text>
+
+  <!-- ===== Flow: HTTP request journey ===== -->
+  <text x="60" y="772" class="flowtt">HTTP 요청 한 번의 여정 — OS 개념이 다 등장한다</text>
+  <line x1="60" y1="788" x2="1420" y2="788" stroke="#ffd2cf" stroke-width="2"/>
+
+  <!-- flow boxes -->
+  <g>
+    <!-- 1 -->
+    <rect x="60"  y="820" width="190" height="84" rx="14" fill="#ff8a86"/>
+    <text x="155" y="855" text-anchor="middle" class="flowtx">소켓 생성</text>
+    <text x="155" y="878" text-anchor="middle" class="flowsb">fd 할당 · accept</text>
+    <!-- 2 -->
+    <rect x="296" y="820" width="190" height="84" rx="14" fill="#ff7d78"/>
+    <text x="391" y="855" text-anchor="middle" class="flowtx">TCP 핸드셰이크</text>
+    <text x="391" y="878" text-anchor="middle" class="flowsb">백로그 큐</text>
+    <!-- 3 -->
+    <rect x="532" y="820" width="190" height="84" rx="14" fill="#ff706b"/>
+    <text x="627" y="855" text-anchor="middle" class="flowtx">커널 → 유저 복사</text>
+    <text x="627" y="878" text-anchor="middle" class="flowsb">시스템 콜 · 모드 전환</text>
+    <!-- 4 -->
+    <rect x="768" y="820" width="190" height="84" rx="14" fill="#ff625d"/>
+    <text x="863" y="855" text-anchor="middle" class="flowtx">이벤트 루프</text>
+    <text x="863" y="878" text-anchor="middle" class="flowsb">epoll · 논블로킹</text>
+    <!-- 5 -->
+    <rect x="1004" y="820" width="190" height="84" rx="14" fill="#f0524d"/>
+    <text x="1099" y="855" text-anchor="middle" class="flowtx">loader / DB</text>
+    <text x="1099" y="878" text-anchor="middle" class="flowsb">I/O bound · 행 잠금</text>
+    <!-- 6 -->
+    <rect x="1240" y="820" width="180" height="84" rx="14" fill="#d8443f"/>
+    <text x="1330" y="855" text-anchor="middle" class="flowtx">응답 write</text>
+    <text x="1330" y="878" text-anchor="middle" class="flowsb">버퍼 · 다시 커널</text>
+
+    <!-- arrows -->
+    <g fill="#ff625d">
+      <polygon points="252,862 270,853 270,871"/>
+      <polygon points="488,862 506,853 506,871"/>
+      <polygon points="724,862 742,853 742,871"/>
+      <polygon points="960,862 978,853 978,871"/>
+      <polygon points="1196,862 1214,853 1214,871"/>
+    </g>
+  </g>
+
+  <!-- ===== Study order + resources ===== -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="952" width="1360" height="172" rx="20" fill="#ffffff"/>
+  </g>
+  <text x="84" y="992" class="cardtt">추천 학습 순서 &amp; 교재</text>
+  <text x="84" y="1028" class="kw">순서:  ① 프로세스/스레드  →  ② CPU 스케줄링  →  ③ 동기화·데드락  →  ④ 메모리  →  ⑤ 파일시스템  →  ⑥ 네트워크(소켓·시스템 콜)</text>
+  <text x="84" y="1062" class="kw">한국어 표준 코스:  반효경 《운영체제와 정보기술의 원리》 + 이화여대 KOCW 무료 강의</text>
+  <text x="84" y="1090" class="kw">깊이 있게:  OSTEP (무료 공개 · 한국어 번역본 있음)</text>
+  <text x="84" y="1116" class="foot">면접 팁 — 각 굵은 키워드를 "우리 앱에서는 ~에 해당한다"로 설명하는 연습을 하면 차별화된다.</text>
+</svg>
