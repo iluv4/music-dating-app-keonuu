@@ -39,8 +39,18 @@ import {
 import { getSupabaseBrowser } from "~/lib/supabase.client";
 import { getClientEnv } from "~/lib/env.client";
 import { downscaleImage } from "~/lib/image.client";
+import { capture } from "~/lib/analytics.client";
+import { useExperiment } from "~/lib/experiment.client";
 
 const CURRENT_YEAR = new Date().getFullYear();
+
+// 실험: 프로필 사진 업로드 기능이 정말 필요한가?
+// PostHog 플래그 키 = "profile-photo-upload".
+//   control → 사진 업로드 UI 노출(현행)
+//   hidden  → 사진 업로드 UI 숨김
+// 비교 지표: 프로필 저장 완료율(profile.saved). 사진 노출 그룹의 실제 업로드율(profile.photo_uploaded)로
+//   "기능이 쓰이긴 하는지"도 같이 측정 → 숨겨도 완료율이 안 떨어지면 기능 불필요 신호.
+const PHOTO_EXPERIMENT_FLAG = "profile-photo-upload";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireUser(request);
@@ -185,6 +195,10 @@ export default function ProfileEdit() {
   const navigate = useNavigate();
   const submitting = navigation.state === "submitting";
 
+  // 사진 업로드 필요성 실험. "hidden" 변형이면 업로드 UI 를 통째로 감춘다.
+  const photoVariant = useExperiment(PHOTO_EXPERIMENT_FLAG);
+  const showPhotoUpload = photoVariant !== "hidden";
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoPath, setPhotoPath] = useState(profile.photo_path ?? "");
   const [photoPreview, setPhotoPreview] = useState<string | null>(
@@ -231,6 +245,7 @@ export default function ProfileEdit() {
         .createSignedUrl(path, 3600);
       setPhotoPath(path);
       setPhotoPreview(signed?.signedUrl ?? null);
+      capture("profile.photo_uploaded", { experiment_variant: photoVariant });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[profile photo upload]", err);
@@ -299,6 +314,12 @@ export default function ProfileEdit() {
       <StatusBar />
       <Form
         method="post"
+        onSubmit={() =>
+          capture("profile.saved", {
+            experiment_variant: photoVariant,
+            has_photo: photoPath !== "",
+          })
+        }
         style={{
           flex: 1,
           padding: "0 25px",
@@ -345,8 +366,10 @@ export default function ProfileEdit() {
           </h1>
         </div>
 
-        {/* 프로필 사진 */}
+        {/* 프로필 사진 — 실험(profile-photo-upload)의 hidden 변형이면 UI 숨김.
+            hidden 변형에서도 기존 사진 값은 보존하기 위해 hidden input 은 유지. */}
         <input type="hidden" name="photo_path" value={photoPath} />
+        {showPhotoUpload && (
         <div
           style={{
             display: "flex",
@@ -432,6 +455,7 @@ export default function ProfileEdit() {
             </p>
           )}
         </div>
+        )}
 
         <div
           style={{

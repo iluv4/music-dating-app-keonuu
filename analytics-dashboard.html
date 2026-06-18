@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음악 데이팅 앱 · 데이터 분석 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{ --coral:#ff625d; --coral50:#ffeeed; --ink:#1a1a1a; --muted:#6b7280; --line:#eee; --bg:#fafafa; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(135deg,var(--coral),#ff8a86);color:#fff;padding:36px 24px}
+  header h1{margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-.02em}
+  header p{margin:0;opacity:.9;font-size:14px}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:-40px auto 28px;max-width:1100px;padding:0 24px}
+  .kpi{background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+  .kpi .v{font-size:28px;font-weight:800;color:var(--coral);letter-spacing:-.02em}
+  .kpi .l{font-size:12px;color:var(--muted);margin-top:4px}
+  .kpi .s{font-size:11px;color:#9ca3af;margin-top:2px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+  .card h3{margin:0 0 4px;font-size:15px;font-weight:700}
+  .card .sub{margin:0 0 14px;font-size:12px;color:var(--muted)}
+  .card.full{grid-column:1/-1}
+  canvas{max-height:300px}
+  .insight{background:var(--coral50);border-left:4px solid var(--coral);border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.6;margin-top:24px}
+  .insight b{color:var(--coral)}
+  footer{text-align:center;color:#9ca3af;font-size:12px;padding:30px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 음악 데이팅 앱 · 데이터 분석</h1>
+  <p>집계 기간 2026-05-27 ~ 2026-06-09 · Supabase 프로덕션 데이터</p>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">59</div><div class="l">누적 가입</div><div class="s">최근 1주 신규 5명</div></div>
+  <div class="kpi"><div class="v">45</div><div class="l">프로필 작성</div><div class="s">전환율 76%</div></div>
+  <div class="kpi"><div class="v">88</div><div class="l">매칭 수</div><div class="s">활성 74 · 종료 14</div></div>
+  <div class="kpi"><div class="v">289</div><div class="l">메시지</div><div class="s">읽음률 78%</div></div>
+  <div class="kpi"><div class="v">7</div><div class="l">7일내 활성</div><div class="s" style="color:var(--coral)">휴면 52명(88%)</div></div>
+  <div class="kpi"><div class="v">6.7%</div><div class="l">사진 등록률</div><div class="s" style="color:var(--coral)">45명 중 3명</div></div>
+</div>
+
+<div class="wrap">
+<div class="grid">
+
+  <div class="card full">
+    <h3>가입 → 활성화 퍼널</h3>
+    <p class="sub">승인까지는 잘 넘어오지만, 노래선택·대화시작에서 절반 이상 이탈</p>
+    <canvas id="funnel"></canvas>
+  </div>
+
+  <div class="card full">
+    <h3>일별 활동 추이</h3>
+    <p class="sub">초기 런칭 스파이크 후 신규 가입 정체 · 메시지는 소수 매칭에서 버스트성으로 발생</p>
+    <canvas id="daily"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>성비</h3>
+    <p class="sub">남초 약 1.8:1</p>
+    <canvas id="gender"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>연령 분포 (출생연도)</h3>
+    <p class="sub">만 19~25세 대학생층 집중</p>
+    <canvas id="age"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>로그인 리텐션</h3>
+    <p class="sub">최근 N일 내 로그인한 유저 수</p>
+    <canvas id="retention"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>알림 읽음률</h3>
+    <p class="sub">발송 대비 읽힌 비율 — 복귀 유도 약함</p>
+    <canvas id="notif"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>선호 장르 Top 6</h3>
+    <p class="sub">프로필 장르 태그 집계</p>
+    <canvas id="genre"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>인기 아티스트 Top 8</h3>
+    <p class="sub">유저가 고른 노래 기준</p>
+    <canvas id="artist"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>🎯 취향 유사도 ↔ 대화 활성</h3>
+    <p class="sub">공유 장르 0→2개일 때 평균 메시지 7배 — 음악 기반 매칭 가설 검증</p>
+    <canvas id="taste"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>매칭의 운명 (89건)</h3>
+    <p class="sub">상호 대화로 가는 매칭은 13%뿐 · 응답률 18%</p>
+    <canvas id="depth"></canvas>
+  </div>
+
+  <div class="card full">
+    <h3>유저별 메시지 발신량 (상위 발신자)</h3>
+    <p class="sub">소수 헤비유저가 대화 대부분을 견인 · 발신자 18명 / 상위 7명이 전체 메시지의 83% · 중앙값 11건</p>
+    <canvas id="senders"></canvas>
+  </div>
+
+</div>
+
+<div class="insight">
+  <b>핵심 진단</b><br>
+  ① <b>음악 매칭 가설 검증됨 🎯</b> — 공유 장르 0→2개일 때 평균 메시지 7배(1.0→7.2). 취향 가중치를 키우면 대화 전환↑.<br>
+  ② <b>유령 매칭이 병목</b> — 89건 중 상호 대화는 13%(12건)뿐, 응답률 18%. 매칭 직후 자동 아이스브레이커 필요.<br>
+  ③ <b>사진 등록률 6.7%</b> — 데이팅 앱 치명적, 온보딩상 photo 단계 도달 1명 → 플로우/버그 점검.<br>
+  ④ <b>리텐션 붕괴</b> — 59명 중 7일내 활성 7명, 88% 휴면. 알림 읽음률 40~48%로 복귀 유도 약함.<br>
+  ⑤ <b>여성 수 부족이 핵심</b> — 참여 여성은 남성만큼 활발(활성률 44%>38%). 성비 개선이 곧 전체 활성도.<br>
+  ⚠️ <b>버그 의심</b> — 여-여 동성 매칭 2건 존재(남-남 0건). matches 생성 성별 필터 점검.
+</div>
+</div>
+
+<footer>Generated by Claude · 데이터는 익명 집계 지표만 사용</footer>
+
+<script>
+const CORAL='#ff625d', CORAL_L='rgba(255,98,93,.5)', BLUE='#5b8def', GREEN='#34c38f', GRAY='#d1d5db';
+Chart.defaults.font.family='-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+Chart.defaults.plugins.legend.labels.boxWidth=12;
+const noLeg={plugins:{legend:{display:false}}};
+
+new Chart(funnel,{type:'bar',data:{labels:['가입','프로필 작성','승인','노래 선택','대화 시작'],
+  datasets:[{data:[59,45,44,34,18],backgroundColor:[CORAL,CORAL,CORAL,'#ff8a86','#ffb3b0'],borderRadius:8}]},
+  options:{indexAxis:'y',...noLeg,scales:{x:{grid:{display:false}}}}});
+
+const days=['05-27','05-28','05-29','05-30','05-31','06-01','06-02','06-03','06-04','06-05','06-06','06-07','06-08','06-09'];
+new Chart(daily,{type:'line',data:{labels:days,datasets:[
+  {label:'가입',data:[20,16,6,5,3,2,3,1,1,0,1,0,1,0],borderColor:CORAL,backgroundColor:CORAL_L,tension:.3,fill:false},
+  {label:'매칭',data:[6,5,5,16,5,2,3,7,8,18,1,4,3,6],borderColor:BLUE,tension:.3,fill:false},
+  {label:'메시지',data:[64,7,9,83,4,2,2,15,8,5,5,68,10,7],borderColor:GREEN,tension:.3,fill:false}
+]},options:{plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+
+new Chart(gender,{type:'doughnut',data:{labels:['남성','여성'],
+  datasets:[{data:[29,16],backgroundColor:[BLUE,CORAL]}]},options:{plugins:{legend:{position:'bottom'}}}});
+
+new Chart(age,{type:'bar',data:{labels:['1998','1999','2000','2001','2002','2003','2004','2005','2006','2007'],
+  datasets:[{data:[1,1,1,8,5,1,9,3,10,6],backgroundColor:CORAL,borderRadius:6}]},
+  options:{...noLeg,scales:{x:{grid:{display:false}}}}});
+
+new Chart(retention,{type:'bar',data:{labels:['1일내','3일내','7일내','휴면(7일+)'],
+  datasets:[{data:[0,2,7,52],backgroundColor:[GREEN,GREEN,'#ffb3b0',CORAL],borderRadius:6}]},options:noLeg});
+
+new Chart(notif,{type:'bar',data:{labels:['매칭','메시지','시스템'],datasets:[
+  {label:'발송',data:[200,124,9],backgroundColor:GRAY,borderRadius:6},
+  {label:'읽음',data:[80,60,5],backgroundColor:CORAL,borderRadius:6}
+]},options:{plugins:{legend:{position:'top'}}}});
+
+new Chart(genre,{type:'bar',data:{labels:['pop','indie','hiphop','ballad','rock','jazz'],
+  datasets:[{data:[21,19,13,12,9,7],backgroundColor:CORAL,borderRadius:6}]},
+  options:{indexAxis:'y',...noLeg}});
+
+new Chart(artist,{type:'bar',data:{labels:['AKMU','LUCY','I.O.I','CORTIS','나얼','로이킴','M.C the MAX','이찬혁'],
+  datasets:[{data:[4,3,3,3,2,2,2,2],backgroundColor:'#ff8a86',borderRadius:6}]},
+  options:{indexAxis:'y',...noLeg}});
+
+new Chart(taste,{data:{labels:['공유 0개','공유 1개','공유 2개+'],datasets:[
+  {type:'bar',label:'평균 메시지',data:[1.0,3.2,7.2],backgroundColor:CORAL,borderRadius:6,yAxisID:'y'},
+  {type:'line',label:'대화 시작률(%)',data:[62,80,83],borderColor:BLUE,backgroundColor:BLUE,tension:.3,yAxisID:'y1'}
+]},options:{plugins:{legend:{position:'top'}},scales:{
+  y:{position:'left',title:{display:true,text:'평균 메시지'}},
+  y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:'시작률 %'}}}}});
+
+new Chart(depth,{type:'doughnut',data:{labels:['죽음(0건)','편방향','상호 대화','깊은 대화(20+)'],
+  datasets:[{data:[22,55,12,3],backgroundColor:[GRAY,'#ffb3b0',CORAL,'#b91c1c']}]},
+  options:{plugins:{legend:{position:'bottom'}}}});
+
+new Chart(senders,{type:'bar',data:{labels:['#1','#2','#3','#4','#5','#6','#7','#8','#9','#10','#11','#12','#13','#14','#15','#16','#17','#18'],
+  datasets:[{data:[46,39,38,35,29,29,24,15,12,10,3,2,2,1,1,1,1,1],backgroundColor:(c)=>c.dataIndex<7?CORAL:GRAY,borderRadius:5}]},
+  options:{...noLeg,scales:{x:{grid:{display:false}}}}});
+</script>
+</body>
+</html>

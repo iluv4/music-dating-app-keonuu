@@ -1,8 +1,7 @@
 import webpush from "web-push";
-import { waitUntil } from "@vercel/functions";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
 
-// Web Push 발송 (Vercel Node 런타임). VAPID 키 없으면 전부 no-op.
+// Web Push 발송 (Node 런타임). VAPID 키 없으면 전부 no-op.
 let configured: boolean | null = null;
 
 function ensureConfigured(): boolean {
@@ -77,15 +76,10 @@ export async function sendPushToUser(
 }
 
 // 응답을 막지 않고 푸시 발송 — 메시지 전송 액션이 푸시 왕복(외부 push 서버)을
-// 기다리느라 느려지던 문제 해결. Vercel 서버리스에선 waitUntil 로 함수가 응답 후에도
-// 발송을 끝내게 보장하고, 그 컨텍스트 밖(로컬 등)에선 백그라운드 실행으로 둔다.
+// 기다리느라 느려지던 문제 해결. Railway는 상시 구동 Node 서버라 응답을 보낸 뒤에도
+// 프로세스가 살아 있어 백그라운드 task 가 그대로 끝까지 실행된다.
 export function dispatchPushToUser(userId: string, payload: PushPayload): void {
-  const task = sendPushToUser(userId, payload).catch((e) => {
+  void sendPushToUser(userId, payload).catch((e) => {
     console.error("[push.dispatch]", e);
   });
-  try {
-    waitUntil(task);
-  } catch {
-    // Vercel 런타임 컨텍스트 밖 — task 는 그대로 백그라운드 실행
-  }
 }

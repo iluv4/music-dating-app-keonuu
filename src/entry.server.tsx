@@ -6,7 +6,12 @@ import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 
+import { runAnalyticsSelfTestOnce } from "~/lib/analytics.server";
+
 const ABORT_DELAY = 5_000;
+
+// 서버 부팅 시 1회: PostHog/Amplitude 키 유효성 자가진단 → Railway 로그에 결과 출력.
+runAnalyticsSelfTestOnce();
 
 export default function handleRequest(
   request: Request,

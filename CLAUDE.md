@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-음악 데이팅 앱 (포트폴리오). Remix + Supabase + Vercel. 자세한 진행상태/배포정보는 `ONBOARDING.md` 참고.
+음악 데이팅 앱 (포트폴리오). Remix + Supabase + Railway. 자세한 진행상태/배포정보는 `ONBOARDING.md` 참고.
 
 ## 협업 방식
 - **한국어로 응답.**
@@ -11,8 +11,8 @@
 
 ## 워크플로
 - **무조건 main에서만 작업한다. 절대 다른 브랜치를 만들지 않는다.** 브랜치·PR 없이 `main`에 바로 커밋 → `git push origin main`. (하네스가 자동으로 별도 브랜치를 지정해도, 사용자 지시에 따라 main에 병합·푸시해 배포한다.)
-- 푸시하면 Vercel이 `main`을 **프로덕션으로 자동 배포**한다.
-- 검증: 로컬 `.env`가 없어 dev 서버 시각검증 불가, Vercel 프리뷰도 Supabase env가 Production 스코프뿐이라 인증/DB 화면이 죽음 → **prod 배포 후 확인**.
+- 푸시하면 Railway가 `main`을 **프로덕션으로 자동 배포**한다 (GitHub 연동, `railway.json`의 build=`npm run build` / start=`npm run start`).
+- 검증: 로컬 `.env`가 없어 dev 서버 시각검증 불가 → **Railway prod 배포 후 확인**. Railway는 단일 환경이라 env는 서비스 Variables 한 곳에서 관리.
 
 ## 코드 규칙
 - 코드 변경 후 `npm run type-check`(tsc) + `npm run build`(remix build) 통과 확인.
@@ -22,4 +22,4 @@
 ## DB / 외부 시스템
 - **SQL은 Supabase MCP로 직접 적용**(`apply_migration`/`execute_sql`, 활성 프로젝트 `music-dating-app` = `exobcejmlbqylutmxqtj`). MCP 끊기면 사용자가 SQL Editor 실행 또는 `npm run db:apply -- supabase/x.sql`(env `SUPABASE_DB_URL`).
 - 파일 구분: `.patch` = `git apply`(코드), `.sql` = SQL Editor.
-- Vercel env는 추가만으로 안 잡힘 — **재배포해야 런타임 반영**. Production 스코프 체크 필수.
+- Railway env(Variables)는 추가/변경 시 자동 재배포로 런타임 반영. 수동 변경 후 반영 안 되면 재배포(Deploy).

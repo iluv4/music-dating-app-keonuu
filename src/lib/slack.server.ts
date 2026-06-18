@@ -1,9 +1,11 @@
 // Slack Incoming Webhook 알림 (서버 전용)
 // 환경변수 SLACK_WEBHOOK_URL 이 설정돼 있을 때만 동작. 없으면 no-op.
 // 설정법: Slack → Apps → "Incoming Webhooks" 추가 → 채널 선택 → 생성된 URL을
-//        Vercel 프로젝트 환경변수 SLACK_WEBHOOK_URL 에 등록.
+//        Railway 서비스 환경변수 SLACK_WEBHOOK_URL 에 등록.
 //
 // 실패해도 절대 가입/결제 흐름을 막지 않는다 (best-effort, 에러는 로그만).
+
+import { getSiteUrl } from "~/lib/site-url.server";
 
 export async function notifySlack(text: string): Promise<void> {
   const url = process.env.SLACK_WEBHOOK_URL;
@@ -19,10 +21,6 @@ export async function notifySlack(text: string): Promise<void> {
     console.error("[notifySlack]", err);
   }
 }
-
-// 서비스 도메인 (관리자 승인 링크 생성용). 필요 시 env SITE_URL 로 오버라이드.
-const SITE_URL =
-  process.env.SITE_URL ?? "https://music-dating-app-keonuu.vercel.app";
 
 // 입금/가입 신청 알림 메시지 구성
 // ADMIN_KEY 가 설정돼 있으면 해당 신청자를 바로 강조하는 승인 화면 링크를 첨부한다.
@@ -50,7 +48,7 @@ export function buildPaymentNotice(params: {
 
   const adminKey = process.env.ADMIN_KEY;
   if (adminKey) {
-    const url = `${SITE_URL}/admin?key=${encodeURIComponent(
+    const url = `${getSiteUrl()}/admin?key=${encodeURIComponent(
       adminKey,
     )}&focus=${encodeURIComponent(userId)}`;
     lines.push(`• ✅ 승인하기: ${url}`);

@@ -16,8 +16,9 @@ import { capture } from "~/lib/analytics.client";
 import { listUserMatches } from "~/lib/repos/matches.server";
 
 // "한 명 더 만나기" = 추가형 매칭 (현재 대화는 그대로 유지, 새 상대를 추가로 매칭).
-// 입금자명 입력 후 request_additional_match 로 후보를 찾아 즉시 매칭(active)하고
-// 양쪽에 매칭 알림을 발송한다. 후보가 없으면 "지금은 매칭 가능한 상대가 없어요"로 안내.
+// 입금자명 입력 후 request_additional_match 로 후보를 찾아 'pending' 으로 신청을 만들고,
+// 운영팀이 입금 확인 후 /admin 에서 승인(confirm_match)하면 active + 양쪽 알림이 발송된다.
+// 후보가 없으면 "지금은 매칭 가능한 상대가 없어요"로 안내.
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = await requireApprovedUser(request);
@@ -36,7 +37,7 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // 현재 매칭은 그대로 두고, 새 상대를 "추가로" 찾아 즉시 매칭(active)
+  // 현재 매칭은 그대로 두고, 새 상대를 "추가로" 찾아 pending 신청 생성(운영팀 확인 후 연결)
   const { data, error } = await ctx.supabase.rpc("request_additional_match", {
     p_user_id: ctx.user.id,
   });
@@ -52,8 +53,8 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const matchId = data as string | null;
   if (matchId) {
-    // 매칭 성사 → 바로 새 대화방으로 이동
-    return json({ status: "matched" as const, matchId }, { headers: ctx.headers });
+    // 신청 접수(pending) — 운영팀 확인 후 연결되므로 채팅방으로 보내지 않는다.
+    return json({ status: "requested" as const }, { headers: ctx.headers });
   }
   // 지금은 매칭 가능한 후보가 없음
   return json({ status: "none" as const }, { headers: ctx.headers });
@@ -68,11 +69,10 @@ export default function Rematch() {
   const [bankHolder, setBankHolder] = useState("");
 
   useEffect(() => {
-    if (actionData?.status === "matched") {
+    if (actionData?.status === "requested") {
       capture("match.rematch_requested", { current_count: currentCount });
-      navigate(`/chat/${actionData.matchId}`);
     }
-  }, [actionData, currentCount, navigate]);
+  }, [actionData, currentCount]);
 
   const Header = ({ title }: { title: string }) => (
     <div
@@ -105,12 +105,12 @@ export default function Rematch() {
     </div>
   );
 
-  // 매칭 성사 → useEffect 에서 새 대화방으로 이동하는 동안 잠깐 보이는 안내
-  if (actionData?.status === "matched") {
+  // 신청 접수 — 운영팀이 입금 확인 후 연결해주는 동안의 안내 화면
+  if (actionData?.status === "requested") {
     return (
       <PhoneFrame>
         <StatusBar />
-        <Header title="매칭 성사" />
+        <Header title="신청 완료" />
         <div
           style={{
             flex: 1,
@@ -135,7 +135,7 @@ export default function Rematch() {
               marginBottom: "20px",
             }}
           >
-            🎉
+            💌
           </div>
           <h2
             style={{
@@ -144,18 +144,27 @@ export default function Rematch() {
               margin: "0 0 12px",
             }}
           >
-            새 매칭이 성사됐어요!
+            추가 매칭을 신청했어요!
           </h2>
           <p
             style={{
               ...TYPOGRAPHY.body,
               color: COLORS.text.helper,
-              margin: 0,
+              margin: "0 0 32px",
               lineHeight: 1.6,
             }}
           >
-            대화방으로 이동 중이에요...
+            운영팀이 입금을 확인한 뒤 새로운 상대와
+            <br />
+            연결해드려요. 연결되면 알림으로 알려드릴게요.
           </p>
+          <PrimaryButton
+            type="button"
+            onClick={() => navigate("/music")}
+            style={{ width: "100%" }}
+          >
+            확인
+          </PrimaryButton>
         </div>
         <HomeIndicator />
       </PhoneFrame>

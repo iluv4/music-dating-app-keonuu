@@ -5,13 +5,13 @@
 > 마지막 갱신: 2026-05-25 (main = `fe9b1a1`, PR #59까지 머지)
 
 ## 한 줄 요약
-대학생 대상 **음악 취향 기반 1:1 매칭 + 채팅** 모바일 웹앱(PWA). Remix v2 + Supabase + Vercel.
+대학생 대상 **음악 취향 기반 1:1 매칭 + 채팅** 모바일 웹앱(PWA). Remix v2 + Supabase + Railway.
 
 ## 좌표 (현재값)
 | 항목 | 값 |
 |------|-----|
 | Repo | `iluv4/music-dating-app-keonuu` (main) |
-| 배포 | Vercel `music-dating-app-keonuu.vercel.app` |
+| 배포 | Railway (GitHub `main` 자동 배포, `railway.json`). 도메인은 Railway 서비스 Settings → Networking 에서 확인/지정 |
 | Supabase 프로젝트 | `exobcejmlbqylutmxqtj` |
 | 디자인 | Figma `707rxeVk0SGe1nZB4BE0LR` |
 | 브랜드 메인색 | **#ff625d (코랄)**, soft `#ffeeed` — 유일 기준, [constants.ts](src/lib/constants.ts) |
@@ -59,13 +59,14 @@ SQL은 `supabase/*.sql`. 적용 경로 2가지:
 | #11/#14/#18/#19 | Vercel Analytics·마스코트·a11y·QA (5/23~24, base 오래됨) | 충돌 확인 후 정리 필요 |
 
 ## 남은 큰 작업
-- **푸시 활성화** — Vercel env `VAPID_PUBLIC_KEY/PRIVATE_KEY/SUBJECT` + 재배포. iOS는 홈화면 추가(PWA 설치)해야 수신.
+- **푸시 활성화** — Railway Variables `VAPID_PUBLIC_KEY/PRIVATE_KEY/SUBJECT` 추가(자동 재배포). iOS는 홈화면 추가(PWA 설치)해야 수신.
 - 위 열린 PR 정리·머지 + 대기 중 SQL 2건 적용.
 
 ## 알려진 함정
-- **Vercel Preview env 누락** — Supabase 변수가 Production 스코프에만 → 프리뷰 배포는 DB/인증 화면 500. 검증은 main 머지 후 prod에서.
+- **검증은 prod에서** — 로컬 `.env`가 없어 dev 시각검증 불가. main 머지 → Railway 자동 배포 후 확인.
 - **Supabase MCP 간헐 끊김** — 위 db:apply 스크립트 또는 SQL Editor로 우회.
-- env는 추가만으론 안 잡힘 → **재배포해야 런타임 반영**.
+- **Railway 도메인/SITE_URL** — OG 메타·Slack 승인 링크는 `SITE_URL` env(미설정 시 `RAILWAY_PUBLIC_DOMAIN` 자동 폴백)로 절대 URL을 만든다. 커스텀 도메인 쓰면 `SITE_URL` 명시.
+- env(Variables) 변경 시 Railway가 자동 재배포로 반영. 안 되면 수동 Deploy.
 
 ## 컨벤션 (요약, 상세는 HANDOVER §9)
 - DB 쿼리는 `src/lib/repos/*.server.ts` 안에서만. 새 타입은 `src/lib/db-types.ts`.
