@@ -1,0 +1,25 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+  /* 모바일 앱처럼 보이게 — 가운데 정렬된 좁은 캔버스 */
+  body {
+    margin: 0;
+  }
+}
+
+@layer components {
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium;
+  }
+  .btn-brand {
+    @apply rounded-full bg-brand px-5 py-3 font-semibold text-white shadow-soft active:scale-[0.98] transition;
+  }
+}

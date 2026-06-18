@@ -5,7 +5,7 @@
 // 이건 하네스가 max_tokens 같은 파라미터와 스타일 지침을 바꿔서 만든다.
 // 러비더비는 모드별로 소모 잼이 달라서 BM(수익모델)과 직접 연결된다.
 
-import type { ChatMode, ChatModeConfig } from "./types.js";
+import type { ChatMode, ChatModeConfig } from "./types";
 
 export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
   찰떡: {

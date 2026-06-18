@@ -10,10 +10,10 @@
 
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { CHARACTERS } from "./data/characters.js";
-import { chat } from "./harness/engine.js";
-import { scoreToLevel } from "./harness/persona.js";
-import { AFFINITY_LABELS, type ChatMode, type SessionState } from "./harness/types.js";
+import { CHARACTERS } from "./data/characters";
+import { chat } from "./harness/engine";
+import { scoreToLevel } from "./harness/persona";
+import { AFFINITY_LABELS, type ChatMode, type SessionState } from "./harness/types";
 
 const MODES: ChatMode[] = ["찰떡", "장문", "스토리"];
 

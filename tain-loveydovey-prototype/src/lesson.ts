@@ -7,13 +7,13 @@
 
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { CHARACTERS } from "./data/characters.js";
-import { client, MAIN_MODEL, UTILITY_MODEL } from "./harness/client.js";
-import { buildSystemPrompt, scoreToLevel } from "./harness/persona.js";
-import { CHAT_MODES } from "./harness/modes.js";
-import { scoreAffinityDelta, clampScore } from "./harness/affinity.js";
-import { compactMemory, RECENT_WINDOW } from "./harness/memory.js";
-import { AFFINITY_LABELS, type SessionState, type Turn } from "./harness/types.js";
+import { CHARACTERS } from "./data/characters";
+import { client, MAIN_MODEL, UTILITY_MODEL } from "./harness/client";
+import { buildSystemPrompt, scoreToLevel } from "./harness/persona";
+import { CHAT_MODES } from "./harness/modes";
+import { scoreAffinityDelta, clampScore } from "./harness/affinity";
+import { compactMemory, RECENT_WINDOW } from "./harness/memory";
+import { AFFINITY_LABELS, type SessionState, type Turn } from "./harness/types";
 
 // ---------- 시각화 헬퍼 (ANSI) ----------
 const C = {

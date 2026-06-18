@@ -13,12 +13,12 @@
 //
 // LLM 호출은 이 7단계 중 "한 단계"일 뿐이다. 나머지가 전부 하네스다.
 
-import { client, MAIN_MODEL } from "./client.js";
-import { buildSystemPrompt, scoreToLevel } from "./persona.js";
-import { CHAT_MODES } from "./modes.js";
-import { scoreAffinityDelta, clampScore } from "./affinity.js";
-import { compactMemory, RECENT_WINDOW } from "./memory.js";
-import type { SessionState, Turn } from "./types.js";
+import { client, MAIN_MODEL } from "./client";
+import { buildSystemPrompt, scoreToLevel } from "./persona";
+import { CHAT_MODES } from "./modes";
+import { scoreAffinityDelta, clampScore } from "./affinity";
+import { compactMemory, RECENT_WINDOW } from "./memory";
+import type { SessionState, Turn } from "./types";
 
 export interface ChatResult {
   state: SessionState;

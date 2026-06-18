@@ -15,8 +15,8 @@ import {
   type AffinityLevel,
   type ChatMode,
   type Character,
-} from "./types.js";
-import { CHAT_MODES } from "./modes.js";
+} from "./types";
+import { CHAT_MODES } from "./modes";
 
 /** 호감도 점수(0~1000) → 단계(1~5) 변환 */
 export function scoreToLevel(score: number): AffinityLevel {

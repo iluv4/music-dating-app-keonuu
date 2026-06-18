@@ -4,7 +4,7 @@
 // 실제 러비더비에선 유저/크리에이터가 이 구조의 캐릭터를 만들어 공유한다.
 // (= 기획안 ①-B "최애 제작소"의 데이터 모델이 바로 이것)
 
-import type { Character } from "../harness/types.js";
+import type { Character } from "../harness/types";
 
 export const CHARACTERS: Character[] = [
   {

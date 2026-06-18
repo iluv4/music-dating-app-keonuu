@@ -10,8 +10,8 @@
 //
 // 이게 하네스의 "judge(심판) 패턴" — LLM을 평가자로 쓰는 기법이다.
 
-import { client, UTILITY_MODEL } from "./client.js";
-import type { Turn } from "./types.js";
+import { client, UTILITY_MODEL } from "./client";
+import type { Turn } from "./types";
 
 /**
  * 직전 유저 발화 + 캐릭터 응답을 보고 호감도 변화량(-30 ~ +30)을 반환.

@@ -10,8 +10,8 @@
 // 기억해 먼저 꺼낸다" 같은 정서적 보상이 바로 이 메모리북에서 나온다.
 // 동시에 추론 비용도 통제한다 — 기획과 엔지니어링이 만나는 지점.
 
-import { client, UTILITY_MODEL } from "./client.js";
-import type { Turn } from "./types.js";
+import { client, UTILITY_MODEL } from "./client";
+import type { Turn } from "./types";
 
 /** 이 턴 수를 넘으면 오래된 절반을 메모리북으로 압축한다 */
 export const RECENT_WINDOW = 8;
