@@ -16,6 +16,7 @@ export type ProfileRow = {
   genres: string[] | null;
   region: string | null;
   match_campus_pref: string | null;
+  phone: string | null;
   bank_holder: string | null;
   photo_path: string | null;
   is_approved: boolean;
@@ -37,6 +38,7 @@ export type ProfileUpsert = {
   genres?: string[] | null;
   region?: string | null;
   match_campus_pref?: string | null;
+  phone?: string | null;
   bank_holder: string | null;
   photo_path?: string | null;
   updated_at?: string;

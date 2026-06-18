@@ -57,8 +57,11 @@ export async function action({ request }: ActionFunctionArgs) {
   const school = String(fd.get("school") ?? "").trim().slice(0, 80);
   const campusRaw = String(fd.get("campus") ?? "").trim();
   const campus = isCampus(campusRaw) ? campusRaw : "";
+  // 연락처는 숫자만 저장(하이픈 제거). 휴대폰 번호 형식만 허용.
+  const phone = String(fd.get("phone") ?? "").replace(/\D/g, "");
 
   const campusOk = !schoolRequiresCampus(school) || !!campus;
+  const phoneOk = /^01[016789]\d{7,8}$/.test(phone);
   if (
     !name ||
     !birthYear ||
@@ -66,7 +69,8 @@ export async function action({ request }: ActionFunctionArgs) {
     birthYear > CURRENT_YEAR ||
     (gender !== "male" && gender !== "female") ||
     school.length < 2 ||
-    !campusOk
+    !campusOk ||
+    !phoneOk
   ) {
     return json<ActionData>(
       { error: "입력 정보를 확인해주세요." },
@@ -81,6 +85,7 @@ export async function action({ request }: ActionFunctionArgs) {
     gender,
     school,
     campus: campus || null,
+    phone,
     bank_holder: null,
   });
 
@@ -110,6 +115,7 @@ export default function ProfileBasic() {
   const [gender, setGender] = useState<"male" | "female" | "">("");
   const [school, setSchool] = useState(DEFAULT_SCHOOL.name);
   const [campus, setCampus] = useState<Campus | "">("");
+  const [phone, setPhone] = useState("");
 
   // 가입 이탈 추적: 이 단계 진입을 서버에 기록.
   useEffect(() => {
@@ -135,6 +141,7 @@ export default function ProfileBasic() {
   };
 
   const yearNum = Number(birthYear);
+  const phoneValid = /^01[016789]\d{7,8}$/.test(phone);
   const canNext =
     name.trim().length >= 1 &&
     /^\d{4}$/.test(birthYear) &&
@@ -143,7 +150,16 @@ export default function ProfileBasic() {
     (gender === "male" || gender === "female") &&
     school.trim().length >= 2 &&
     (!needsCampus || campus !== "") &&
+    phoneValid &&
     !submitting;
+
+  // 표시용 포맷(010-1234-5678) — 상태에는 숫자만 보관.
+  const formatPhone = (digits: string) => {
+    const d = digits.slice(0, 11);
+    if (d.length < 4) return d;
+    if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  };
 
   return (
     <PhoneFrame>
@@ -154,6 +170,7 @@ export default function ProfileBasic() {
         <input type="hidden" name="gender" value={gender} />
         <input type="hidden" name="school" value={school} />
         <input type="hidden" name="campus" value={campus} />
+        <input type="hidden" name="phone" value={phone} />
 
         <SignupStepNav
           onBack={() => navigate("/welcome")}
@@ -226,6 +243,17 @@ export default function ProfileBasic() {
               value={birthYear}
               onChange={(e) =>
                 setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+            />
+            <TextInput
+              label="연락처"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder="010-1234-5678"
+              value={formatPhone(phone)}
+              onChange={(e) =>
+                setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))
               }
             />
             <div>

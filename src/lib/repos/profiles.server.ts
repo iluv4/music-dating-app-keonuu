@@ -20,6 +20,7 @@ const FIELD_MAX: Record<string, number> = {
   club: 60,
   region: 30,
   match_campus_pref: 10,
+  phone: 20,
   bank_holder: 40,
 };
 
