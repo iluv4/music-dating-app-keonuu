@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>뮤직매치 — 포트폴리오 슬라이드</title>
+<style>
+  :root {
+    --coral: #ff625d;
+    --coral-soft: #ffeeed;
+    --paper: #fdf9f8;
+    --surface: #ffffff;
+    --ink: #26201f;
+    --muted: #8a7b78;
+    --line: #f0e3e1;
+    --code-bg: #faf3f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --coral:#ff7a75; --coral-soft:#3a2523; --paper:#1c1616; --surface:#261e1d;
+            --ink:#f3eae8; --muted:#a89693; --line:#3a2f2d; --code-bg:#2d2321; }
+  }
+  :root[data-theme="dark"] { --coral:#ff7a75; --coral-soft:#3a2523; --paper:#1c1616; --surface:#261e1d;
+            --ink:#f3eae8; --muted:#a89693; --line:#3a2f2d; --code-bg:#2d2321; }
+  :root[data-theme="light"] { --coral:#ff625d; --coral-soft:#ffeeed; --paper:#fdf9f8; --surface:#ffffff;
+            --ink:#26201f; --muted:#8a7b78; --line:#f0e3e1; --code-bg:#faf3f2; }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden;
+    background: var(--paper); color: var(--ink);
+    font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo",
+      "Noto Sans KR", "Malgun Gothic", -apple-system, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+
+  .track {
+    display: flex; height: 100vh; height: 100dvh;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-reduced-motion: reduce) { .track { transition: none; } }
+
+  .slide {
+    flex: 0 0 100vw; width: 100vw; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    padding: 48px 56px 72px;
+  }
+  .inner { width: 100%; max-width: 920px; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--coral); margin-bottom: 14px;
+  }
+  .eyebrow::before { content:""; width:22px; height:2px; background: var(--coral); }
+
+  h1 { margin:0; font-size: clamp(40px, 6.5vw, 64px); font-weight: 800;
+       letter-spacing: -0.03em; line-height: 1.1; text-wrap: balance; }
+  h1 .accent { color: var(--coral); }
+  h2 { margin: 0 0 20px; font-size: clamp(26px, 3.6vw, 36px); font-weight: 800;
+       letter-spacing: -0.02em; text-wrap: balance; }
+  .tagline { font-size: clamp(16px, 2vw, 20px); color: var(--muted); margin: 18px 0 0; max-width: 34em; }
+  p { margin: 0 0 14px; }
+  strong { font-weight: 700; }
+  code { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 0.86em;
+         background: var(--code-bg); padding: 2px 6px; border-radius: 5px; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:26px; }
+  .chip { font-size:13px; font-weight:600; padding:5px 12px; border-radius:100px;
+          background: var(--coral-soft); color: var(--coral); }
+  .chip.plain { background:transparent; border:1px solid var(--line); color:var(--muted); }
+
+  .hint { margin-top: 40px; font-size: 13px; color: var(--muted); }
+  kbd { border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
+        padding:1px 6px; font-size:12px; font-family:inherit; background:var(--surface); }
+
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
+           background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .stat { background:var(--surface); padding:20px 18px 16px; }
+  .stat b { display:block; font-size:30px; font-weight:800; letter-spacing:-0.02em;
+            font-variant-numeric: tabular-nums; }
+  .stat span { font-size:13px; color:var(--muted); }
+  .stat.alert b { color: var(--coral); }
+
+  .features { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:720px){ .features{ grid-template-columns:1fr 1fr; } }
+  .feature { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
+  .feature h3 { margin:0 0 4px; font-size:15px; font-weight:700; }
+  .feature p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.55; }
+
+  .problem {
+    background: var(--coral-soft); border-left: 3px solid var(--coral);
+    border-radius: 0 10px 10px 0; padding: 12px 16px; margin-bottom: 20px;
+    font-size: 15px;
+  }
+  .problem b { color: var(--coral); font-size: 12px; letter-spacing: 0.1em;
+               text-transform: uppercase; display: block; margin-bottom: 2px; }
+  ul.sol { margin:0; padding-left:20px; font-size: clamp(15px, 1.8vw, 17px); }
+  ul.sol li { margin-bottom: 12px; }
+  ul.sol li::marker { color: var(--coral); }
+  .proof { display:inline-block; margin-top:20px; font-size:14px; font-weight:700;
+           color:var(--coral); background:var(--coral-soft); padding:6px 14px; border-radius:100px; }
+
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:720px){ .cols{ grid-template-columns:1fr; } }
+
+  .chart-card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px 10px; }
+  .chart-card h3 { margin:0 0 2px; font-size:15px; font-weight:700; }
+  .chart-card .cap { margin:0 0 10px; font-size:12.5px; color:var(--muted); }
+  .chart-card svg { width:100%; height:auto; display:block; }
+  .bar { fill: var(--coral); }
+  .bar.dim { opacity: 0.45; }
+  .axis-label { font-size:12px; fill:var(--muted); }
+  .val { font-size:12px; font-weight:700; fill:var(--ink); }
+  .baseline { stroke:var(--line); stroke-width:1; }
+  .chart-note { font-size:12.5px; color:var(--muted); margin:6px 0 8px; }
+
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); }
+
+  .arch { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .arch svg { width:100%; height:auto; display:block; max-height: 60vh; }
+  .node { fill:var(--paper); stroke:var(--line); }
+  .node.core { stroke:var(--coral); stroke-width:1.5; }
+  .nlabel { font-size:12.5px; font-weight:700; fill:var(--ink); }
+  .nsub { font-size:10.5px; fill:var(--muted); }
+  .edge { stroke:var(--muted); stroke-width:1.2; fill:none; }
+  .edge.rt { stroke:var(--coral); stroke-dasharray:4 3; }
+  .elabel { font-size:10.5px; fill:var(--muted); }
+  .elabel.rt { fill:var(--coral); font-weight:600; }
+
+  .lesson { border-left:3px solid var(--coral); padding: 2px 0 2px 18px; margin-bottom:18px; }
+  .lesson b { display:block; font-size: clamp(16px, 2vw, 19px); }
+  .lesson p { margin:2px 0 0; color:var(--muted); font-size: clamp(13.5px, 1.6vw, 15px); }
+
+  /* ---- chrome ---- */
+  .progress { position:fixed; top:0; left:0; height:3px; background:var(--coral);
+              width:0; transition: width 0.3s ease; z-index:10; }
+  .counter { position:fixed; left:20px; bottom:18px; font-size:13px; color:var(--muted);
+             font-variant-numeric: tabular-nums; z-index:10; }
+  .navbtns { position:fixed; right:16px; bottom:12px; display:flex; gap:8px; z-index:10; }
+  .navbtns button {
+    width:42px; height:42px; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface); color:var(--ink); font-size:17px; cursor:pointer;
+  }
+  .navbtns button:hover { border-color: var(--coral); color: var(--coral); }
+  .navbtns button:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+  .navbtns button:disabled { opacity:0.35; cursor:default; }
+
+  @media (max-width: 640px) {
+    .slide { padding: 32px 24px 76px; }
+    .features { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ---- print: one slide per landscape page ---- */
+  @media print {
+    body { overflow: visible; }
+    .track { display:block; height:auto; transform:none !important; transition:none; }
+    .slide { width:auto; height:100vh; overflow:hidden; page-break-after:always; padding:36px 48px; }
+    .slide:last-child { page-break-after:auto; }
+    .progress, .counter, .navbtns, .hint { display:none; }
+    .arch svg { max-height:none; }
+  }
+  @page { size: A4 landscape; margin: 0; }
+</style>
+
+<div class="progress" id="progress"></div>
+
+<div class="track" id="track">
+
+  <!-- 1. 타이틀 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">Portfolio · Side Project</span>
+      <h1>뮤직매치<span class="accent">.</span><br>같은 노래에서 시작되는 만남</h1>
+      <p class="tagline">음악 취향으로 연결되는 대학생 1:1 소개팅 웹앱(PWA) —
+      가입부터 매칭·실시간 채팅·푸시 알림까지 전 퍼널 프로덕션 동작</p>
+      <div class="chips">
+        <span class="chip">Remix v2 · SSR</span>
+        <span class="chip">Supabase</span>
+        <span class="chip">TypeScript</span>
+        <span class="chip plain">Railway</span>
+        <span class="chip plain">PostHog · Amplitude</span>
+        <span class="chip plain">k6</span>
+      </div>
+      <p class="hint"><kbd>←</kbd> <kbd>→</kbd> 키 또는 스와이프로 넘기기</p>
+    </div>
+  </section>
+
+  <!-- 2. 한눈에 -->
+  <section class="slide">
+    <div class="inner">
+      <h2>한눈에 보기</h2>
+      <div class="stats">
+        <div class="stat"><b>14,000+</b><span>TypeScript 코드 줄 (+SQL 2,800줄)</span></div>
+        <div class="stat"><b>34</b><span>화면 · 라우트</span></div>
+        <div class="stat"><b>30</b><span>DB 마이그레이션 (전 테이블 RLS)</span></div>
+        <div class="stat"><b>130+</b><span>커밋 · main 푸시 즉시 프로덕션 배포</span></div>
+      </div>
+      <p style="margin-top:22px; color:var(--muted); font-size:15px;">
+        혼자 설계·구현·배포·운영. 관리자 승인, 입금 확인, 재매칭 운영 플로우까지
+        <strong style="color:var(--ink)">실제 운영을 전제로 한 전체 제품</strong>.</p>
+    </div>
+  </section>
+
+  <!-- 3. 기능 -->
+  <section class="slide">
+    <div class="inner">
+      <h2>무엇을 만들었나</h2>
+      <div class="features">
+        <div class="feature"><h3>음악 기반 매칭</h3><p>곡·장르 일치 + 교차 학교·연령 확장, 소프트 매칭 폴백</p></div>
+        <div class="feature"><h3>실시간 채팅</h3><p>Realtime 구독 · 수정/삭제 · 읽으면 사라지는 "펑"</p></div>
+        <div class="feature"><h3>한 번만 보기 사진</h3><p>1회 열람 후 원본 삭제 · 워터마크 등 캡처 억제</p></div>
+        <div class="feature"><h3>둘러보기 모드</h3><p>비로그인 방문자가 샘플 데이터로 미리 체험 후 가입 전환</p></div>
+        <div class="feature"><h3>PWA 푸시 알림</h3><p>VAPID Web Push · iOS 설치 유도 배너</p></div>
+        <div class="feature"><h3>운영 도구</h3><p>승인·재매칭 플로우 · Slack 알림 · 행동 분석</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 도전 1 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">기술적 도전 1 / 4</span>
+      <h2>매칭 동시성 경합</h2>
+      <div class="problem"><b>Problem</b>두 탭에서 "매칭 찾기"를 동시에 누르면 같은 유저가 중복 매칭되는 레이스 컨디션</div>
+      <ul class="sol">
+        <li><code>find_or_create_match</code> RPC에 <strong>Postgres advisory lock</strong> + 락 획득 후 상태 재확인</li>
+        <li>active 매칭 쌍 <strong>부분 유니크 인덱스</strong> — DB 레벨 이중 안전망</li>
+        <li><strong>k6 부하 테스트</strong>로 유저당 VU 3개 동시 난타(더블서밋 재현) + 자동 검증 스크립트</li>
+      </ul>
+      <span class="proof">검증 결과 — 5xx 0건 · 중복 매칭 0건</span>
+    </div>
+  </section>
+
+  <!-- 5. 도전 2 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">기술적 도전 2 / 4</span>
+      <h2>휘발성 콘텐츠 채팅</h2>
+      <div class="problem"><b>Problem</b>읽으면 사라지는 메시지·1회 열람 사진 — 상태가 양쪽 화면에서 동시에, 되돌릴 수 없게 바뀌어야 함</div>
+      <ul class="sol">
+        <li>열람 이벤트를 DB에 기록, <strong>Realtime UPDATE 구독</strong>으로 양쪽 화면 동시 소멸</li>
+        <li>"한 번만 보기" 사진은 열람 즉시 <strong>스토리지 원본 삭제</strong> — 서버에도 남지 않음</li>
+        <li>소비(consume) 제약을 <strong>SQL 제약조건</strong>으로 강제 — 클라이언트 우회 차단</li>
+        <li>워터마크 · 우클릭/드래그 차단 · 탭 이탈 가림으로 캡처 억제</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 6. 도전 3 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">기술적 도전 3 / 4</span>
+      <h2>보안 — 최소 노출 원칙</h2>
+      <div class="problem"><b>Problem</b>프로필·채팅이 민감 데이터인 소개팅 앱 — 클라이언트를 신뢰하지 않는 구조가 필요</div>
+      <ul class="sol">
+        <li>전 테이블 <strong>RLS 활성</strong> + 정책 본문 감사 스크립트(<code>rls_audit.sql</code>)</li>
+        <li>매칭 생성·종료 등 쓰기 경로는 <strong>SECURITY DEFINER RPC</strong>로만 허용</li>
+        <li>프로필 사진은 비공개 버킷 + <strong>서명 URL</strong> — 매칭 상대에게만 노출</li>
+        <li>공개 가입 액션 rate limit · Realtime 구독 match_id 필터</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7. 도전 4 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">기술적 도전 4 / 4</span>
+      <h2>외부 API 장애 대응</h2>
+      <div class="problem"><b>Problem</b>곡 선택 퍼널이 의존하는 비공식 멜론 API가 간헐적으로 실패</div>
+      <ul class="sol">
+        <li>검색 결과 <strong>인메모리 캐시(10분)</strong>로 반복 호출 절감</li>
+        <li>장애 시 <strong>폴백 곡 목록</strong> 필터링 반환 — 외부 장애에도 가입 퍼널이 끊기지 않음</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. 계측 설계 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">데이터 분석 1 / 3</span>
+      <h2>계측을 직접 설계했다</h2>
+      <ul class="sol">
+        <li><strong>PostHog + Amplitude 동시 전송 래퍼</strong> — 클라이언트/서버 양쪽, 키 없으면 no-op</li>
+        <li>서버 리다이렉트 "성공" 지점은 <strong>서버에서 ingestion API 직접 전송</strong>, <code>distinct_id</code> 통일로 identify 병합</li>
+        <li>첫 방문 <strong>UTM·referrer first-touch 저장</strong> → 유입 출처별 가입→매칭 퍼널</li>
+        <li>이벤트 14개 <strong>트래킹 플랜을 문서로 먼저 설계</strong> 후 구현</li>
+        <li>Supabase DB를 SQL로 직접 분석 + 자체 대시보드로 KPI·퍼널 시각화</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9. 발견 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">데이터 분석 2 / 3</span>
+      <h2>데이터가 가리킨 문제</h2>
+      <div class="stats">
+        <div class="stat alert"><b>84%</b><span>가입 후 단일 세션 — 재방문 없음</span></div>
+        <div class="stat alert"><b>13%</b><span>상호 대화로 이어진 매칭</span></div>
+        <div class="stat alert"><b>6.7%</b><span>프로필 사진 등록률</span></div>
+      </div>
+      <div class="cols" style="margin-top:16px;">
+        <div class="chart-card">
+          <h3>가입 → 활성화 퍼널</h3>
+          <p class="cap">곡 선택·대화 시작에서 이탈 (명)</p>
+          <svg viewBox="0 0 640 216" role="img" aria-label="가입 59명, 프로필 작성 45명, 승인 44명, 노래 선택 34명, 대화 시작 18명">
+            <g class="axis-label" text-anchor="end">
+              <text x="118" y="30">가입</text><text x="118" y="70">프로필 작성</text>
+              <text x="118" y="110">승인</text><text x="118" y="150">노래 선택</text>
+              <text x="118" y="190">대화 시작</text>
+            </g>
+            <line class="baseline" x1="130" y1="6" x2="130" y2="206"/>
+            <path class="bar" d="M130 12 h426 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-426 z"><title>가입 59명 (100%)</title></path>
+            <path class="bar" d="M130 52 h324 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-324 z"><title>프로필 작성 45명 (76%)</title></path>
+            <path class="bar" d="M130 92 h317 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-317 z"><title>승인 44명 (75%)</title></path>
+            <path class="bar" d="M130 132 h244 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-244 z"><title>노래 선택 34명 (58%)</title></path>
+            <path class="bar" d="M130 172 h126 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-126 z"><title>대화 시작 18명 (31%)</title></path>
+            <g class="val">
+              <text x="568" y="30">59</text><text x="466" y="70">45 · 76%</text>
+              <text x="459" y="110">44 · 75%</text><text x="386" y="150">34 · 58%</text>
+              <text x="268" y="190">18 · 31%</text>
+            </g>
+          </svg>
+        </div>
+        <div class="chart-card">
+          <h3>공유 장르 수 ↔ 매칭당 평균 메시지</h3>
+          <p class="cap">취향이 겹칠수록 대화 활발 — 매칭 가설 검증</p>
+          <svg viewBox="0 0 360 216" role="img" aria-label="공유 장르 0개일 때 평균 메시지 1.0건, 1개 3.2건, 2개 이상 7.2건">
+            <path class="bar dim" d="M40 180 v-13 a4 4 0 0 1 4 -4 h56 a4 4 0 0 1 4 4 v13 z"><title>공유 장르 0개 — 평균 1.0건</title></path>
+            <path class="bar dim" d="M148 180 v-59 a4 4 0 0 1 4 -4 h56 a4 4 0 0 1 4 4 v59 z"><title>공유 장르 1개 — 평균 3.2건</title></path>
+            <path class="bar" d="M256 180 v-142 a4 4 0 0 1 4 -4 h56 a4 4 0 0 1 4 4 v142 z"><title>공유 장르 2개 이상 — 평균 7.2건</title></path>
+            <g class="val" text-anchor="middle">
+              <text x="72" y="153">1.0</text><text x="180" y="107">3.2</text><text x="288" y="24">7.2</text>
+            </g>
+            <line class="baseline" x1="20" y1="180" x2="340" y2="180"/>
+            <g class="axis-label" text-anchor="middle">
+              <text x="72" y="200">공유 0개</text><text x="180" y="200">공유 1개</text><text x="288" y="200">공유 2개+</text>
+            </g>
+          </svg>
+          <p class="chart-note">대화 시작률도 62% → 83% 상승 — 취향 가중치 강화의 근거</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. 개선 -->
+  <section class="slide">
+    <div class="inner">
+      <span class="eyebrow">데이터 분석 3 / 3</span>
+      <h2>분석 → 개선</h2>
+      <table>
+        <thead><tr><th>데이터에서 발견한 문제</th><th>개선</th></tr></thead>
+        <tbody>
+          <tr><td>단일 세션 <strong>84%</strong> — 승인 대기가 막다른 길</td>
+              <td>대기 화면을 <strong>"대기 중 할 일" 허브</strong>로 — 곡 고르기·둘러보기 CTA</td></tr>
+          <tr><td>가입 퍼널 중도 이탈 — 입력 과다, 결제가 먼저</td>
+              <td><strong>퍼널 단축</strong>: 필수 4개 필드, 곡 선택을 결제 앞으로</td></tr>
+          <tr><td>비로그인 방문자가 내용을 못 보고 이탈</td>
+              <td><strong>둘러보기 모드</strong> — 샘플 데이터로 체험 후 가입 전환</td></tr>
+          <tr><td>사진 필수화의 이탈 영향 불확실</td>
+              <td>피처플래그 <code>useExperiment</code> 훅으로 <strong>A/B 실험</strong></td></tr>
+          <tr><td>계측 장애를 배포 후에야 발견</td>
+              <td>응답 검증 + <strong>부팅 자가진단</strong>으로 즉시 감지</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 11. 아키텍처 -->
+  <section class="slide">
+    <div class="inner">
+      <h2>아키텍처</h2>
+      <div class="arch">
+        <svg viewBox="0 0 660 268" role="img" aria-label="아키텍처: 모바일 브라우저가 Remix 서버(Railway)와 통신하고, Remix는 repos 계층으로 Supabase에 접근. 브라우저는 Supabase Realtime을 직접 구독. Remix는 멜론 API, Web Push, Slack과 연동">
+          <defs>
+            <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" opacity="0.55"/>
+            </marker>
+          </defs>
+          <path class="edge rt" d="M90 96 C 150 30, 490 30, 552 96" marker-end="url(#arr)"/>
+          <text class="elabel rt" x="330" y="42" text-anchor="middle">Realtime 구독 (채팅·펑·알림)</text>
+          <path class="edge" d="M162 132 H 240" marker-end="url(#arr)"/>
+          <text class="elabel" x="201" y="124" text-anchor="middle">SSR + 액션</text>
+          <path class="edge" d="M418 132 H 494" marker-end="url(#arr)"/>
+          <text class="elabel" x="456" y="124" text-anchor="middle">repos/*.server.ts</text>
+          <path class="edge" d="M270 168 L 150 210" marker-end="url(#arr)"/>
+          <path class="edge" d="M329 168 V 206" marker-end="url(#arr)"/>
+          <path class="edge" d="M388 168 L 508 210" marker-end="url(#arr)"/>
+          <rect class="node" x="12" y="96" width="150" height="72" rx="10"/>
+          <text class="nlabel" x="87" y="128" text-anchor="middle">모바일 브라우저</text>
+          <text class="nsub" x="87" y="146" text-anchor="middle">PWA · Web Push 수신</text>
+          <rect class="node core" x="240" y="96" width="178" height="72" rx="10"/>
+          <text class="nlabel" x="329" y="128" text-anchor="middle">Remix v2 (SSR)</text>
+          <text class="nsub" x="329" y="146" text-anchor="middle">Railway · main 자동 배포</text>
+          <rect class="node core" x="494" y="96" width="154" height="72" rx="10"/>
+          <text class="nlabel" x="571" y="120" text-anchor="middle">Supabase</text>
+          <text class="nsub" x="571" y="137" text-anchor="middle">Postgres · Auth · Storage</text>
+          <text class="nsub" x="571" y="153" text-anchor="middle">RLS + SECURITY DEFINER</text>
+          <rect class="node" x="60" y="212" width="140" height="44" rx="10"/>
+          <text class="nlabel" x="130" y="231" text-anchor="middle">멜론 차트·검색</text>
+          <text class="nsub" x="130" y="247" text-anchor="middle">캐시 10분 + 폴백</text>
+          <rect class="node" x="262" y="212" width="134" height="44" rx="10"/>
+          <text class="nlabel" x="329" y="231" text-anchor="middle">Web Push</text>
+          <text class="nsub" x="329" y="247" text-anchor="middle">VAPID · 매칭/메시지</text>
+          <rect class="node" x="452" y="212" width="140" height="44" rx="10"/>
+          <text class="nlabel" x="522" y="231" text-anchor="middle">Slack</text>
+          <text class="nsub" x="522" y="247" text-anchor="middle">가입·승인 운영 알림</text>
+        </svg>
+      </div>
+      <p style="margin-top:14px; font-size:13.5px; color:var(--muted);">
+        DB 접근은 <code>repos/*.server.ts</code>에만 · 서버 전용 코드는 <code>*.server.ts</code> 규약으로 번들 격리</p>
+    </div>
+  </section>
+
+  <!-- 12. 배운 점 -->
+  <section class="slide">
+    <div class="inner">
+      <h2>배운 점</h2>
+      <div class="lesson"><b>동시성 버그는 부하 테스트로 잡힌다</b>
+        <p>k6로 경합을 재현해 "5xx 0건·중복 0건"을 수치로 증명하는 과정이 락 자체보다 중요했다</p></div>
+      <div class="lesson"><b>개선은 감이 아니라 지표에서 시작한다</b>
+        <p>"단일 세션 84%"라는 수치가 고칠 곳을 정했고, 확신 없는 결정은 A/B 실험이 답했다</p></div>
+      <div class="lesson"><b>외부 의존성은 반드시 실패한다</b>
+        <p>비공식 API 위에는 캐시와 폴백을 처음부터 설계에 포함해야 퍼널이 살아남는다</p></div>
+      <div class="lesson"><b>재발 방지는 사람이 아니라 훅이 한다</b>
+        <p>반복되는 실수는 pre-commit 가드와 스크립트로 프로세스에 박았다</p></div>
+    </div>
+  </section>
+
+  <!-- 13. 마무리 -->
+  <section class="slide">
+    <div class="inner" style="text-align:center;">
+      <h1 style="font-size:clamp(34px,5vw,52px);">감사합니다<span class="accent">.</span></h1>
+      <p class="tagline" style="margin:16px auto 0;">뮤직매치 — Remix v2 + Supabase + Railway</p>
+      <div class="chips" style="justify-content:center;">
+        <span class="chip plain">repo: iluv4/music-dating-app-keonuu</span>
+        <span class="chip plain">상세 문서: PORTFOLIO.md</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="counter" id="counter" aria-live="polite">1 / 13</div>
+<div class="navbtns">
+  <button id="prev" aria-label="이전 슬라이드">←</button>
+  <button id="next" aria-label="다음 슬라이드">→</button>
+</div>
+
+<script>
+  const track = document.getElementById("track");
+  const slides = track.querySelectorAll(".slide");
+  const counter = document.getElementById("counter");
+  const progress = document.getElementById("progress");
+  const prevBtn = document.getElementById("prev");
+  const nextBtn = document.getElementById("next");
+  const N = slides.length;
+  let i = Math.min(N - 1, Math.max(0, parseInt(location.hash.slice(1), 10) - 1 || 0));
+
+  function go(n) {
+    i = Math.max(0, Math.min(N - 1, n));
+    track.style.transform = "translateX(-" + i * 100 + "vw)";
+    counter.textContent = (i + 1) + " / " + N;
+    progress.style.width = ((i + 1) / N * 100) + "%";
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === N - 1;
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+
+  prevBtn.addEventListener("click", () => go(i - 1));
+  nextBtn.addEventListener("click", () => go(i + 1));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); go(i + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(i - 1); }
+    else if (e.key === "Home") { e.preventDefault(); go(0); }
+    else if (e.key === "End") { e.preventDefault(); go(N - 1); }
+  });
+
+  let touchX = null, touchY = null;
+  document.addEventListener("touchstart", (e) => {
+    touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    const dy = e.changedTouches[0].clientY - touchY;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) go(i + (dx < 0 ? 1 : -1));
+    touchX = touchY = null;
+  }, { passive: true });
+
+  go(i);
+</script>
+
+</html>
