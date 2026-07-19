@@ -29,6 +29,8 @@ npm run dev            # http://localhost:3000
 
 ## 다음 작업자에게
 
+📄 **[PORTFOLIO.md](PORTFOLIO.md)** — 프로젝트 소개·기술적 도전·아키텍처를 정리한 포트폴리오 문서.
+
 📄 **[HANDOVER.md](HANDOVER.md)** — 프로젝트 구조·데이터베이스·관리자 매뉴얼·다음 작업 등 전체 인수인계 문서. **반드시 정독.**
 
 📄 [research.md](research.md) — 디자인 토큰·백엔드 아키텍처
