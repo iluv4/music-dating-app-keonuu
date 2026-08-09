@@ -24,6 +24,7 @@ type Pending = {
   birth_year: number | null;
   school: string | null;
   major: string | null;
+  phone: string | null;
   bank_holder: string | null;
   photo_path: string | null;
   photo_signed_url: string | null;
@@ -63,7 +64,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const [profilesRes, matchesRes] = await Promise.all([
     admin
       .from("profiles")
-      .select("user_id, name, birth_year, school, major, bank_holder, photo_path, created_at")
+      .select("user_id, name, birth_year, school, major, phone, bank_holder, photo_path, created_at")
       .eq("is_approved", false)
       .order("created_at", { ascending: true }),
     admin
@@ -279,6 +280,14 @@ const fmtDate = (iso: string) => {
     .padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 };
 
+// 숫자만 저장된 연락처를 010-1234-5678 형태로.
+const fmtPhone = (raw: string) => {
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return raw;
+};
+
 export default function Admin() {
   const { pending, pendingMatches, dropoffs } = useLoaderData<typeof loader>();
   const nav = useNavigation();
@@ -386,6 +395,16 @@ export default function Admin() {
                 </div>
                 <div style={{ color: "#666", fontSize: "13px", marginTop: "3px" }}>
                   {p.school ?? "-"} {p.major ?? ""}
+                </div>
+                <div style={{ fontSize: "13px", marginTop: "5px" }}>
+                  연락처:{" "}
+                  {p.phone ? (
+                    <a href={`tel:${p.phone}`} style={{ color: "#ff625d", fontWeight: 600 }}>
+                      {fmtPhone(p.phone)}
+                    </a>
+                  ) : (
+                    <b style={{ color: "#bbb" }}>미입력</b>
+                  )}
                 </div>
                 <div style={{ fontSize: "13px", marginTop: "5px" }}>
                   입금자명:{" "}

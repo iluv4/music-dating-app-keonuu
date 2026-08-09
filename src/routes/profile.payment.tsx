@@ -23,7 +23,6 @@ import { requireUser } from "~/lib/auth.server";
 import { getProfileFields, updateProfile } from "~/lib/repos/profiles.server";
 import { captureServer } from "~/lib/analytics.server";
 import { notifySlack, buildPaymentNotice } from "~/lib/slack.server";
-import { capture } from "~/lib/analytics.client";
 
 type ActionData = { error: string };
 
@@ -135,7 +134,6 @@ export default function ProfilePayment() {
         onBack={() => navigate(-1)}
         onNext={() => {
           if (!canSubmit) return;
-          capture("payment.submitted");
           formRef.current?.requestSubmit();
         }}
         canNext={canSubmit}
